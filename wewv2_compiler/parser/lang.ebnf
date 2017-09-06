@@ -1,0 +1,51 @@
+@@grammar :: Wew
+
+@@comments :: /{~(\n|.)*~}/
+@@eol_comments :: /\/\/.*?$/
+
+@@parseinfo :: False
+
+start = {decl ";"}+ $ ;
+
+base_type
+  =
+  | 'u2'
+  | 'u4'
+  | 's2'
+  | 's4'
+  ;
+
+ptr_type = "*" t:type ;
+
+array_type = "[" t:type "]" ["@" s:int] ;
+
+fun_type = "(" t:','.{type} ')' '->' r:type ;
+
+type
+  =
+  | base_type
+  | ptr_type
+  | array_type
+  | fun_type
+  | "(" type ")"
+  ;
+
+fun_decl = "fn" identifier fun_type ">" "{" {expr}+ "}" ;
+var_decl = "var" identifier optional_def;
+
+optional_def
+  =
+  | ":" type ["=" expr]
+  | ":=" expr
+  ;
+
+decl
+  =
+  | fun_decl
+  | var_decl
+  ;
+
+expr = "..." ;
+
+identifier = /[A-Za-z]\w*/ ;
+int = /\d+/ ;

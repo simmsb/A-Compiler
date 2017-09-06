@@ -1,0 +1,11 @@
+*.log
+*.pyc
+.cache/
+.coverage
+.idea/
+.vscode/
+wewv2_compiler.egg-info/
+build/
+dist/
+docs/build/
+wheelhouse/
