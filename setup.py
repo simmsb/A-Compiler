@@ -11,7 +11,7 @@ with open('wewv2_compiler/__init__.py', 'r') as f:
 with open('README.md', 'rb') as f:
     readme = f.read().decode('utf-8')
 
-REQUIRES = []
+REQUIRES = ["tatsu"]
 
 setup(
     name='wewv2_compiler',
@@ -22,7 +22,7 @@ setup(
     author_email='ben@bensimms.moe',
     maintainer='Ben Simms',
     maintainer_email='ben@bensimms.moe',
-    url='https://github.com/nitros12/wewv2_compiler',
+    url='https://git.bensimms.moe/nitros12/wewv2_compiler',
     license='MIT',
 
     keywords=[
