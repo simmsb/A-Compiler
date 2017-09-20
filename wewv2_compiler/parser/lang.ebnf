@@ -3,7 +3,7 @@
 @@comments :: /{~(\n|.)*~}/
 @@eol_comments :: /\/\/.*?$/
 
-#@@parseinfo :: False
+@@parseinfo :: True
 
 start = {statement}+ $ ;
 
