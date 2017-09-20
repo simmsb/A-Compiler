@@ -3,9 +3,9 @@
 @@comments :: /{~(\n|.)*~}/
 @@eol_comments :: /\/\/.*?$/
 
-@@parseinfo :: False
+#@@parseinfo :: False
 
-start = {decl ";"}+ $ ;
+start = {statement}+ $ ;
 
 base_type
   =
@@ -30,13 +30,54 @@ type
   | "(" type ")"
   ;
 
-fun_decl = "fn" identifier fun_type ">" "{" {expr}+ "}" ;
-var_decl = "var" identifier optional_def;
+statement
+  =
+  | scope
+  | if_stmt
+  | loop_stmt
+  | return_stmt
+  | expression_stmt
+  ;
+
+scope
+  = '{' body:{statement}+ '}'
+  ;
+
+if_stmt
+  = 'if' ~ '(' e:expr ')' t:scope ['else' f:scope]
+  ;
+
+loop_stmt
+  =
+  'while' ~ '(' e:expr ')' >scope
+  ;
+
+return_stmt = 'return' ~ e:expr ';' ;
+
+expression_stmt
+  =
+  expr ';'
+  ;
+
+expr
+  =
+  | decl 
+  | assign_expr
+  | logical
+  ;
+
+fun_decl
+  = "fn" ~ name:identifier '(' args:','.{n:identifier ':' t:type} ')' '->' r:type ">" >scope
+  ;
+
+var_decl
+  = "var" ~ name:identifier init:optional_def
+  ;
 
 optional_def
   =
-  | ":" type ["=" expr]
-  | ":=" expr
+  | ":" typ:type ["=" val:expr]
+  | ":=" ~ val:expr typ:`infer`
   ;
 
 decl
@@ -44,8 +85,140 @@ decl
   | fun_decl
   | var_decl
   ;
+  
+assign_expr
+  = left:logical op:'=' right:expr
+  ;
 
-expr = "..." ;
+logical
+  =
+  | bitwise
+  | boolean
+  | comparison
+  ;
 
-identifier = /[A-Za-z]\w*/ ;
+bitwise
+  =
+  | left:comparison op:'|' right:logical
+  | left:comparison op:'^' right:logical
+  | left:comparison op:'&' right:logical
+  ;
+
+boolean
+  =
+  | left:comparison op:'||' right:logical
+  | left:comparison op:'&&' right:logical
+  ;
+
+comparison
+  =
+  | equality
+  | relation
+  | shift
+  ;
+
+equality
+  =
+  | left:shift op:'!=' right:comparison
+  | left:shift op:'==' right:comparison
+  ;
+
+relation
+  =
+  | left:shift op:'=<' right:comparison
+  | left:shift op:'=>' right:comparison
+  | left:shift op:'<' right:comparison
+  | left:shift op:'>' right:comparison
+  ;
+
+shift
+  =
+  | bitshift
+  | binop
+  ;
+
+bitshift
+  =
+  | left:binop op:'>>' right:shift
+  | left:binop op:'<<' right:shift
+  ;
+
+binop
+  =
+  | additive
+  | multiplicative
+  ;
+
+additive
+  =
+  | left:multiplicative op:'+' right:binop
+  | left:multiplicative op:'-' right:binop
+  ;
+
+multiplicative
+  =
+  | multiply
+  | unop
+  ;
+
+multiply
+  =
+  | left:unop op:'*' right:multiplicative
+  | left:unop op:'/' right:multiplicative
+  ;
+
+unop
+  =
+  | prefix
+  | postfix
+  ;
+
+prefix
+  =
+  | op:'*' right:unop
+  | op:'--' right:unop
+  | op:'++' right:unop
+  | op:'~' right:unop
+  | op:'!' right:unop
+  | op:'-' right:unop
+  | op:'+' right:unop
+  ;
+
+postfix
+  =
+  | postop
+  | singular
+  ;
+
+postop
+  =
+  | left:postfix '(' args:','.{expr} ')' type:`f`
+  | left:postfix '[' ~ args:expr ']' type:`b`
+  | left:postfix op:'++' type:`d`
+  | left:postfix op:'--' type:`d`
+  ;
+
+singular
+  =
+  | literal
+  | identifier
+  | subexpr
+  ;
+
+subexpr
+  =
+  '(' @:expr ')'
+  ;
+
+literal
+ =
+ | val:int type:`int`
+ | val:str type:`str`
+ | val:chr type:`chr`
+ ;
+
 int = /\d+/ ;
+str = /".+"/ ;
+chr = /'.'/ ;
+
+identifier = /[A-Za-z]\w*/;
