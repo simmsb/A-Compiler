@@ -7,6 +7,7 @@ class BaseObject(metaclass=ABCMeta):
     def __new__(cls, ast, *args, **kwargs):
         obj = super().__new__(cls, ast, *args, **kwargs)
         obj.__ast = ast
+        return obj
 
     @abstractmethod
     def compile(self, ctx):

@@ -17,6 +17,8 @@ base_type
 
 ptr_type = "*" t:type ;
 
+const_type = "|" t:type "|" ;
+
 array_type = "[" t:type "]" ["@" s:int] ;
 
 fun_type = "(" t:','.{type} ')' '->' r:type ;
@@ -26,6 +28,7 @@ type
   | base_type
   | ptr_type
   | array_type
+  | const_type
   | fun_type
   | "(" type ")"
   ;
@@ -61,13 +64,13 @@ expression_stmt
 
 expr
   =
-  | decl 
+  | decl
   | assign_expr
   | logical
   ;
 
 fun_decl
-  = "fn" ~ name:identifier '(' args:','.{n:identifier ':' t:type} ')' '->' r:type ">" >scope
+  = "fn" ~ name:identifier '(' params:','.{n:identifier ':' t:type} ')' '->' r:type ">" >scope
   ;
 
 var_decl
@@ -85,7 +88,7 @@ decl
   | fun_decl
   | var_decl
   ;
-  
+
 assign_expr
   = left:logical op:'=' right:expr
   ;
