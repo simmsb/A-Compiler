@@ -55,4 +55,4 @@ class BaseObject(metaclass=ABCMeta):
                       f"on lines {startl} to {endl}"),
                      reason, highlight)
 
-        raise Exception(error, *args, **kwarg)
+        return Exception(error, *args, **kwarg)
