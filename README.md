@@ -12,16 +12,6 @@
 * [Installation](#installation)
 * [License](#license)
 
-## Installation
-
-wewv2_compiler is distributed on [PyPI](https://pypi.org) as a universal
-wheel and is available on Linux/macOS and Windows and supports
-Python 3.5+ and PyPy.
-
-```bash
-$ pip install wewv2_compiler
-```
-
 ## License
 
 wewv2_compiler is distributed under the terms of the
