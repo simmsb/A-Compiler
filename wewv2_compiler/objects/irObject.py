@@ -14,6 +14,16 @@ class Instruction(IntEnum):
     axt = 9  # arith extend, 1 -> 2, 10000000 -> 0000000010000000
 
 
+class Register(IntEnum):
+    stk = 1  # stack pointer
+    bas = 2  # base pointer
+    acc = 3  # accumulator
+    aaa = 4
+    bbb = 5
+    ccc = 6
+    ddd = 7
+
+
 class IRObject:
     """An instruction in internal representation
 
@@ -25,6 +35,7 @@ class IRObject:
 
     if params are instances of :class:`base.Variable` the variable is used appropriately
     """
+
     def __init__(self, op, size, *params):  # TODO add types to this (op -> operation enum)
         self.op, self.params = op, params
         self.size = size
