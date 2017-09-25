@@ -9,10 +9,14 @@ start = {statement}+ $ ;
 
 base_type
   =
+  | 'u1'
   | 'u2'
   | 'u4'
+  | 'u8'
+  | 's1'
   | 's2'
   | 's4'
+  | 's8'
   ;
 
 ptr_type = "*" t:type ;

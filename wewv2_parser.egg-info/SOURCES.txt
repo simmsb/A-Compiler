@@ -1,8 +1,0 @@
-setup.py
-parser/__init__.py
-tests/__init__.py
-tests/test_parser.py
-wewv2_parser.egg-info/PKG-INFO
-wewv2_parser.egg-info/SOURCES.txt
-wewv2_parser.egg-info/dependency_links.txt
-wewv2_parser.egg-info/top_level.txt
