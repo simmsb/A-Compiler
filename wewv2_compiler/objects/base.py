@@ -2,10 +2,10 @@ from abc import ABCMeta, abstractmethod
 from functools import wraps
 from typing import Iterable, List
 
-from irObject import IRObject
+from wewv2_compiler.objects.irObject import IRObject
 
 
-def hook_emit(fn):
+def hook_emit(fn):  # this is bad, delet
     """Inserts the object that yielded into the item that it yields."""
 
     @wraps(fn)
@@ -17,11 +17,11 @@ def hook_emit(fn):
     return deco
 
 
-class BaseObject(metaclass=ABCMeta):
+class BaseObject:
     """Base class of compilables."""
 
     def __new__(cls, ast, *args, **kwargs):
-        obj = super().__new__(cls, ast, *args, **kwargs)
+        obj = super().__new__(cls, *args, **kwargs)
         obj.__ast = ast
         return obj
 
@@ -29,41 +29,44 @@ class BaseObject(metaclass=ABCMeta):
     def compile(self, ctx: 'CompileContext'):
         return NotImplemented
 
-    def raise_(self, reason, *args, **kwargs):
+    @property
+    def highlight_lines(self):
         info = self.__ast.parseinfo
         startl, endl = info.line, info.endline
         startp, endp = info.pos, info.endpos
-        source = info.buffer.get_lines()
 
+        source = info.buffer.get_lines()
         # startp and endp are offsets from the start
-        # calculate there positions on their source
-        startp = startp - sum(map(len, source[:startl]))
+        # calculate their offsets from the line they are on.
+        startp = startp - sum(map(len, source[:startl])) + 1
         endp = endp - sum(map(len, source[:endl]))
 
         # strip newlines here (they are counted in startp and endp offsets)
-        source = [i.rtrip('\n') for i in source]
+        source = [i.rstrip('\n') for i in source]
 
         def fmtr():
             if startl == endl:
                 # start and end on same line, only need simple fmt
-                width = (endp - startp) - 2  # leave space for carats
+                width = (endp - startp) - 2  # leave space for carats + off by one
                 separator = '-' * width
                 yield source[startl]
-                yield f"{'^':startp}{separator}^"
+                yield f"{'^':>{startp}}{separator}^"
             else:
-                width = (len(source[startl]) - startp) - 2
+                width = (len(source[startl]) - startp)
                 separator = '-' * width
                 yield source[startl]
-                yield f"{'^':startp}{separator}^"
-                for i in source[startl + 1:endl - 1]:
+                yield f"{'^':>{startp}}{separator}"
+                for i in source[startl + 1:endl]:
                     yield i
                     yield '-' * len(i)
-                width = (len(source[endl]) - endp) - 2
+                width = endp - 1  # - len(source[endl])
                 separator = '-' * width
-                yield source[startl]
+                yield source[endl]
                 yield f"{separator}^"
 
-        highlight = "\n".join(fmtr())
+        return "\n".join(fmtr())
+
+    def error(self, reason, *args, **kwargs):
 
         error = ("Compilation error {}.\n"
                  "{}\n{}").format((f"on line {startl}" if startl == endl else
