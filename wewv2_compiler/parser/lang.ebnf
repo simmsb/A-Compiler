@@ -51,15 +51,15 @@ scope
   ;
 
 if_stmt
-  = 'if' ~ '(' e:expr ')' t:scope ['else' f:scope]
+  = "if" ~ '(' e:expr ')' t:scope ['else' f:scope]
   ;
 
 loop_stmt
   =
-  'while' ~ '(' e:expr ')' >scope
+  "while" ~ '(' e:expr ')' >scope
   ;
 
-return_stmt = 'return' ~ e:expr ';' ;
+return_stmt = "return" ~ e:expr ';' ;
 
 expression_stmt
   =
@@ -81,10 +81,11 @@ var_decl
   = "var" ~ name:identifier init:optional_def
   ;
 
+
 optional_def
   =
-  | ":" typ:type ["=" val:expr]
-  | ":=" ~ val:expr typ:`infer`
+  | ":" typ:type ["=" val:expr]  # static
+  | ":=" ~ val:expr typ:`infer`  # inferred
   ;
 
 decl
@@ -113,8 +114,8 @@ bitwise
 
 boolean
   =
-  | left:comparison op:'||' right:logical
-  | left:comparison op:'&&' right:logical
+  | left:comparison op:'||' ~ right:logical
+  | left:comparison op:'&&' ~ right:logical
   ;
 
 comparison
@@ -126,16 +127,16 @@ comparison
 
 equality
   =
-  | left:shift op:'!=' right:comparison
-  | left:shift op:'==' right:comparison
+  | left:shift op:'!=' ~ right:comparison
+  | left:shift op:'==' ~ right:comparison
   ;
 
 relation
   =
-  | left:shift op:'=<' right:comparison
-  | left:shift op:'=>' right:comparison
-  | left:shift op:'<' right:comparison
-  | left:shift op:'>' right:comparison
+  | left:shift op:'=<' ~ right:comparison
+  | left:shift op:'=>' ~ right:comparison
+  | left:shift op:'<' ~ right:comparison
+  | left:shift op:'>' ~ right:comparison
   ;
 
 shift
@@ -146,8 +147,8 @@ shift
 
 bitshift
   =
-  | left:binop op:'>>' right:shift
-  | left:binop op:'<<' right:shift
+  | left:binop op:'>>' ~ right:shift
+  | left:binop op:'<<' ~ right:shift
   ;
 
 binop
@@ -158,8 +159,8 @@ binop
 
 additive
   =
-  | left:multiplicative op:'+' right:binop
-  | left:multiplicative op:'-' right:binop
+  | left:multiplicative op:'+' ~ right:binop
+  | left:multiplicative op:'-' ~ right:binop
   ;
 
 multiplicative
@@ -182,13 +183,13 @@ unop
 
 prefix
   =
-  | op:'*' right:unop
-  | op:'--' right:unop
-  | op:'++' right:unop
-  | op:'~' right:unop
-  | op:'!' right:unop
-  | op:'-' right:unop
-  | op:'+' right:unop
+  | op:'*' ~ right:unop
+  | op:'--' ~ right:unop
+  | op:'++' ~ right:unop
+  | op:'~' ~ right:unop
+  | op:'!' ~ right:unop
+  | op:'-' ~ right:unop
+  | op:'+' ~ right:unop
   ;
 
 postfix
@@ -222,7 +223,14 @@ literal
  | val:int type:`int`
  | val:str type:`str`
  | val:chr type:`chr`
+ | val:arr_lit type:`arr`
  ;
+
+# array literals will be pointers if in an expression, otherwise expand into index setting if on rhs of an initialisation
+arr_lit
+  =
+  '{' obj:','.{n:expr} '}'
+  ;
 
 int = /\d+/ ;
 str = /".+"/ ;
