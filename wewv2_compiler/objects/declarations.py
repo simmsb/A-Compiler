@@ -25,6 +25,10 @@ class FunctionDeclare(Scope):
         self.params = ast.params
         self.type = ast.r
 
+    @property
+    def identifier(self):
+        return self.name
+
     def lookup_variable(self, ident):
         v = super().lookup_variable(ident)
         if v is None:
