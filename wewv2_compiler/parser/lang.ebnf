@@ -190,6 +190,8 @@ prefix
   | op:'!' ~ right:unop
   | op:'-' ~ right:unop
   | op:'+' ~ right:unop
+  | op:'cast' ~ '<' t:type '>' right:unop
+  | op:'interpret' ~ '<' t:type '>' right:unop
   ;
 
 postfix

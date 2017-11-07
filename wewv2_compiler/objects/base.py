@@ -86,11 +86,14 @@ class BaseObject:
 
 class Variable:
 
-    def __init__(self, name, type, size=1):
-        self.name = name
+    def __init__(self, name, type):
         self.type = type
-        self.size = size
+        self.name = name
         self.stack_offset = 0
+
+    @property
+    def size(self):
+        return self.type.size
 
     @property
     def identifier(self):
@@ -112,9 +115,6 @@ class Scope(BaseObject):
     def compile(self, ctx: 'CompileContext'):
         for i in self.body:
             yield from i.compile(ctx)
-        # move up stack pointer to saved base pointer
-        yield IRObject("sub", "stk", self.size)
-        yield IRObject("mov", "stk", "acc")
 
     def declare_variable(self, var: Variable):
         """Add a variable to this scope.
