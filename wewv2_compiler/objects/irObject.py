@@ -35,8 +35,8 @@ class SaveVar(IRObject):
 
 
 class Numeric(IRObject):
+    pass
 
-    def __init__(self)
 
-
-class Add(IRObject)
+class Add(Numeric):
+    pass

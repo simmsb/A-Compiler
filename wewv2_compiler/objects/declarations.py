@@ -1,4 +1,4 @@
-from base import CompileContext, Scope, hook_emit
+from base import CompileContext, Scope
 from irObject import IRObject
 
 
@@ -34,7 +34,6 @@ class FunctionDeclare(Scope):
         if v is None:
             return self.params.get(ident)
 
-    @hook_emit
     def compile(self, ctx: CompileContext):
         yield IRObject("push", "rpb")
         # stk being the stack pointer and rpb being the base pointer

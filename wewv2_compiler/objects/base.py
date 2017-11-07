@@ -1,11 +1,10 @@
-from abc import ABCMeta, abstractmethod
-from functools import wraps
-from typing import Iterable, List, Dict, Coroutine
+from abc import abstractmethod
+from typing import Dict, Iterable, List
 
 from tatsu.ast import AST
 from tatsu.infos import ParseInfo
 
-from wewv2_compiler.objects.irObject import IRObject
+from wewv2_compiler.objects.irObject import *
 
 
 class NotFinished(Exception):
@@ -74,6 +73,8 @@ class BaseObject:
         return "\n".join(fmtr())
 
     def make_error(self, reason):
+        info = self.__info
+        startl, endl = info.line, info.endline
 
         return ("Compilation error {}.\n"
                 "{}\n{}").format((f"on line {startl}" if startl == endl else
@@ -111,7 +112,6 @@ class Scope(BaseObject):
     def lookup_variable(self, ident):
         return self.vars.get(ident)
 
-    @hook_emit
     def compile(self, ctx: 'CompileContext'):
         for i in self.body:
             yield from i.compile(ctx)
@@ -162,10 +162,14 @@ class CompileContext:
         else:
             coro = obj.compile(self)
             obj._coro = coro  # save the coroutine here
-        for r in coro:
+        while True:
+            try:
+                r = coro.send(None)
+            except StopIteration:
+                return
             assert isinstance(r, ObjectRequest)
             if r.name in self.compiled_objects:
-                r.send(self.compiled_objects[r.name])
+                coro.send(self.compiled_objects[r.name])
             else:
                 self.add_waiting(r.name, obj)
                 raise NotFinished
@@ -182,6 +186,6 @@ class CompileContext:
                 remaining = self.waiting_coros.pop(i.identifier, ())
                 for o in remaining:
                     o._coro.send(i)  # send our finished object
-                    objects.append(o)
+                    objects.append(o)  # put object back on process queue
         for k, i in self.waiting_coros.items():
             print(i.make_error(f"This object is waiting on name {k} which never compiled."))
