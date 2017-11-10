@@ -1,10 +1,11 @@
+import types
 from abc import abstractmethod
-from typing import Dict, Iterable, List
+from typing import Dict, Iterable, List, Optional
+
+from wewv2_compiler.objects.irObject import *
 
 from tatsu.ast import AST
 from tatsu.infos import ParseInfo
-
-from wewv2_compiler.objects.irObject import *
 
 
 class NotFinished(Exception):
@@ -20,11 +21,14 @@ class ObjectRequest:
 class BaseObject:
     """Base class of compilables."""
 
-    def __new__(cls, ast, *args, **kwargs):
-        obj = super().__new__(cls, *args, **kwargs)
-        obj.__ast: AST = ast
-        obj.__info: ParseInfo = ast.parseinfo
-        return obj
+    def __init__(self, ast: AST):
+        self.__ast = ast
+        self.__info: ParseInfo = ast.parseinfo
+        self._result: List[IRObject] = []
+
+    def emit(self, instr: IRObject):
+        instr.parent = self
+        self._result.append(instr)
 
     @abstractmethod
     def compile(self, ctx: 'CompileContext'):
@@ -87,9 +91,10 @@ class BaseObject:
 
 class Variable:
 
-    def __init__(self, name, type):
+    def __init__(self, name: str, type: types.Type, parent: Optional[BaseObject]=None):
         self.type = type
         self.name = name
+        self.parent = parent
         self.stack_offset = 0
 
     @property

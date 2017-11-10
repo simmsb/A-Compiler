@@ -1,5 +1,8 @@
-from base import CompileContext, Scope
-from irObject import IRObject
+import types
+from typing import Optional
+
+from .base import CompileContext, Scope, Variable
+from .irObject import Dereference, Mov, Pop, Push, Register, Ret
 
 
 class FunctionDeclare(Scope):
@@ -22,21 +25,23 @@ class FunctionDeclare(Scope):
     def __init__(self, ast):
         super().__init__(ast)
         self.name = ast.name
-        self.params = ast.params
-        self.type = ast.r
+        self.params = [Variable(i.identifier, i.type) for i in ast.params]
+        self.type = types.Function(ast.r, [i.t for i in ast.params], True)
+        # should functions be naturally const?
 
     @property
-    def identifier(self):
+    def identifier(self) -> str:
         return self.name
 
-    def lookup_variable(self, ident):
+    def lookup_variable(self, ident: str) -> Optional[Variable]:
         v = super().lookup_variable(ident)
         if v is None:
             return self.params.get(ident)
 
     def compile(self, ctx: CompileContext):
-        yield IRObject("push", "rpb")
-        # stk being the stack pointer and rpb being the base pointer
-        yield IRObject("mov", "rpb", "stk")
+        self.emit(Push(Register.baseptr))
+        self.emit(Mov(Register.baseptr, Register.stackptr))
         yield from super().compile(ctx)
-        yield IRObject("ret", sum(i.size for i in self.params))
+        self.emit(Mov(Register.stackptr, Register.baseptr))
+        self.emit(Pop(Register.baseptr))
+        self.emit(Ret())
