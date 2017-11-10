@@ -23,7 +23,7 @@ ptr_type = "*" t:type ;
 
 const_type = "|" t:type "|" ;
 
-array_type = "[" t:type "]" ["@" s:int] ;
+array_type = "[" t:type ["@" s:int] "]"  ;
 
 fun_type = "(" t:','.{type} ')' '->' r:type ;
 
@@ -107,15 +107,14 @@ logical
 
 bitwise
   =
-  | left:comparison op:'|' right:logical
-  | left:comparison op:'^' right:logical
-  | left:comparison op:'&' right:logical
+  left:comparison op:('|' |
+                      '^' |
+                      '&' ) right:logical
   ;
 
 boolean
   =
-  | left:comparison op:'||' ~ right:logical
-  | left:comparison op:'&&' ~ right:logical
+  left:comparison op:('||' | '&&') ~ right:logical
   ;
 
 comparison
@@ -127,16 +126,16 @@ comparison
 
 equality
   =
-  | left:shift op:'!=' ~ right:comparison
-  | left:shift op:'==' ~ right:comparison
+  left:shift op:('!=' |
+                 '==' ) ~ right:comparison
   ;
 
 relation
   =
-  | left:shift op:'=<' ~ right:comparison
-  | left:shift op:'=>' ~ right:comparison
-  | left:shift op:'<' ~ right:comparison
-  | left:shift op:'>' ~ right:comparison
+  left:shift op:('=<' |
+                 '=>' |
+                 '<'  |
+                 '>'  ) ~ right:comparison
   ;
 
 shift
@@ -147,8 +146,7 @@ shift
 
 bitshift
   =
-  | left:binop op:'>>' ~ right:shift
-  | left:binop op:'<<' ~ right:shift
+  left:binop op:('>>' | '<<') ~ right:shift
   ;
 
 binop
@@ -159,8 +157,7 @@ binop
 
 additive
   =
-  | left:multiplicative op:'+' ~ right:binop
-  | left:multiplicative op:'-' ~ right:binop
+  left:multiplicative op:('+' | '-') ~ right:binop
   ;
 
 multiplicative
@@ -171,8 +168,7 @@ multiplicative
 
 multiply
   =
-  | left:unop op:'*' right:multiplicative
-  | left:unop op:'/' right:multiplicative
+  left:unop op:('*' | '/') right:multiplicative
   ;
 
 unop
@@ -183,15 +179,15 @@ unop
 
 prefix
   =
-  | op:'*' ~ right:unop
-  | op:'--' ~ right:unop
-  | op:'++' ~ right:unop
-  | op:'~' ~ right:unop
-  | op:'!' ~ right:unop
-  | op:'-' ~ right:unop
-  | op:'+' ~ right:unop
-  | op:'cast' ~ '<' t:type '>' right:unop
-  | op:'interpret' ~ '<' t:type '>' right:unop
+  | op:('*'  |
+        '--' |
+        '++' |
+        '~'  |
+        '!'  |
+        '-'  |
+        '+'  ) ~ right:unop
+  | op:('cast' |
+        'interpret' ) ~ '<' t:type '>' right:unop
   ;
 
 postfix

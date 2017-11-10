@@ -1,8 +1,6 @@
 from enum import IntEnum, auto
 from typing import Optional
 
-from .base import BaseObject
-
 
 class Register(IntEnum):
     stackptr = 0

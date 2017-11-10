@@ -1,8 +1,9 @@
 import types
 from typing import Optional
 
-from .base import CompileContext, Scope, Variable
-from .irObject import Dereference, Mov, Pop, Push, Register, Ret
+from wewv2_compiler.objects.base import CompileContext, Scope, Variable
+from wewv2_compiler.objects.irObject import (Dereference, Mov, Pop, Push,
+                                             Register, Ret)
 
 
 class FunctionDeclare(Scope):

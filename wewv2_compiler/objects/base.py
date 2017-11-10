@@ -1,8 +1,8 @@
-import types
 from abc import abstractmethod
 from typing import Dict, Iterable, List, Optional
 
-from wewv2_compiler.objects.irObject import *
+from wewv2_compiler.objects import irObject, types
+from wewv2_compiler.objects.irObject import IRObject
 
 from tatsu.ast import AST
 from tatsu.infos import ParseInfo
