@@ -2,8 +2,8 @@ import types
 from typing import Optional
 
 from wewv2_compiler.objects.base import CompileContext, Scope, Variable
-from wewv2_compiler.objects.irObject import (Dereference, Mov, Pop, Push,
-                                             Register, Ret)
+from wewv2_compiler.objects.irObject import (Dereference, Mov, Pop, Prelude,
+                                             Push, Register, Ret, Return)
 
 
 class FunctionDeclare(Scope):
@@ -40,9 +40,6 @@ class FunctionDeclare(Scope):
             return self.params.get(ident)
 
     def compile(self, ctx: CompileContext):
-        self.emit(Push(Register.baseptr))
-        self.emit(Mov(Register.baseptr, Register.stackptr))
+        ctx.emit(Prelude())
         yield from super().compile(ctx)
-        self.emit(Mov(Register.stackptr, Register.baseptr))
-        self.emit(Pop(Register.baseptr))
-        self.emit(Ret())
+        ctx.emit(Return())

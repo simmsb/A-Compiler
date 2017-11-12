@@ -31,21 +31,32 @@ class IRObject:
 
     if params are instances of :class:`base.Variable` the variable is used appropriately
     """
-    def __new__(cls, *args, **kwargs):
-        obj = super().__new__(cls, *args, **kwargs)
-        obj.parent = None
-        return obj
+
+    def __init__(self):
+        self.jumps_from = []
+        self.jumps_to = []
+        self.owner = None
+
+    def take_jumps_from(self, other: IRObject):
+        """Take all the jumps from another objects and make them owned by this."""
+        for i in other.jumps_from:
+            i.jumps_to.remove(self)
+            i.jumps_to.append(self)
+        self.jumps_from = other.jumps_from
+        other.jumps_from = []
 
 
 class MakeVar(IRObject):
 
     def __init__(self, variable):
+        super().__init__()
         self.var = variable
 
 
 class LoadVar(IRObject):
 
     def __init__(self, variable, to):
+        super().__init__()
         self.variable = variable
         self.to = to
 
@@ -53,6 +64,7 @@ class LoadVar(IRObject):
 class SaveVar(IRObject):
 
     def __init__(self, variable, from_):
+        super().__init__()
         self.variable = variable
         self.from_ = from_
 
@@ -61,6 +73,7 @@ class Mov(IRObject):
     """More general than LoadVar/ SaveVar, for setting registers directly."""
 
     def __init__(self, to, from_):
+        super().__init__()
         self.to = to
         self.from_ = from_
 
@@ -68,6 +81,7 @@ class Mov(IRObject):
 class Unary(IRObject):
 
     def __init__(self, arg, op: str):
+        super().__init__()
         self.arg = arg
         self.op = op
 
@@ -79,6 +93,7 @@ class Unary(IRObject):
 class Binary(IRObject):
 
     def __init__(self, left, right, op: str):
+        super().__init__()
         self.left = left
         self.right = right
         self.op = op
@@ -91,10 +106,22 @@ class Binary(IRObject):
 class Push(IRObject):
 
     def __init__(self, arg):
+        super().__init__()
         self.arg = arg
 
 
 class Pop(IRObject):
 
     def __init__(self, arg):
+        super().__init__()
         self.arg = arg
+
+
+class Prelude(IRObject):
+    """Function prelude."""
+    pass
+
+
+class Return(IRObject):
+    """Function return"""
+    pass

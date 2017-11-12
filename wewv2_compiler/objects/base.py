@@ -1,11 +1,11 @@
 from abc import abstractmethod
 from typing import Dict, Iterable, List, Optional
 
-from wewv2_compiler.objects import irObject, types
-from wewv2_compiler.objects.irObject import IRObject
-
 from tatsu.ast import AST
 from tatsu.infos import ParseInfo
+
+from wewv2_compiler.objects import irObject, types
+from wewv2_compiler.objects.irObject import IRObject
 
 
 class NotFinished(Exception):
@@ -27,8 +27,20 @@ class BaseObject:
         self._result: List[IRObject] = []
 
     def emit(self, instr: IRObject):
-        instr.parent = self
+        instr.owner = self
         self._result.append(instr)
+
+    def enter_compile(self, ctx: 'CompileContext'):
+        ctx.compiled_objects[self.identifier] = self
+
+    def exit_compile(self, ctx: 'CompileContext'):
+        pass
+
+    def resume_compile(self, ctx: 'CompileContext'):
+        pass
+
+    def pause_compile(self, ctx: 'CompileContext'):
+        return self.exit_compile(ctx)
 
     @abstractmethod
     def compile(self, ctx: 'CompileContext'):
@@ -117,7 +129,17 @@ class Scope(BaseObject):
     def lookup_variable(self, ident):
         return self.vars.get(ident)
 
-    def compile(self, ctx: 'CompileContext'):
+    def enter_compile(self, ctx: 'CompileContext'):
+        super().enter_compile(ctx)
+        ctx.scope_stack.append(self)
+
+    def exit_compile(self, ctx: 'CompileContext'):
+        ctx.scope_stack.pop()
+
+    def resume_compile(self, ctx: 'CompileContext'):
+        ctx.scope_stack.append(self)
+
+    def compile(self, ctx: CompileContext):
         for i in self.body:
             yield from i.compile(ctx)
 
@@ -148,6 +170,8 @@ class CompileContext:
     @property
     def current_scope(self):
         return self.scope_stack[-1]
+
+    def emit(self, object: IRObject):
 
     def lookup_variable(self, ident, callee: BaseObject) -> Variable:
         """Lookup a identifier in parent scope stack."""
@@ -187,7 +211,6 @@ class CompileContext:
             except NotFinished:
                 pass
             else:
-                self.compiled_objects[i.identifier] = i
                 remaining = self.waiting_coros.pop(i.identifier, ())
                 for o in remaining:
                     o._coro.send(i)  # send our finished object
