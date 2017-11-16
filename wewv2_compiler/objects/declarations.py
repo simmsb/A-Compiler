@@ -3,7 +3,7 @@ from typing import Optional
 
 from wewv2_compiler.objects.base import CompileContext, Scope, Variable
 from wewv2_compiler.objects.irObject import (Dereference, Mov, Pop, Prelude,
-                                             Push, Register, Ret, Return)
+                                             Push, Register, Return)
 
 
 class FunctionDeclare(Scope):
@@ -34,12 +34,13 @@ class FunctionDeclare(Scope):
     def identifier(self) -> str:
         return self.name
 
-    def lookup_variable(self, ident: str) -> Optional[Variable]:
-        v = super().lookup_variable(ident)
+    def lookup_variable(self, name: str) -> Variable:
+        v = super().lookup_variable(name)
         if v is None:
-            return self.params.get(ident)
+            return self.params.get(name)
 
     def compile(self, ctx: CompileContext):
-        ctx.emit(Prelude())
-        yield from super().compile(ctx)
-        ctx.emit(Return())
+        with ctx.context(self):
+            ctx.emit(Prelude())
+            yield from super().compile(ctx)
+            ctx.emit(Return())

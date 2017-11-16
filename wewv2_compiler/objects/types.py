@@ -13,6 +13,10 @@ class Int(Type):
         self.const = const
 
     @property
+    def casts_to(self):
+        return Int, Pointer, Function
+
+    @property
     def size(self):
         return int(self.t[1])
 
@@ -23,7 +27,7 @@ class Int(Type):
 
 class Pointer(Type):
 
-    size = 2  # 16 bit pointers
+    size = 2  # 16 bit pointers ?
 
     def __init__(self, to: Type, const: bool):
         self.to = to

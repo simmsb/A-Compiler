@@ -1,4 +1,5 @@
 from abc import abstractmethod
+from contextlib import contextmanager
 from typing import Dict, Iterable, List, Optional
 
 from tatsu.ast import AST
@@ -13,7 +14,11 @@ class NotFinished(Exception):
     pass
 
 
+# XXX: If we have many of these just use a tuple api instead
+# (req.object_request, "name") or something nice like that
 class ObjectRequest:
+    """Request an object that might not be compiled yet."""
+
     def __init__(self, name: str):
         self.name = name
 
@@ -24,35 +29,18 @@ class BaseObject:
     def __init__(self, ast: AST):
         self.__ast = ast
         self.__info: ParseInfo = ast.parseinfo
-        self._result: List[IRObject] = []
-
-    def emit(self, instr: IRObject):
-        instr.owner = self
-        self._result.append(instr)
-
-    def enter_compile(self, ctx: 'CompileContext'):
-        ctx.compiled_objects[self.identifier] = self
-
-    def exit_compile(self, ctx: 'CompileContext'):
-        pass
-
-    def resume_compile(self, ctx: 'CompileContext'):
-        pass
-
-    def pause_compile(self, ctx: 'CompileContext'):
-        return self.exit_compile(ctx)
 
     @abstractmethod
     def compile(self, ctx: 'CompileContext'):
         return NotImplemented
 
     @property
-    def identifier(self):
+    def identifier(self) -> str:
         info = self.__info
         return f"{info.line:info.pos:info.endpos}"
 
     @property
-    def highlight_lines(self):
+    def highlight_lines(self) -> str:
         info = self.__info
         startl, endl = info.line, info.endline
         startp, endp = info.pos, info.endpos
@@ -60,6 +48,7 @@ class BaseObject:
         source = info.buffer.get_lines()
         # startp and endp are offsets from the start
         # calculate their offsets from the line they are on.
+        # TODO: make this neater
         startp = startp - sum(map(len, source[:startl])) + 1
         endp = endp - sum(map(len, source[:endl]))
 
@@ -88,7 +77,7 @@ class BaseObject:
 
         return "\n".join(fmtr())
 
-    def make_error(self, reason):
+    def make_error(self, reason: str) -> str:
         info = self.__info
         startl, endl = info.line, info.endline
 
@@ -102,12 +91,17 @@ class BaseObject:
 
 
 class Variable:
+    """A reference to a variable, holds scope and location information."""
 
     def __init__(self, name: str, type: types.Type, parent: Optional[BaseObject]=None):
         self.type = type
         self.name = name
         self.parent = parent
-        self.stack_offset = 0
+
+        self.stack_offset = None
+        self.global_offset = None
+        # can either be global or offset to the base pointer.
+        # maybe move these calculations somewhere else to be more abstract?
 
     @property
     def size(self):
@@ -122,26 +116,18 @@ class Scope(BaseObject):
     """A object that contains variables that can be looked up."""
 
     def __init__(self, ast):
-        self.vars = {}
+        super().__init__(ast)
+        self.vars: Dict[str, Variable] = {}
         self.size = 0
         self.body = ast.body
 
-    def lookup_variable(self, ident):
-        return self.vars.get(ident)
+    def lookup_variable(self, name: str) -> Variable:
+        return self.vars.get(name)
 
-    def enter_compile(self, ctx: 'CompileContext'):
-        super().enter_compile(ctx)
-        ctx.scope_stack.append(self)
-
-    def exit_compile(self, ctx: 'CompileContext'):
-        ctx.scope_stack.pop()
-
-    def resume_compile(self, ctx: 'CompileContext'):
-        ctx.scope_stack.append(self)
-
-    def compile(self, ctx: CompileContext):
-        for i in self.body:
-            yield from i.compile(ctx)
+    def compile(self, ctx: 'CompileContext'):
+        with ctx.scope(self):
+            for i in self.body:
+                yield from i.compile(ctx)
 
     def declare_variable(self, var: Variable):
         """Add a variable to this scope.
@@ -161,51 +147,61 @@ class Scope(BaseObject):
         self.size += var.size
 
 
-class CompileContext:
+class Compiler:
+
     def __init__(self):
-        self.scope_stack: List[Scope] = []
         self.compiled_objects: Dict[str, BaseObject] = {}
         self.waiting_coros: Dict[str, BaseObject] = {}
 
-    @property
-    def current_scope(self):
-        return self.scope_stack[-1]
-
-    def emit(self, object: IRObject):
-
-    def lookup_variable(self, ident, callee: BaseObject) -> Variable:
-        """Lookup a identifier in parent scope stack."""
-        for i in reversed(self.scope_stack):
-            var = i.lookup_variable(self, ident)
-            if var is not None:
-                return var
-        raise callee.error(f"Identifier {ident} was not found in any scope.")
-
     def add_waiting(self, name: str, obj: BaseObject):
+        """Add a coro to the waiting list.
+
+        :param name: The name to wait on.
+        :param obj: The object that should sleep."""
         l = self.waiting_coros.setdefault(name, [])
         l.append(obj)
 
     def run_over(self, obj: BaseObject):
-        if hasattr(obj, "_coro") and obj._coro is not None:
+        """Run over a compile coro. If we dont finish raise :class:`NotFinished`
+
+        :param obj: The object to start compiling. May or may not have already been visited."""
+        if hasattr(obj, "_context"):
+            ctx = obj._context
+        else:
+            ctx = CompileContext(self)  # if we already have a context
+
+        if hasattr(obj, "_coro"):
             coro = obj._coro
         else:
-            coro = obj.compile(self)
-            obj._coro = coro  # save the coroutine here
+            coro = obj.compile(self, ctx)
+            obj._coro = coro
         while True:
             try:
                 r = coro.send(None)
             except StopIteration:
                 return
-            assert isinstance(r, ObjectRequest)
-            if r.name in self.compiled_objects:
-                coro.send(self.compiled_objects[r.name])
-            else:
-                self.add_waiting(r.name, obj)
-                raise NotFinished
 
-    def compile(self, objects: Iterable[BaseObject]):
-        while objects:
-            i = objects.pop()
+            assert isinstance(r, ObjectRequest)
+
+            # look for either a global object or a scope variable.
+
+            var = self.compiled_objects.get(r.name)
+            if var:
+                coro.send(var)
+                continue
+
+            var = ctx.lookup_variable(r.name)
+            if var:
+                coro.send(var)
+                continue
+
+            # if nothing was found place coro on waiting list and start compiling something else.
+
+            self.add_waiting(r.name, obj)
+            raise NotFinished
+
+    def compile(self, objects: List[BaseObject]):
+        for i in objects:
             try:
                 self.run_over(i)
             except NotFinished:
@@ -217,3 +213,46 @@ class CompileContext:
                     objects.append(o)  # put object back on process queue
         for k, i in self.waiting_coros.items():
             print(i.make_error(f"This object is waiting on name {k} which never compiled."))
+
+
+class CompileContext:
+    """A compilation context. Once context exists for every file level code object."""
+
+    def __init__(self, compiler: Compiler):
+        self.scope_stack: List[Scope] = []
+        self.object_stack: List[BaseObject] = []
+        self.compiler = compiler
+        self.code: List[IRObject] = []
+
+    @property
+    def current_object(self) -> BaseObject:
+        return self.object_stack[-1]
+
+    @property
+    def current_scope(self) -> Scope:
+        return self.scope_stack[-1]
+
+    @contextmanager
+    def scope(self, scope: Scope):
+        self.scope_stack.append(scope)
+        with self.context(scope):
+            yield
+        self.scope_stack.pop()
+
+    @contextmanager
+    def context(self, obj: BaseObject):
+        self.object_stack.append(obj)
+        yield
+        self.object_stack.pop()
+
+    def lookup_variable(self, name: str) -> Variable:
+        """Lookup a identifier in parent scope stack."""
+        for i in reversed(self.scope_stack):
+            var = i.lookup_variable(self, name)
+            if var is not None:
+                return var
+        return None
+
+    def emit(self, instr: IRObject):
+        instr.parent = self.current_object
+        self.code.append(instr)

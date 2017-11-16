@@ -2,7 +2,7 @@ from enum import IntEnum, auto
 from typing import Optional
 
 
-class Register(IntEnum):
+class Register(IntEnum):  # TODO: move this?
     stackptr = 0
     baseptr = 1
     irptr = 2
