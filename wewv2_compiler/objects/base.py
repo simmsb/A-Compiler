@@ -2,11 +2,11 @@ from abc import abstractmethod
 from contextlib import contextmanager
 from typing import Dict, Iterable, List, Optional
 
-from tatsu.ast import AST
-from tatsu.infos import ParseInfo
-
 from wewv2_compiler.objects import irObject, types
 from wewv2_compiler.objects.irObject import IRObject
+
+from tatsu.ast import AST
+from tatsu.infos import ParseInfo
 
 
 class NotFinished(Exception):
@@ -32,6 +32,10 @@ class BaseObject:
 
     @abstractmethod
     def compile(self, ctx: 'CompileContext'):
+        return NotImplemented
+
+    @property
+    def type(self):
         return NotImplemented
 
     @property
