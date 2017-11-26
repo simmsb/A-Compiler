@@ -1,12 +1,14 @@
 from abc import abstractmethod
 from contextlib import contextmanager
-from typing import Dict, Iterable, List, Optional
-
-from wewv2_compiler.objects import irObject, types
-from wewv2_compiler.objects.irObject import IRObject
+from operator import itemgetter
+from typing import Dict, Iterable, List, Optional, Tuple
 
 from tatsu.ast import AST
 from tatsu.infos import ParseInfo
+
+from wewv2_compiler.objects import irObject, types
+from wewv2_compiler.objects.irObject import (IRObject, Pop, Push, Register,
+                                             RegisterEnum)
 
 
 class NotFinished(Exception):
@@ -223,10 +225,23 @@ class CompileContext:
     """A compilation context. Once context exists for every file level code object."""
 
     def __init__(self, compiler: Compiler):
+
+        #: Stack of scopes for lookup
         self.scope_stack: List[Scope] = []
+
+        #: Stack of compilation objects
         self.object_stack: List[BaseObject] = []
+
         self.compiler = compiler
+
+        #: Output IR
         self.code: List[IRObject] = []
+
+        #: Keep track of mapped registers, List of Tuples which tracks registers pushed to the stack
+        self.register_map: List[Tuple[RegisterEnum, List[int]]] = [(r, []) for r in (
+            RegisterEnum.acc1, RegisterEnum.acc2, RegisterEnum.aaa,
+            RegisterEnum.bbb, RegisterEnum.ccc, RegisterEnum.ddd,
+            RegisterEnum.eee, RegisterEnum.fff)]
 
     @property
     def current_object(self) -> BaseObject:
@@ -248,6 +263,25 @@ class CompileContext:
         self.object_stack.append(obj)
         yield
         self.object_stack.pop()
+
+    @contextmanager
+    def get_register(self, size: int, regtype: Register=Register) -> Register:
+        """Get a register of required size, store the register if required
+
+        :param size: Size of register to get.
+        :param regtype: Optional register class to use.
+        """
+        reg, stack = min(self.register_map, key=itemgetter(1))
+        did_spill = False
+        if stack:
+            self.emit(Push(stack[-1]))  # spill the register we're using
+            did_spill = True
+        reg = regtype(reg, size)
+        stack.append(reg)
+        yield reg
+        stack.pop()
+        if did_spill:
+            self.emit(Pop(stack[-1]))
 
     def lookup_variable(self, name: str) -> Variable:
         """Lookup a identifier in parent scope stack."""

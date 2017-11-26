@@ -1,12 +1,15 @@
-from typing import Union
+from typing import Iterable, Union
 
-from irObject import Binary, IRObject, Pop, Push, Register
+from irObject import (Binary, Immediate, IRObject, Pop, Push, Register,
+                      RegisterEnum, Resize, pullsize)
 
 
 class FUUUUUUUCK(type):
-    def __new__(cls, name, bases, dict_):
+    def __new__(mcs, name, bases, dict_):
         def fn(op):
             def ref(self, other: Union['Operator', int]):
+                if isinstance(other, int):
+                    other = OpImmediate(other, self.size)
                 return Operation(op, self, other)
             return ref
         for k, v in (("add", "+"),
@@ -14,9 +17,8 @@ class FUUUUUUUCK(type):
                      ("mul", "*"),
                      ("floordiv", "/")):
             f = fn(v)
-            dict_[f"__{k}__"] = f
-            dict_[f"__r{k}__"] = lambda a, b, f=f: f(b, a)
-        return super().__new__(cls, name, bases, dict_)
+            dict_[f"__{k}__"] = dict_[f"__r{k}__"] = f
+        return super().__new__(mcs, name, bases, dict_)
 
 
 class Operator(metaclass=FUUUUUUUCK):
@@ -29,6 +31,7 @@ class Operation(Operator):
         self.op = op
         self.left = left
         self.right = right
+        self.size = max(pullsize(left), pullsize(right))
 
     def __str__(self):
         return f"({self.left} {self.op} {self.right})"
@@ -36,28 +39,20 @@ class Operation(Operator):
     def __repr__(self):
         return f"({self.op} {repr(self.left)} {repr(self.right)})"
 
+    def emit(self) -> Iterable[IRObject]:
+        yield from self.left.emit()
+        yield from self.right.emit()
+        yield Pop(OpRegister.acc1(self.right.size))  # right first
+        yield Pop(OpRegister.acc2(self.left.size))
+        yield Binary(OpRegister.acc1(self.right.size),
+                     OpRegister.acc2(self.left.size), self.op)
+
+
+class OpImmediate(Immediate, Operator):
     def emit(self):
-        yield from self.left
-        yield from self.right
-        yield Pop(Register.acc1)
-        yield Pop(Register.acc2)
-        yield Binary(Register.acc1, Register.acc2, self.op)
+        yield Push(self)
 
 
-class OpRegister(Operator):
-    def __init__(self, reg: Register):
-        self.reg = reg
-
-    def __str__(self):
-        return f"%{self.reg}"
-
-    __repr__ = __str__
-
+class OpRegister(Register, Operator):
     def emit(self):
         yield Push(self.reg)
-
-
-stackptr = OpRegister(Register.stackptr)
-baseptr = OpRegister(Register.baseptr)
-acc1 = OpRegister(Register.acc1)
-acc2 = OpRegister(Register.acc2)

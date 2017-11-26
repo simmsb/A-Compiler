@@ -1,8 +1,6 @@
 from enum import IntEnum, auto
 from typing import Optional
 
-from base import Variable
-
 
 def pullsize(arg):
     if hasattr(arg, "size"):
@@ -10,9 +8,41 @@ def pullsize(arg):
     return 4
 
 
-class Register(IntEnum):  # TODO: move this?
+class RegisterEnum(IntEnum):  # TODO: move this?
     (stackptr, baseptr, irptr, ret, acc1, acc2, aaa, bbb, ccc, ddd, eee,
-     fff) = range(10)
+     fff) = range(12)
+
+
+class Register:
+    def __init__(self, reg: RegisterEnum, size: int):
+        self.reg = reg
+        self.size = size
+
+    def __getattr__(self, attr: str) -> 'Register':
+        """lookup the register enum so we can do Register.stackptr(4)
+        to get a register marked for size 4.
+        """
+        if hasattr(RegisterEnum, attr):
+            reg = getattr(RegisterEnum, attr)
+            return lambda size: Register(reg, size)
+
+        raise AttributeError
+
+    def __str__(self):
+        return f"%{self.reg.name}{self.size}"
+
+    __repr__ = __str__
+
+
+class Immediate:
+    def __init__(self, val: int, size: int):
+        self.val = val
+        self.size = size
+
+    def __str__(self):
+        return f"Imm({self.val}:{self.size})"
+
+    __repr__ = __str__
 
 
 class Dereference:
@@ -25,19 +55,9 @@ class Dereference:
 
 
 class IRObject:
-    """An instruction in internal representation
+    """An instruction in internal representation."""
 
-    if params are integers, they are treated as literals/ memory addresses
-        depending on the param type of the instruction
-
-    if params are of the register enum (TODO: write register enums),
-        they will be treated as registers etc
-
-    if params are instances of :class:`base.Variable` the variable is used appropriately
-    """
-
-    def __init__(self, size=None):
-        self.size = size
+    def __init__(self):
         self.jumps_from = []
         self.jumps_to = []
         self.owner = None
@@ -50,23 +70,27 @@ class IRObject:
         self.jumps_from = other.jumps_from
         other.jumps_from = []
 
+    def __str__(self):
+        attrs = " ".join(f"<{k}: {v}>" for k, v in self.__dict__.items() if not k.startswith("_"))
+        return f"<{self.__class__.__name__} {attrs}>"
+
 
 class MakeVar(IRObject):
     def __init__(self, variable):
-        super().__init__(variable.size)
+        super().__init__()
         self.var = variable
 
 
 class LoadVar(IRObject):
     def __init__(self, variable, to):
-        super().__init__(variable.size)
+        super().__init__()
         self.variable = variable
         self.to = to
 
 
 class SaveVar(IRObject):
     def __init__(self, variable, from_):
-        super().__init__(variable.size)
+        super().__init__()
         self.variable = variable
         self.from_ = from_
 
@@ -74,8 +98,8 @@ class SaveVar(IRObject):
 class Mov(IRObject):
     """More general than LoadVar/ SaveVar, for setting registers directly."""
 
-    def __init__(self, to, from_, size=None):
-        super().__init__(size or max(pullsize(to), pullsize(from_)))
+    def __init__(self, to, from_):
+        super().__init__()
         self.to = to
         self.from_ = from_
 
@@ -83,8 +107,8 @@ class Mov(IRObject):
 
 
 class Unary(IRObject):
-    def __init__(self, arg, op: str, size=None):
-        super().__init__(arg.size)
+    def __init__(self, arg, op: str):
+        super().__init__()
         self.arg = arg
         self.op = op
 
@@ -95,7 +119,7 @@ class Unary(IRObject):
 
 class Binary(IRObject):
     def __init__(self, left, right, op: str):
-        super().__init__(max(pullsize(left), pullsize(right)))
+        super().__init__()
         self.left = left
         self.right = right
         self.op = op
@@ -106,14 +130,14 @@ class Binary(IRObject):
 
 
 class Push(IRObject):
-    def __init__(self, arg, size=None):
-        super().__init__(pullsize(arg))
+    def __init__(self, arg):
+        super().__init__()
         self.arg = arg
 
 
 class Pop(IRObject):
-    def __init__(self, arg, size=None):
-        super().__init__(size or pullsize(arg))
+    def __init__(self, arg):
+        super().__init__()
         self.arg = arg
 
 
@@ -129,3 +153,13 @@ class Return(IRObject):
 
 class Call(IRObject):
     """Jump to location, push return address."""
+
+
+class Resize(IRObject):
+    """Resize data."""
+
+    def __init__(self, register: Register, from_: int, to: int):
+        super().__init__(to)
+        self.register = register
+        self.from_ = from_
+        self.to = to
