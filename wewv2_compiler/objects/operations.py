@@ -6,13 +6,12 @@ from expression_builder import OpRegister
 from irObject import Binary, Call, Dereference, Mov, Pop, Push, Register
 
 
-def unary_op(ast):
-    """Build a unary op from an ast node."""
+def unary_prefix(ast):
+    """Build a unary prefix op from an ast node."""
     if ast.op in ("*", "++", "--", "~", "!", "-", "+"):
         return UnaryPrefixOp(ast)  # TODO: this
     if ast.op in ("cast", "interpret"):
         return CastOp(ast)  # TODO: this
-    return UnaryPostfixOp(ast)  # TODO: this
 
 
 def unary_postfix(ast):
@@ -56,8 +55,8 @@ class ArrayIndexOp(BaseObject):
     def type(self):
         return self.arg.type.to  # extract pointer
 
-    def load_lvalue(self, ctx: CompileContext):
-        with ctx.context():
+    def load_lvalue(self, ctx: CompileContext):  # Our lvalue is the memory to dereference
+        with ctx.context(self):
             yield from self.arg.compile(ctx)
             yield from self.offset.compile(ctx)
             ctx.emit(Pop(Register.acc1(self.arg.size)))
@@ -67,7 +66,7 @@ class ArrayIndexOp(BaseObject):
                 ctx.emit(i)
 
     def compile(self, ctx: CompileContext):
-        with ctx.context():
+        with ctx.context(self):
             yield from self.load_lvalue(ctx)
             ctx.emit(Pop(Dereference(Register.acc1)))
             ctx.emit(Push(Register.acc1))
@@ -84,7 +83,7 @@ class PostIncrementOp(BaseObject):
         return self.arg.type.to  # pointer type
 
     def compile(self, ctx: CompileContext):
-        with ctx.context():
+        with ctx.context(self):
             pointer_reg = Register.acc1(self.arg.size)
             value_reg = Register.acc2(self.type.size)
             yield from self.arg.load_lvalue(ctx)

@@ -3,12 +3,12 @@ from contextlib import contextmanager
 from operator import itemgetter
 from typing import Dict, Iterable, List, Optional, Tuple
 
-from tatsu.ast import AST
-from tatsu.infos import ParseInfo
-
 from wewv2_compiler.objects import irObject, types
 from wewv2_compiler.objects.irObject import (IRObject, Pop, Push, Register,
                                              RegisterEnum)
+
+from tatsu.ast import AST
+from tatsu.infos import ParseInfo
 
 
 class NotFinished(Exception):
@@ -35,6 +35,10 @@ class BaseObject:
     @abstractmethod
     def compile(self, ctx: 'CompileContext'):
         return NotImplemented
+
+    def load_lvalue(self):
+        raise self.error(f"Object of type <{self.__class__.__name__}> Holds no LValue information.")
+        yield
 
     @property
     def type(self):
@@ -207,6 +211,7 @@ class Compiler:
             raise NotFinished
 
     def compile(self, objects: List[BaseObject]):
+        """Compile a list of objects."""
         for i in objects:
             try:
                 self.run_over(i)
@@ -253,6 +258,7 @@ class CompileContext:
 
     @contextmanager
     def scope(self, scope: Scope):
+        """Enter a scope for name lookup."""
         self.scope_stack.append(scope)
         with self.context(scope):
             yield
@@ -260,6 +266,7 @@ class CompileContext:
 
     @contextmanager
     def context(self, obj: BaseObject):
+        """Enter a context for compilation, minimises state passing between compiling objects and the context."""
         self.object_stack.append(obj)
         yield
         self.object_stack.pop()
@@ -292,5 +299,6 @@ class CompileContext:
         return None
 
     def emit(self, instr: IRObject):
+        """Emit an IR instruction."""
         instr.parent = self.current_object
         self.code.append(instr)

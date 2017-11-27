@@ -1,4 +1,7 @@
-class WewSemantics(object):
+from declarations import FunctionDeclare
+from operations import unary_postfix, unary_prefix
+
+Class WewSemantics(object):
     def start(self, ast):  # noqa
         return ast
 
@@ -96,10 +99,10 @@ class WewSemantics(object):
         return ast
 
     def prefix(self, ast):  # noqa
-        return ast
+        return unary_prefix(ast)
 
     def postfix(self, ast):  # noqa
-        return ast
+        return unary_postfix(ast)
 
     def postop(self, ast):  # noqa
         return ast

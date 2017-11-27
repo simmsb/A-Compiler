@@ -174,7 +174,7 @@ multiply
 unop
   =
   | prefix
-  | postfix
+  | postop
   ;
 
 prefix
@@ -190,18 +190,18 @@ prefix
         'interpret' ) ~ '<' t:type '>' right:unop
   ;
 
-postfix
+postop
   =
-  | postop
+  | postfix
   | singular
   ;
 
-postop
+postfix
   =
-  | left:postfix '(' args:','.{expr} ')' type:`f`
-  | left:postfix '[' ~ args:expr ']' type:`b`
-  | left:postfix op:'++' type:`d`
-  | left:postfix op:'--' type:`d`
+  | left:postop '(' args:','.{expr} ')' type:`f`
+  | left:postop '[' ~ args:expr ']' type:`b`
+  | left:postop op:'++' type:`d`
+  | left:postop op:'--' type:`d`
   ;
 
 singular
@@ -218,10 +218,10 @@ subexpr
 
 literal
  =
- | val:int type:`int`
- | val:str type:`str`
- | val:chr type:`chr`
- | val:arr_lit type:`arr`
+ | int
+ | str
+ | chr
+ | arr_lit
  ;
 
 # array literals will be pointers if in an expression, otherwise expand into index setting if on rhs of an initialisation
@@ -230,7 +230,7 @@ arr_lit
   '{' obj:','.{n:expr} '}'
   ;
 
-int = /\d+/ ;
+int = val:/\d+/ ['_' size:('1' | '2' | '4' | '8')] ;
 str = /".+"/ ;
 chr = /'.'/ ;
 
