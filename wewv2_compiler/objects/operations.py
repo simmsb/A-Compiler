@@ -10,15 +10,14 @@ def unary_prefix(ast):
     """Build a unary prefix op from an ast node."""
     if ast.op in ("*", "++", "--", "~", "!", "-", "+"):
         return UnaryPrefixOp(ast)  # TODO: this
-    if ast.op in ("cast", "interpret"):
-        return CastOp(ast)  # TODO: this
 
 
 def unary_postfix(ast):
     return {
         "f": FunctionCallOp,
         "b": ArrayIndexOp,
-        "d": PostIncrementOp
+        "d": PostIncrementOp,
+        "c": CastExprOP  # TODO: this
     }[ast.type](ast)
 
 

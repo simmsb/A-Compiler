@@ -1,9 +1,9 @@
 @@grammar :: Wew
 
 @@comments :: /{~(\n|.)*~}/
-@@eol_comments :: /\/\/.*?$/
+@@eol_comments :: /~~.*?$/
 
-@@parseinfo :: True
+@@parseinfo :: False
 
 start = {statement}+ $ ;
 
@@ -39,11 +39,13 @@ type
 
 statement
   =
+  ( decl
   | scope
   | if_stmt
   | loop_stmt
   | return_stmt
   | expression_stmt
+  ) [';']  # semicolon is optional
   ;
 
 scope
@@ -51,30 +53,29 @@ scope
   ;
 
 if_stmt
-  = "if" ~ '(' e:expr ')' t:scope ['else' f:scope]
+  = "if" ~ e:expr t:scope ['else' f:scope]
   ;
 
 loop_stmt
   =
-  "while" ~ '(' e:expr ')' >scope
+  "while" ~ e:expr t:scope
   ;
 
-return_stmt = "return" ~ e:expr ';' ;
+return_stmt = "return" ~ e:expr ;
 
 expression_stmt
   =
-  expr ';'
+  expr
   ;
 
 expr
   =
-  | decl
   | assign_expr
   | logical
   ;
 
 fun_decl
-  = "fn" ~ name:identifier '(' params:','.{n:identifier ':' t:type} ')' '->' r:type ">" >scope
+  = "fn" ~ name:identifier '(' params:','.{n:identifier ':' t:type} ')' '->' r:type >scope
   ;
 
 var_decl
@@ -179,15 +180,13 @@ unop
 
 prefix
   =
-  | op:('*'  |
-        '--' |
-        '++' |
-        '~'  |
-        '!'  |
-        '-'  |
-        '+'  ) ~ right:unop
-  | op:('cast' |
-        'interpret' ) ~ '<' t:type '>' right:unop
+  op:('*'  |
+      '--' |
+      '++' |
+      '~'  |
+      '!'  |
+      '-'  |
+      '+'  ) ~ right:unop
   ;
 
 postop
@@ -202,6 +201,8 @@ postfix
   | left:postop '[' ~ args:expr ']' type:`b`
   | left:postop op:'++' type:`d`
   | left:postop op:'--' type:`d`
+  | left:postop op:':::' ~ t:type type:`c`  # reinterpret expr
+  | left:postop op:'::' ~ t:type type:`c`  # cast expr
   ;
 
 singular
@@ -218,7 +219,7 @@ subexpr
 
 literal
  =
- | int
+ | int_lit
  | str
  | chr
  | arr_lit
@@ -230,7 +231,8 @@ arr_lit
   '{' obj:','.{n:expr} '}'
   ;
 
-int = val:/\d+/ ['_' size:('1' | '2' | '4' | '8')] ;
+int = /\d+/ ;
+int_lit = val:(>int) ['/' type:base_type] ;
 str = /".+"/ ;
 chr = /'.'/ ;
 
