@@ -1,8 +1,9 @@
 import types
 
-from base import BaseObject, CompileContext
-from irObject import Immediate, LoadVar, Push, Register
 from tatsu.ast import AST
+
+from base import BaseObject, CompileContext, ObjectRequest
+from irObject import Immediate, LoadVar, Push, Register
 
 
 class IntegerLiteral(BaseObject):
@@ -32,7 +33,7 @@ class Identifier(BaseObject):
         self.name = ast.identifier
 
     def compile(self, ctx: CompileContext):
-        var = ctx.lookup_variable(self.name)
+        var = yield ObjectRequest(self.name)
         ctx.emit(LoadVar(var, Register.acc1(var.size)))
         ctx.emit(Push(Register.acc1(var.size)))
 
