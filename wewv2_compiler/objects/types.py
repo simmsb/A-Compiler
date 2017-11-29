@@ -8,7 +8,7 @@ class Type:
 
 class Int(Type):
 
-    def __init__(self, t: str, const: bool):
+    def __init__(self, t: str, const: bool=False):
         self.t = t
         self.const = const
 
@@ -29,7 +29,7 @@ class Pointer(Type):
 
     size = 2  # 16 bit pointers ?
 
-    def __init__(self, to: Type, const: bool):
+    def __init__(self, to: Type, const: bool=False):
         self.to = to
         self.const = const
 
@@ -52,3 +52,8 @@ class Function(Type):
         self.returns = returns
         self.args = args
         self.const = const
+
+
+char = Int('u1')
+const_char = Int('u1', True)
+string_lit = Pointer(const_char)

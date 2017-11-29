@@ -33,16 +33,15 @@ class FunctionCallOp(BaseObject):
         return self.fun.returns
 
     def compile(self, ctx: CompileContext):
-        with ctx.context():
-            for arg in self.args:
-                yield from arg.compile(ctx)
-            yield from self.fun.compile(ctx)
-            ctx.emit(Call())
-            expr = OpRegister.stackptr(2) - sum(i.size for i in self.args)
-            for i in expr.emit():
-                ctx.emit(i)
-            ctx.emit(Pop(Register.stackptr(2)))  # stackptr is 2 bytes
-            ctx.emit(Push(Register.ret(self.type.size)))
+        for arg in self.args:
+            yield from arg.compile(ctx)
+        yield from self.fun.compile(ctx)
+        ctx.emit(Call())
+        expr = OpRegister.stackptr(2) - sum(i.size for i in self.args)
+        for i in expr.emit():
+            ctx.emit(i)
+        ctx.emit(Pop(Register.stackptr(2)))  # stackptr is 2 bytes
+        ctx.emit(Push(Register.ret(self.type.size)))
 
 
 class ArrayIndexOp(BaseObject):
@@ -59,17 +58,16 @@ class ArrayIndexOp(BaseObject):
         with ctx.context(self):
             yield from self.arg.compile(ctx)
             yield from self.offset.compile(ctx)
-            ctx.emit(Pop(Register.acc1(self.arg.size)))
-            ctx.emit(Pop(Register.acc2(self.offset.size)))
-            expr = OpRegister.acc1 + OpRegister.acc2
+            ctx.emit(Pop(Register.acc1(self.offset.size)))
+            ctx.emit(Pop(Register.acc2(self.arg.size)))
+            expr = OpRegister.acc1(self.offset.size) + OpRegister.acc2(self.arg.size)
             for i in expr.emit():
                 ctx.emit(i)
 
     def compile(self, ctx: CompileContext):
-        with ctx.context(self):
-            yield from self.load_lvalue(ctx)
-            ctx.emit(Pop(Dereference(Register.acc1)))
-            ctx.emit(Push(Register.acc1))
+        yield from self.load_lvalue(ctx)
+        ctx.emit(Pop(Register.acc1(max(self.arg.size, self.offset.size))))
+        ctx.emit(Push(Dereference(Register.acc1(self.type.size))))
 
 
 class PostIncrementOp(BaseObject):
@@ -83,14 +81,13 @@ class PostIncrementOp(BaseObject):
         return self.arg.type.to  # pointer type
 
     def compile(self, ctx: CompileContext):
-        with ctx.context(self):
-            pointer_reg = Register.acc1(self.arg.size)
-            value_reg = Register.acc2(self.type.size)
-            yield from self.arg.load_lvalue(ctx)
-            ctx.emit(Pop(pointer_reg))
-            # copy the current value, to size is the size of what's pointed to
-            ctx.emit(Mov(value_reg, Dereference(pointer_reg)))
-            ctx.emit(Push(value_reg))
-            ctx.emit(Binary(value_reg, 1, self.op[0]))
-            ctx.emit(Mov(Dereference(pointer_reg), value_reg))
-            # value is left on stack unmodified
+        pointer_reg = Register.acc1(self.arg.size)
+        value_reg = Register.acc2(self.type.size)
+        yield from self.arg.load_lvalue(ctx)
+        ctx.emit(Pop(pointer_reg))
+        # copy the current value, to size is the size of what's pointed to
+        ctx.emit(Mov(value_reg, Dereference(pointer_reg)))
+        ctx.emit(Push(value_reg))
+        ctx.emit(Binary(value_reg, 1, self.op[0]))
+        ctx.emit(Mov(Dereference(pointer_reg), value_reg))
+        # value is left on stack unmodified

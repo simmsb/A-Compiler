@@ -1,5 +1,7 @@
+import inspect
 from abc import abstractmethod
 from contextlib import contextmanager
+from functools import wraps
 from operator import itemgetter
 from typing import Dict, Iterable, List, Optional, Tuple
 
@@ -25,8 +27,38 @@ class ObjectRequest:
         self.name = name
 
 
-class BaseObject:
+class ApplyMethodMeta(type):
+    """Looks up _meta_fns in class and applies functions to asked methods."""
+
+    def __new__(cls, name, bases, attrs):
+        for k, v in attrs.get("_meta_fns", ()):
+            attr = attrs.get(k)
+            if attr is not None:
+                attrs[k] = v(attr)
+        return super().__new__(cls, name, bases, attrs)
+
+
+def make_generator(f):
+    @wraps(f)
+    def internal(*args, **kwargs):
+        return f(*args, **kwargs)
+        yield
+    return internal
+
+
+def wrap_add_compile_context(f):
+    @wraps(f)
+    def internal(self, ctx: 'CompileContext'):
+        with ctx.context(self):
+            yield from f(self, ctx)
+    return internal
+
+
+class BaseObject(metaclass=ApplyMethodMeta):
     """Base class of compilables."""
+
+    _meta_fns = (("compile", make_generator),
+                 ("compile", wrap_add_compile_context))
 
     def __init__(self, ast: AST):
         self.__ast = ast
@@ -34,7 +66,7 @@ class BaseObject:
 
     @abstractmethod
     def compile(self, ctx: 'CompileContext'):
-        return NotImplemented
+        raise NotImplementedError
 
     def load_lvalue(self):
         raise self.error(f"Object of type <{self.__class__.__name__}> Holds no LValue information.")
@@ -162,6 +194,14 @@ class Compiler:
     def __init__(self):
         self.compiled_objects: Dict[str, BaseObject] = {}
         self.waiting_coros: Dict[str, BaseObject] = {}
+        self.data: List[string] = []
+
+    def add_string(self, string: str):
+        key = f"string-lit-{string}"
+        val = Variable(key, types.string_lit)
+        val.global_offset = len(self.data)
+        self.data.append(string)
+        return self.compiled_objects.setdefault(key, val)
 
     def add_waiting(self, name: str, obj: BaseObject):
         """Add a coro to the waiting list.

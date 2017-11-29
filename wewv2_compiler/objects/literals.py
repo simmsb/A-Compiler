@@ -1,7 +1,7 @@
 import types
 
 from base import BaseObject, CompileContext
-from irObject import Immediate, Push
+from irObject import Immediate, LoadVar, Push, Register
 from tatsu.ast import AST
 
 
@@ -12,5 +12,32 @@ class IntegerLiteral(BaseObject):
         self.size = ast.size
 
     def compile(self, ctx: CompileContext):
-        with ctx.context(self):
-            ctx.emit(Push(Immediate(self.lit, self.size)))
+        ctx.emit(Push(Immediate(self.lit, self.size)))
+
+
+class StringLiteral(BaseObject):
+    def __init__(self, ast: AST):
+        super().__init__(ast)
+        self.lit = ast.str
+
+    def compile(self, ctx: CompileContext):
+        var = ctx.compiler.add_string(self.lit)
+        ctx.emit(LoadVar(var, Register.acc1(types.Pointer.size)))
+        ctx.emit(Push(Register.acc1(types.Pointer.size)))
+
+
+class Identifier(BaseObject):
+    def __init__(self, ast: AST):
+        super().__init__(ast)
+        self.name = ast.identifier
+
+    def compile(self, ctx: CompileContext):
+        var = ctx.lookup_variable(self.name)
+        ctx.emit(LoadVar(var, Register.acc1(var.size)))
+        ctx.emit(Push(Register.acc1(var.size)))
+
+
+def char_literal(ast):
+    ast.val = ord(ast.chr)
+    ast.size = types.const_char.size
+    return IntegerLiteral(ast)

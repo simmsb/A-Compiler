@@ -1,5 +1,7 @@
-from declarations import FunctionDeclare
-from operations import unary_postfix, unary_prefix
+from wewv2_compiler.objects.declarations import FunctionDeclare
+from wewv2_compiler.objects.literals import (Identifier, IntegerLiteral,
+                                             StringLiteral, char_literal)
+from wewv2_compiler.objects.operations import unary_postfix, unary_prefix
 
 Class WewSemantics(object):
     def start(self, ast):  # noqa
@@ -98,11 +100,9 @@ Class WewSemantics(object):
     def unop(self, ast):  # noqa
         return ast
 
-    def prefix(self, ast):  # noqa
-        return unary_prefix(ast)
+    prefix = unary_prefix
 
-    def postfix(self, ast):  # noqa
-        return unary_postfix(ast)
+    postfix = unary_postfix
 
     def postop(self, ast):  # noqa
         return ast
@@ -119,14 +119,10 @@ Class WewSemantics(object):
     def arr_lit(self, ast):  # noqa
         return ast
 
-    def int(self, ast):  # noqa
-        return ast
+    int = IntegerLiteral
 
-    def str(self, ast):  # noqa
-        return ast
+    str = StringLiteral
 
-    def chr(self, ast):  # noqa
-        return ast
+    chr = char_literal
 
-    def identifier(self, ast):  # noqa
-        return ast
+    identifier = Identifier
