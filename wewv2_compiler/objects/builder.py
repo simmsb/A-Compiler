@@ -100,9 +100,11 @@ Class WewSemantics(object):
     def unop(self, ast):  # noqa
         return ast
 
-    prefix = unary_prefix
+    def prefix(self, ast):
+        return unary_prefix(ast)
 
-    postfix = unary_postfix
+    def postfix(self, ast):
+        return unary_postfix(ast)
 
     def postop(self, ast):  # noqa
         return ast
@@ -119,10 +121,17 @@ Class WewSemantics(object):
     def arr_lit(self, ast):  # noqa
         return ast
 
-    int = IntegerLiteral
+    def int_lit(self, ast):
+        return IntegerLiteral(ast)
 
-    str = StringLiteral
+    def int(self, ast):
+        return int(ast.int)
 
-    chr = char_literal
+    def str(self, ast):
+        return StringLiteral(ast)
 
-    identifier = Identifier
+    def chr(self, ast):
+        return char_literal(ast)
+
+    def identifier(self, ast):
+        return Identifier(ast)

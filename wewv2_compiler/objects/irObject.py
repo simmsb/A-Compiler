@@ -8,15 +8,16 @@ def pullsize(arg):
     return 4
 
 
-class RegisterEnum(IntEnum):  # TODO: move this?
+class RegisterEnum(IntEnum):
     (stackptr, baseptr, irptr, ret, acc1, acc2, aaa, bbb, ccc, ddd, eee,
      fff) = range(12)
 
 
 class Register:
-    def __init__(self, reg: RegisterEnum, size: int):
+    def __init__(self, reg: RegisterEnum, size: int, sign: bool=False):
         self.reg = reg
         self.size = size
+        self.sign = sign
 
     def __getattr__(self, attr: str) -> 'Register':
         """lookup the register enum so we can do Register.stackptr(4)
@@ -24,12 +25,12 @@ class Register:
         """
         if hasattr(RegisterEnum, attr):
             reg = getattr(RegisterEnum, attr)
-            return lambda size: Register(reg, size)
+            return lambda size, sign=False: Register(reg, size, sign=sign)
 
         raise AttributeError
 
     def __str__(self):
-        return f"%{self.reg.name}{self.size}"
+        return f"%{self.reg.name}{'s' if self.sign else 'u'}{self.size}"
 
     __repr__ = __str__
 
@@ -146,6 +147,13 @@ class Prelude(IRObject):
     pass
 
 
+class Epilog(IRObject):
+    """Function epilog."""
+
+    def __init__(self, size: int):
+        self.size = size
+
+
 class Return(IRObject):
     """Function return"""
     pass
@@ -158,8 +166,7 @@ class Call(IRObject):
 class Resize(IRObject):
     """Resize data."""
 
-    def __init__(self, register: Register, from_: int, to: int):
+    def __init__(self, from_: Register, to: Register):
         super().__init__(to)
-        self.register = register
         self.from_ = from_
         self.to = to

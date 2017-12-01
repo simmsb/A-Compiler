@@ -228,7 +228,7 @@ literal
 # array literals will be pointers if in an expression, otherwise expand into index setting if on rhs of an initialisation
 arr_lit
   =
-  '{' obj:','.{n:expr} '}'
+  '{' obj:','.{expr} '}'
   ;
 
 int = /\d+/ ;

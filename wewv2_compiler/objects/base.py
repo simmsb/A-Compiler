@@ -5,12 +5,11 @@ from functools import wraps
 from operator import itemgetter
 from typing import Dict, Iterable, List, Optional, Tuple
 
-from wewv2_compiler.objects import irObject, types
-from wewv2_compiler.objects.irObject import (IRObject, Pop, Push, Register,
-                                             RegisterEnum)
-
 from tatsu.ast import AST
 from tatsu.infos import ParseInfo
+from wewv2_compiler.objects import irObject, types
+from wewv2_compiler.objects.irObject import (Epilog, IRObject, Pop, Push,
+                                             Register, RegisterEnum)
 
 
 class NotFinished(Exception):
@@ -77,6 +76,10 @@ class BaseObject(metaclass=ApplyMethodMeta):
         return NotImplemented
 
     @property
+    def size(self):
+        return self.type.size
+
+    @property
     def identifier(self) -> str:
         info = self.__info
         return f"{info.line:info.pos:info.endpos}"
@@ -90,7 +93,6 @@ class BaseObject(metaclass=ApplyMethodMeta):
         source = info.buffer.get_lines()
         # startp and endp are offsets from the start
         # calculate their offsets from the line they are on.
-        # TODO: make this neater
         startp = startp - sum(map(len, source[:startl])) + 1
         endp = endp - sum(map(len, source[:endl]))
 
@@ -167,9 +169,12 @@ class Scope(BaseObject):
         return self.vars.get(name)
 
     def compile(self, ctx: 'CompileContext'):
+        # we need to allocate stack space, scan instructions for variables.
+
         with ctx.scope(self):
             for i in self.body:
                 yield from i.compile(ctx)
+            ctx.emit(Epilog(self.size))
 
     def declare_variable(self, var: Variable):
         """Add a variable to this scope.
@@ -196,12 +201,49 @@ class Compiler:
         self.waiting_coros: Dict[str, BaseObject] = {}
         self.data: List[string] = []
 
-    def add_string(self, string: str):
+    def add_string(self, string: str) -> Variable:
+        """Add a string to the object table.
+
+        If string to insert already exists returns reference to exising.
+
+        :param string: The string to insert.
+        :returns: The variable reference created."""
         key = f"string-lit-{string}"
         val = Variable(key, types.string_lit)
         val.global_offset = len(self.data)
         self.data.append(string)
         return self.compiled_objects.setdefault(key, val)
+
+    def add_bytes(self, data: bytes) -> Variable:
+        """Add bytes to the object table.
+
+        Unlike :func:`add_string` always creates a new object.
+
+        :param data: The bytes to insert.
+        :returns: The variable reference created."""
+        index = len(self.data)
+        key = f"raw-data-{index}"
+        val = Variable(key, types.string_lit)
+        val.global_offset = index
+        self.data.append(data)
+        self.compiled_objects[key] = val
+        return val
+
+    def add_array(self, vars: List[Variable]) -> Variable:
+        """Add a list of vars to the object table.
+
+        Unlike :func:`add_string` always creates a new object.
+
+        :param vars: The variables to insert.
+        :returns: The variable reference created."""
+        assert vars
+        index = len(self.data)
+        key = f"var-array-{index}"
+        val = Variable(key, types.Pointer(vars[0].type))
+        val.global_offset = index
+        self.data.append(vars)
+        self.compiled_objects[key] = val
+        return val
 
     def add_waiting(self, name: str, obj: BaseObject):
         """Add a coro to the waiting list.
@@ -311,6 +353,7 @@ class CompileContext:
         yield
         self.object_stack.pop()
 
+    # XXX: This probably wont be used
     @contextmanager
     def get_register(self, size: int, regtype: Register=Register) -> Register:
         """Get a register of required size, store the register if required

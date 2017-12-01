@@ -40,7 +40,6 @@ class FunctionDeclare(Scope):
             return self.params.get(name)
 
     def compile(self, ctx: CompileContext):
-        with ctx.context(self):
-            ctx.emit(Prelude())
-            yield from super().compile(ctx)
-            ctx.emit(Return())
+        ctx.emit(Prelude())
+        yield from super().compile(ctx)
+        ctx.emit(Return())

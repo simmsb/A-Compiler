@@ -8,8 +8,15 @@ from irObject import Binary, Call, Dereference, Mov, Pop, Push, Register
 
 def unary_prefix(ast):
     """Build a unary prefix op from an ast node."""
-    if ast.op in ("*", "++", "--", "~", "!", "-", "+"):
-        return UnaryPrefixOp(ast)  # TODO: this
+    return {
+        "*": DereferenceOP,
+        "++": PreincrementOP,
+        "--": PreincrementOP,
+        "~": BitwiseNegateOP,
+        "!": LogicalNegateOP,
+        "-": NumericalNegateOp,
+        "+": NumericAddOP
+    }[ast.op](ast)
 
 
 def unary_postfix(ast):
@@ -19,6 +26,22 @@ def unary_postfix(ast):
         "d": PostIncrementOp,
         "c": CastExprOP  # TODO: this
     }[ast.type](ast)
+
+
+class CastExprOP(BaseObject):
+    def __init__(self, ast):
+        super().__init__(ast)
+        self.type = ast.t
+        self.expr = ast.left
+        self.op = ast.op
+
+    def compile(self, ctx: CompileContext):
+        yield from self.expr.compile(ctx)
+        if self.op == "::":
+            ctx.emit(Pop(Register.acc1(self.expr.size)))
+            ctx.emit(Resize(Register.acc1(self.expr.size, self.expr.type.sign),
+                            Register.acc1(self.size, self.type.sign)))
+            ctx.emit(Push(Register.acc1(self.size)))
 
 
 class FunctionCallOp(BaseObject):
@@ -40,7 +63,7 @@ class FunctionCallOp(BaseObject):
         for i in expr.emit():
             ctx.emit(i)
         ctx.emit(Pop(Register.stackptr(2)))  # stackptr is 2 bytes
-        ctx.emit(Push(Register.ret(self.type.size)))
+        ctx.emit(Push(Register.ret(self.size)))
 
 
 class ArrayIndexOp(BaseObject):
@@ -66,7 +89,7 @@ class ArrayIndexOp(BaseObject):
     def compile(self, ctx: CompileContext):
         yield from self.load_lvalue(ctx)
         ctx.emit(Pop(Register.acc1(max(self.arg.size, self.offset.size))))
-        ctx.emit(Push(Dereference(Register.acc1(self.type.size))))
+        ctx.emit(Push(Dereference(Register.acc1(self.size))))
 
 
 class PostIncrementOp(BaseObject):
@@ -81,7 +104,7 @@ class PostIncrementOp(BaseObject):
 
     def compile(self, ctx: CompileContext):
         pointer_reg = Register.acc1(self.arg.size)
-        value_reg = Register.acc2(self.type.size)
+        value_reg = Register.acc2(self.size)
         yield from self.arg.load_lvalue(ctx)
         ctx.emit(Pop(pointer_reg))
         # copy the current value, to size is the size of what's pointed to
