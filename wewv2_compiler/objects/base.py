@@ -3,10 +3,11 @@ from abc import abstractmethod
 from contextlib import contextmanager
 from functools import wraps
 from operator import itemgetter
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 from tatsu.ast import AST
 from tatsu.infos import ParseInfo
+
 from wewv2_compiler.objects import irObject, types
 from wewv2_compiler.objects.irObject import (Epilog, IRObject, Pop, Push,
                                              Register, RegisterEnum)
@@ -199,7 +200,7 @@ class Compiler:
     def __init__(self):
         self.compiled_objects: Dict[str, BaseObject] = {}
         self.waiting_coros: Dict[str, BaseObject] = {}
-        self.data: List[string] = []
+        self.data: List[Union[str, bytes]] = []
 
     def add_string(self, string: str) -> Variable:
         """Add a string to the object table.
@@ -210,9 +211,12 @@ class Compiler:
         :returns: The variable reference created."""
         key = f"string-lit-{string}"
         val = Variable(key, types.string_lit)
-        val.global_offset = len(self.data)
-        self.data.append(string)
-        return self.compiled_objects.setdefault(key, val)
+        if string not in self.data:
+            val.global_offset = len(self.data)
+            self.data.append(string)
+        else:
+            val.global_offset = self.data.index(string)
+        return val
 
     def add_bytes(self, data: bytes) -> Variable:
         """Add bytes to the object table.
@@ -226,7 +230,6 @@ class Compiler:
         val = Variable(key, types.string_lit)
         val.global_offset = index
         self.data.append(data)
-        self.compiled_objects[key] = val
         return val
 
     def add_array(self, vars: List[Variable]) -> Variable:
@@ -242,7 +245,6 @@ class Compiler:
         val = Variable(key, types.Pointer(vars[0].type))
         val.global_offset = index
         self.data.append(vars)
-        self.compiled_objects[key] = val
         return val
 
     def add_waiting(self, name: str, obj: BaseObject):
@@ -253,10 +255,12 @@ class Compiler:
         l = self.waiting_coros.setdefault(name, [])
         l.append(obj)
 
-    def run_over(self, obj: BaseObject):
+    def run_over(self, obj: BaseObject, to_send: BaseObject=None):
         """Run over a compile coro. If we dont finish raise :class:`NotFinished`
 
-        :param obj: The object to start compiling. May or may not have already been visited."""
+        :param obj: The object to start compiling. May or may not have already been visited.
+        :param to_send: Initial value to send to generator.
+        """
         if hasattr(obj, "_context"):
             ctx = obj._context
         else:
@@ -269,20 +273,20 @@ class Compiler:
             obj._coro = coro
         while True:
             try:
-                r = coro.send(None)
+                r = coro.send(to_send)
+                to_send = None
             except StopIteration:
                 return
 
             assert isinstance(r, ObjectRequest)
 
             # look for either a global object or a scope variable.
-
-            var = self.compiled_objects.get(r.name)
+            var = ctx.lookup_variable(r.name)
             if var:
                 coro.send(var)
                 continue
 
-            var = ctx.lookup_variable(r.name)
+            var = self.compiled_objects.get(r.name)
             if var:
                 coro.send(var)
                 continue
@@ -294,16 +298,16 @@ class Compiler:
 
     def compile(self, objects: List[BaseObject]):
         """Compile a list of objects."""
-        for i in objects:
+        objects = [(o, None) for o in objects]
+        for i, t in objects:
             try:
-                self.run_over(i)
+                self.run_over(i, t)
             except NotFinished:
                 pass
             else:
-                remaining = self.waiting_coros.pop(i.identifier, ())
-                for o in remaining:
-                    o._coro.send(i)  # send our finished object
-                    objects.append(o)  # put object back on process queue
+                to_wake = self.waiting_coros.pop(i.identifier, ())
+                objects.extend((o, i) for o in to_wake)
+                self.compiled_objects[i.identifier] = i
         for k, i in self.waiting_coros.items():
             print(i.make_error(f"This object is waiting on name {k} which never compiled."))
 
