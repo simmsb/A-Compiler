@@ -1,15 +1,12 @@
-import inspect
-from abc import abstractmethod
 from contextlib import contextmanager
 from functools import wraps
-from operator import itemgetter
-from typing import Dict, Iterable, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 from tatsu.ast import AST
 from tatsu.infos import ParseInfo
-from wewv2_compiler.objects import irObject, types
-from wewv2_compiler.objects.irObject import (Epilog, IRObject, Pop, Push,
-                                             Register, RegisterEnum)
+
+from wewv2_compiler.objects import types
+from wewv2_compiler.objects.irObject import Epilog, IRObject, Pop, Register
 
 
 class NotFinished(Exception):
@@ -29,19 +26,19 @@ class ObjectRequest:
 class ApplyMethodMeta(type):
     """Looks up _meta_fns in class and applies functions to asked methods."""
 
-    def __new__(cls, name, bases, attrs):
+    def __new__(mcs, name, bases, attrs):
         for k, v in attrs.get("_meta_fns", ()):
             attr = attrs.get(k)
             if attr is not None:
                 attrs[k] = v(attr)
-        return super().__new__(cls, name, bases, attrs)
+        return super().__new__(mcs, name, bases, attrs)
 
 
 def make_generator(f):
     @wraps(f)
     def internal(*args, **kwargs):
         return f(*args, **kwargs)
-        yield
+        yield  # pylint: disable=unreachable
     return internal
 
 
@@ -56,25 +53,9 @@ def wrap_add_compile_context(f):
 class BaseObject(metaclass=ApplyMethodMeta):
     """Base class of compilables."""
 
-    _meta_fns = (("compile", make_generator),
-                 ("compile", wrap_add_compile_context))
-
     def __init__(self, ast: AST):
         self.__ast = ast
         self.__info: ParseInfo = ast.parseinfo
-
-    @abstractmethod
-    def compile(self, ctx: 'CompileContext'):
-        """Compile an object. If an expression, always pushes the result to the stack."""
-        raise NotImplementedError
-
-    @property
-    def type(self):
-        return NotImplemented
-
-    @property
-    def size(self):
-        return self.type.size
 
     @property
     def identifier(self) -> str:
@@ -131,13 +112,31 @@ class BaseObject(metaclass=ApplyMethodMeta):
         return Exception(self.make_error(reason), *args, **kwargs)
 
 
-class ExpressionObject(BaseObject):
+class StatementObject(BaseObject):
+    """Derived base ast for statements."""
+
+    def compile(self, ctx: 'CompileContext'):
+        """Compile an object. If an expression, always pushes the result to the stack."""
+        raise NotImplementedError
 
     _meta_fns = (("compile", make_generator),
-                 ("compile", wrap_add_compile_context),
-                 ("compile_to", make_generator),
+                 ("compile", wrap_add_compile_context))
+
+
+class ExpressionObject(BaseObject):
+    """Derived base ast for expressions."""
+
+    _meta_fns = (("compile_to", make_generator),
                  ("compile_to", wrap_add_compile_context),
                  ("load_lvalue_to", make_generator))
+
+    @property
+    def type(self):
+        return NotImplemented
+
+    @property
+    def size(self):
+        return self.type.size
 
     def compile_to(self, ctx: 'CompileContext', to: Register):
         """Compiles to a location instead of pushing to the stack."""
@@ -145,7 +144,7 @@ class ExpressionObject(BaseObject):
         ctx.emit(Pop(to))
         # just hope the optimiser will eliminate this.
 
-    def load_lvalue_to(self, ctx: 'CompileContext', to: Register):
+    def load_lvalue_to(self, ctx: 'CompileContext', to: Register):  # pylint: disable=unused-argument
         raise self.error(f"Object of type <{self.__class__.__name__}> Holds no LValue information.")
 
 
@@ -171,7 +170,7 @@ class Variable:
         return self.name
 
 
-class Scope(BaseObject):
+class Scope(StatementObject):
     """A object that contains variables that can be looked up."""
 
     def __init__(self, ast):
@@ -283,7 +282,7 @@ class Compiler:
         if hasattr(obj, "_coro"):
             coro = obj._coro
         else:
-            coro = obj.compile(self, ctx)
+            coro = obj.compile(ctx)
             obj._coro = coro
         while True:
             try:
@@ -369,7 +368,8 @@ class CompileContext:
         self.object_stack.pop()
 
     @contextmanager
-    def reg(self, size: Union[int, Tuple[int]], sign: Union[bool, Tuple[bool]]=False) -> Union[Register, Tuple[Register]]:
+    def reg(self, size: Union[int, Tuple[int]],
+            sign: Union[bool, Tuple[bool]]=False) -> Union[Register, Tuple[Register]]:
         """Get a register of required size
 
         :param size: Size of register(s) to get.
@@ -380,7 +380,8 @@ class CompileContext:
         if isinstance(sign, bool):
             sign = (sign,)
         sign += (False,) * (len(size) - len(sign))
-        regs = tuple(Register(self.regs_used + i, si, sg) for i, (si, sg) in enumerate(zip(size, sign)))
+        regs = tuple(Register(self.regs_used + i, si, sg) for i, (si, sg) in
+                     enumerate(zip(size, sign)))
         self.regs_used += len(size)
         yield regs[0] if len(regs) == 1 else regs
         self.regs_used -= len(size)

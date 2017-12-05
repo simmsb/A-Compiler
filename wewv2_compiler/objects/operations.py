@@ -1,9 +1,10 @@
 from typing import Iterable
 
+from tatsu.ast import AST
+
 from base import BaseObject, CompileContext, ExpressionObject
 from irObject import (Binary, Call, Dereference, Immediate, Mov, NamedRegister,
                       Push, Register, Resize)
-from tatsu.ast import AST
 
 
 def unary_prefix(ast: AST):
@@ -77,14 +78,14 @@ class ArrayIndexOp(ExpressionObject):
     # Our lvalue is the memory to dereference
     def load_lvalue_to(self, ctx: CompileContext, to: Register):
         with ctx.context(self):
-            with ctx.reg(self.arg.size) as argres:
-                with ctx.reg(self.offset.size) as offres:
-                    yield from self.arg.compile_to(ctx, argres)
-                    yield from self.offset.compile_to(ctx, offres)
-                    if self.offset.size != self.arg.size:  # resize to ptr size
-                        ctx.emit(Resize(offres, offres.resize(self.arg.size)))
-                    ctx.emit(Binary(argres, offres, '+'))
-                    ctx.emit(Mov(to, NamedRegister.acc1(self.arg.size)))
+            with ctx.reg((self.arg.size, self.offset.size)) as (argres, offres):
+                yield from self.arg.compile_to(ctx, argres)
+                yield from self.offset.compile_to(ctx, offres)
+                # resize to ptr size, we dont want this to grow XXX THINK
+                if self.offset.size != self.arg.size:
+                    ctx.emit(Resize(offres, offres.resize(self.arg.size)))
+                ctx.emit(Binary(argres, offres, '+'))
+                ctx.emit(Mov(to, NamedRegister.acc1(self.arg.size)))
 
     def compile_to(self, ctx: CompileContext, to: Register):
         with ctx.reg(self.arg.size) as ptr:

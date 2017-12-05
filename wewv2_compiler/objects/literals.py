@@ -1,8 +1,9 @@
 import types
 
+from tatsu.ast import AST
+
 from base import BaseObject, CompileContext, ObjectRequest
 from irObject import Immediate, LoadVar, Mov, Register
-from tatsu.ast import AST
 
 
 def is_constant_expression(obj: BaseObject) -> bool:
@@ -65,7 +66,6 @@ class ArrayLiteral(BaseObject):
         if not all(map(is_constant_expression, self.exprs)):
             raise self.error(f"Array literal terms are not constant.")
         if isinstance(self.type.to, types.Int):
-            size = self.type.to.size
             bytes = b''.join(i.bytes for i in self.exprs)
             var = ctx.compiler.add_bytes(bytes)
         elif isinstance(self.type.to, types.string_lit):

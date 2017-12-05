@@ -1,5 +1,4 @@
-from enum import IntEnum, auto
-from typing import Optional
+from enum import IntEnum
 
 
 def pullsize(arg):

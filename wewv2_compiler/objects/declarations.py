@@ -1,5 +1,6 @@
 import types
-from typing import Optional
+
+from tatsu.ast import AST
 
 from wewv2_compiler.objects.base import CompileContext, Scope, Variable
 from wewv2_compiler.objects.irObject import (Dereference, Mov, Pop, Prelude,
@@ -23,7 +24,7 @@ class FunctionDeclare(Scope):
 
     """
 
-    def __init__(self, ast):
+    def __init__(self, ast: AST):
         super().__init__(ast)
         self.name = ast.name
         self.params = [Variable(i.identifier, i.type) for i in ast.params]

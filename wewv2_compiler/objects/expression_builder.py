@@ -1,3 +1,7 @@
+"""
+DEAD CODE
+"""
+
 from typing import Iterable, Union
 
 from irObject import (Binary, Immediate, IRObject, Pop, Push, Register,
