@@ -14,20 +14,36 @@ class RegisterEnum(IntEnum):
 
 
 class Register:
+    def __init__(self, reg: int, size: int, sign: bool=False):
+        self.reg = reg
+        self.size = size
+        self.sign = sign
+
+    def resize(self, new_size: int=None, new_sign: bool=None) -> 'Register':
+        """Get a resized copy of this register."""
+        return Register(self.reg, new_size or self.size,
+                        new_sign or self.sign)
+
+    def __str__(self):
+        return f"%{self.reg}{'s' if self.sign else 'u'}{self.size}"
+
+    __repr__ = __str__
+
+
+class NamedRegister:
     def __init__(self, reg: RegisterEnum, size: int, sign: bool=False):
         self.reg = reg
         self.size = size
         self.sign = sign
 
-    def __getattr__(self, attr: str) -> 'Register':
-        """lookup the register enum so we can do Register.stackptr(4)
-        to get a register marked for size 4.
-        """
-        if hasattr(RegisterEnum, attr):
-            reg = getattr(RegisterEnum, attr)
-            return lambda size, sign=False: Register(reg, size, sign=sign)
+    @classmethod
+    def __getattr__(cls, attr: str) -> 'NamedRegister':
+        return lambda size, sign=False: cls(RegisterEnum(attr), size, sign)
 
-        raise AttributeError
+    def resize(self, new_size: int=None, new_sign: bool=None) -> 'Register':
+        """Get a resized copy of this register."""
+        return Register(self.reg, new_size or self.size,
+                        new_sign or self.sign)
 
     def __str__(self):
         return f"%{self.reg.name}{'s' if self.sign else 'u'}{self.size}"
@@ -161,6 +177,9 @@ class Return(IRObject):
 
 class Call(IRObject):
     """Jump to location, push return address."""
+
+    def __init__(self, argsize: int):
+        self.argsize = argsize
 
 
 class Resize(IRObject):

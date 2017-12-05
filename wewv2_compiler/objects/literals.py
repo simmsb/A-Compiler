@@ -1,12 +1,11 @@
 import types
-from io import BytesIO
 
 from base import BaseObject, CompileContext, ObjectRequest
-from irObject import Immediate, LoadVar, Push, Register
+from irObject import Immediate, LoadVar, Mov, Register
 from tatsu.ast import AST
 
 
-def is_constant_expression(obj: BaseObject) -> Bool:
+def is_constant_expression(obj: BaseObject) -> bool:
     return isinstance(obj, (IntegerLiteral, StringLiteral))
 
 
@@ -20,8 +19,8 @@ class IntegerLiteral(BaseObject):
     def bytes(self):
         return self.lit.to_bytes(self.type.size, "little", signed=self.type.signed)
 
-    def compile(self, ctx: CompileContext):
-        ctx.emit(Push(Immediate(self.lit, self.size)))
+    def compile_to(self, ctx: CompileContext, reg: Register):
+        ctx.emit(Mov(reg, Immediate(self.lit, self.size)))
 
 
 class StringLiteral(BaseObject):
@@ -32,10 +31,9 @@ class StringLiteral(BaseObject):
         super().__init__(ast)
         self.lit = ast.str
 
-    def compile(self, ctx: CompileContext):
+    def compile_to(self, ctx: CompileContext, to: Register):
         var = ctx.compiler.add_string(self.lit)
-        ctx.emit(LoadVar(var, Register.acc1(types.Pointer.size)))
-        ctx.emit(Push(Register.acc1(types.Pointer.size)))
+        ctx.emit(LoadVar(var, to))
 
 
 class Identifier(BaseObject):
@@ -43,10 +41,10 @@ class Identifier(BaseObject):
         super().__init__(ast)
         self.name = ast.identifier
 
-    def compile(self, ctx: CompileContext):
+    def compile_to(self, ctx: CompileContext, to: Register):
         var = yield ObjectRequest(self.name)
-        ctx.emit(LoadVar(var, Register.acc1(var.size)))
-        ctx.emit(Push(Register.acc1(var.size)))
+        to.size = var.size  # XXX: hmmmmm
+        ctx.emit(LoadVar(var, to))
 
 
 class ArrayLiteral(BaseObject):
@@ -61,7 +59,7 @@ class ArrayLiteral(BaseObject):
     def type(self):
         return types.Pointer(self.exprs[0].type)
 
-    def compile(self, ctx: CompileContext):
+    def compile_to(self, ctx: CompileContext, to: Register):
         #  this is only run if we're not in the form of a array initialisation.
         #  check that everything is a constant
         if not all(map(is_constant_expression, self.exprs)):
@@ -73,8 +71,7 @@ class ArrayLiteral(BaseObject):
         elif isinstance(self.type.to, types.string_lit):
             vars = [ctx.compiler.add_string(i.lit) for i in self.exprs]
             var = ctx.compiler.add_array(vars)
-        ctx.emit(LoadVar(var, Register.acc1(var.type.size)))
-        ctx.emit(Push(Register.acc1(var.type.size)))
+        ctx.emit(LoadVar(var, to))
 
 
 def char_literal(ast):

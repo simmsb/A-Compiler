@@ -1,12 +1,12 @@
-import types
 from typing import Iterable
 
-from base import BaseObject, CompileContext, Variable
-from expression_builder import OpRegister
-from irObject import Binary, Call, Dereference, Mov, Pop, Push, Register
+from base import BaseObject, CompileContext, ExpressionObject
+from irObject import (Binary, Call, Dereference, Immediate, Mov, NamedRegister,
+                      Push, Register, Resize)
+from tatsu.ast import AST
 
 
-def unary_prefix(ast):
+def unary_prefix(ast: AST):
     """Build a unary prefix op from an ast node."""
     return {
         "*": DereferenceOP,
@@ -19,7 +19,7 @@ def unary_prefix(ast):
     }[ast.op](ast)
 
 
-def unary_postfix(ast):
+def unary_postfix(ast: AST):
     return {
         "f": FunctionCallOp,
         "b": ArrayIndexOp,
@@ -28,46 +28,44 @@ def unary_postfix(ast):
     }[ast.type](ast)
 
 
-class CastExprOP(BaseObject):
-    def __init__(self, ast):
+class CastExprOP(ExpressionObject):
+    def __init__(self, ast: AST):
         super().__init__(ast)
         self.type = ast.t
         self.expr = ast.left
         self.op = ast.op
 
-    def compile(self, ctx: CompileContext):
-        yield from self.expr.compile(ctx)
-        if self.op == "::":
-            ctx.emit(Pop(Register.acc1(self.expr.size)))
-            ctx.emit(Resize(Register.acc1(self.expr.size, self.expr.type.sign),
-                            Register.acc1(self.size, self.type.sign)))
-            ctx.emit(Push(Register.acc1(self.size)))
+    def compile_to(self, ctx: CompileContext, to: Register):
+        with ctx.reg(self.expr.size) as res:
+            yield from self.expr.compile_to(ctx, res)
+            if self.op == "::":
+                ctx.emit(Resize(res, to))
+            else:
+                ctx.emit(Mov(to, res))
 
 
-class FunctionCallOp(BaseObject):
-    def __init__(self, ast):
+class FunctionCallOp(ExpressionObject):
+    def __init__(self, ast: AST):
         super().__init__(ast)
         self.fun = ast.left
-        self.args: Iterable[Variable] = ast.args
+        self.args: Iterable[BaseObject] = ast.args
 
     @property
     def type(self):
         return self.fun.returns
 
-    def compile(self, ctx: CompileContext):
+    def compile_to(self, ctx: CompileContext, to: Register):
         for arg in self.args:
-            yield from arg.compile(ctx)
+            with ctx.reg(arg.size) as res:
+                yield from arg.compile_to(ctx, res)
+                ctx.emit(Push(res))
         yield from self.fun.compile(ctx)
-        ctx.emit(Call())
-        expr = OpRegister.stackptr(2) - sum(i.size for i in self.args)
-        for i in expr.emit():
-            ctx.emit(i)
-        ctx.emit(Pop(Register.stackptr(2)))  # stackptr is 2 bytes
-        ctx.emit(Push(Register.ret(self.size)))
+        ctx.emit(Call(sum(i.size for i in self.args)))
+        ctx.emit(Mov(to, NamedRegister.ret(self.size)))
 
 
-class ArrayIndexOp(BaseObject):
-    def __init__(self, ast):
+class ArrayIndexOp(ExpressionObject):
+    def __init__(self, ast: AST):
         super().__init__(ast)
         self.arg = ast.left
         self.offset = ast.args
@@ -76,24 +74,26 @@ class ArrayIndexOp(BaseObject):
     def type(self):
         return self.arg.type.to  # extract pointer
 
-    def load_lvalue(self, ctx: CompileContext):  # Our lvalue is the memory to dereference
+    # Our lvalue is the memory to dereference
+    def load_lvalue_to(self, ctx: CompileContext, to: Register):
         with ctx.context(self):
-            yield from self.arg.compile(ctx)
-            yield from self.offset.compile(ctx)
-            ctx.emit(Pop(Register.acc1(self.offset.size)))
-            ctx.emit(Pop(Register.acc2(self.arg.size)))
-            expr = OpRegister.acc1(self.offset.size) + OpRegister.acc2(self.arg.size)
-            for i in expr.emit():
-                ctx.emit(i)
+            with ctx.reg(self.arg.size) as argres:
+                with ctx.reg(self.offset.size) as offres:
+                    yield from self.arg.compile_to(ctx, argres)
+                    yield from self.offset.compile_to(ctx, offres)
+                    if self.offset.size != self.arg.size:  # resize to ptr size
+                        ctx.emit(Resize(offres, offres.resize(self.arg.size)))
+                    ctx.emit(Binary(argres, offres, '+'))
+                    ctx.emit(Mov(to, NamedRegister.acc1(self.arg.size)))
 
-    def compile(self, ctx: CompileContext):
-        yield from self.load_lvalue(ctx)
-        ctx.emit(Pop(Register.acc1(max(self.arg.size, self.offset.size))))
-        ctx.emit(Push(Dereference(Register.acc1(self.size))))
+    def compile_to(self, ctx: CompileContext, to: Register):
+        with ctx.reg(self.arg.size) as ptr:
+            yield from self.load_lvalue_to(ctx, ptr)
+            ctx.emit(Mov(to, Dereference(ptr)))
 
 
 class PostIncrementOp(BaseObject):
-    def __init__(self, ast):
+    def __init__(self, ast: AST):
         super().__init__(ast)
         self.arg = ast.left
         self.op = ast.op
@@ -102,14 +102,10 @@ class PostIncrementOp(BaseObject):
     def type(self):
         return self.arg.type.to  # pointer type
 
-    def compile(self, ctx: CompileContext):
-        pointer_reg = Register.acc1(self.arg.size)
-        value_reg = Register.acc2(self.size)
-        yield from self.arg.load_lvalue(ctx)
-        ctx.emit(Pop(pointer_reg))
-        # copy the current value, to size is the size of what's pointed to
-        ctx.emit(Mov(value_reg, Dereference(pointer_reg)))
-        ctx.emit(Push(value_reg))
-        ctx.emit(Binary(value_reg, 1, self.op[0]))
-        ctx.emit(Mov(Dereference(pointer_reg), value_reg))
-        # value is left on stack unmodified
+    def compile_to(self, ctx: CompileContext, to: Register):
+        with ctx.reg((self.arg.size, self.size)) as (ptr, temp):
+            yield from self.arg.load_lvalue_to(ctx, ptr)
+            ctx.emit(Mov(temp, Dereference(ptr)))
+            ctx.emit(Binary(temp, Immediate(1, self.size), self.op[0]))
+            ctx.emit(Mov(Dereference(ptr), NamedRegister.acc1(self.size)))
+            ctx.emit(Mov(to, temp))
