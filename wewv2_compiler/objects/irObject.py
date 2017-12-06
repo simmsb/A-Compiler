@@ -134,15 +134,24 @@ class Unary(IRObject):
 
 
 class Binary(IRObject):
-    def __init__(self, left, right, op: str):
+    """Binary operation.
+
+    valid ops:
+    add, sub, mul, div, etc etc.
+
+    if :param to: is not provided, defaults to :param left:
+    """
+
+    def __init__(self, left, right, op: str, to=None):
         super().__init__()
         self.left = left
         self.right = right
         self.op = op
+        self.to = to or left
 
     @classmethod
     def __getattr__(cls, attr):
-        return lambda left, right: cls(left, right, attr)
+        return lambda left, right, to=None: cls(left, right, attr, to)
 
 
 class Push(IRObject):

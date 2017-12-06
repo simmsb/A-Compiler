@@ -1,10 +1,10 @@
+import types
 from typing import Iterable
-
-from tatsu.ast import AST
 
 from base import BaseObject, CompileContext, ExpressionObject
 from irObject import (Binary, Call, Dereference, Immediate, Mov, NamedRegister,
                       Push, Register, Resize)
+from tatsu.ast import AST
 
 
 def unary_prefix(ast: AST):
@@ -25,8 +25,46 @@ def unary_postfix(ast: AST):
         "f": FunctionCallOp,
         "b": ArrayIndexOp,
         "d": PostIncrementOp,
-        "c": CastExprOP  # TODO: this
+        "c": CastExprOP
     }[ast.type](ast)
+
+
+class PreincrementOP(ExpressionObject):
+    def __init__(self, ast: AST):
+        super().__init__(ast)
+        self.val: ExpressionObject = ast.right
+        self.op = ast.op
+
+    @property
+    def type(self):
+        return self.val.type
+
+    def load_lvalue_to(self, ctx: CompileContext, to: Register):
+        yield from self.val.load_lvalue_to(ctx, to)
+
+    def compile_to(self, ctx: CompileContext, to: Register):
+        with ctx.reg(self.pointer_to.size) as res:
+            yield from self.load_lvalue_to(res)
+            ctx.emit(Mov(to, Dereference(res)))
+            ctx.emit(Binary.add(to, Immediate(1, to.size)))
+            ctx.emit(Mov(Dereference(res), to))
+
+
+class DereferenceOP(ExpressionObject):
+    def __init__(self, ast: AST):
+        super().__init__(ast)
+        self.val = ast.right
+
+    @property
+    def type(self):
+        return self.val.type.to
+
+    def load_lvalue_to(self, ctx: CompileContext, to: Register):
+        yield from self.val.compile_to(ctx, to)
+
+    def compile_to(self, ctx: CompileContext, to: Register):
+        yield from self.load_lvalue_to(ctx, to)
+        ctx.emit(Mov(to, Dereference(to)))
 
 
 class CastExprOP(ExpressionObject):
@@ -84,8 +122,7 @@ class ArrayIndexOp(ExpressionObject):
                 # resize to ptr size, we dont want this to grow XXX THINK
                 if self.offset.size != self.arg.size:
                     ctx.emit(Resize(offres, offres.resize(self.arg.size)))
-                ctx.emit(Binary(argres, offres, '+'))
-                ctx.emit(Mov(to, NamedRegister.acc1(self.arg.size)))
+                ctx.emit(Binary.add(argres, offres, to))
 
     def compile_to(self, ctx: CompileContext, to: Register):
         with ctx.reg(self.arg.size) as ptr:
@@ -93,20 +130,21 @@ class ArrayIndexOp(ExpressionObject):
             ctx.emit(Mov(to, Dereference(ptr)))
 
 
-class PostIncrementOp(BaseObject):
+class PostIncrementOp(ExpressionObject):
     def __init__(self, ast: AST):
         super().__init__(ast)
         self.arg = ast.left
-        self.op = ast.op
+        self.op = {"++": "add",
+                   "--": "sub"}[ast.op]
 
     @property
     def type(self):
-        return self.arg.type.to  # pointer type
+        return self.arg.type
 
     def compile_to(self, ctx: CompileContext, to: Register):
-        with ctx.reg((self.arg.size, self.size)) as (ptr, temp):
+        with ctx.reg((self.pointer_to.size, self.size, self.size)) as (ptr, temp):
             yield from self.arg.load_lvalue_to(ctx, ptr)
             ctx.emit(Mov(temp, Dereference(ptr)))
-            ctx.emit(Binary(temp, Immediate(1, self.size), self.op[0]))
-            ctx.emit(Mov(Dereference(ptr), NamedRegister.acc1(self.size)))
+            ctx.emit(Binary(temp, Immediate(1, self.size), self.op[0], to))
+            ctx.emit(Mov(Dereference(ptr), temp))
             ctx.emit(Mov(to, temp))

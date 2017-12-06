@@ -4,7 +4,6 @@ from typing import Dict, List, Optional, Tuple, Union
 
 from tatsu.ast import AST
 from tatsu.infos import ParseInfo
-
 from wewv2_compiler.objects import types
 from wewv2_compiler.objects.irObject import Epilog, IRObject, Pop, Register
 
@@ -137,6 +136,10 @@ class ExpressionObject(BaseObject):
     @property
     def size(self):
         return self.type.size
+
+    @property
+    def pointer_to(self):
+        return types.Pointer(self.type)
 
     def compile_to(self, ctx: 'CompileContext', to: Register):
         """Compiles to a location instead of pushing to the stack."""
