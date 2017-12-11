@@ -1,27 +1,30 @@
 import types
 
+from base import BaseObject, CompileContext, ExpressionObject, ObjectRequest
+from irObject import Immediate, LoadVar, Mov, Register
 from tatsu.ast import AST
 
-from base import BaseObject, CompileContext, ObjectRequest
-from irObject import Immediate, LoadVar, Mov, Register
 
-
-def is_constant_expression(obj: BaseObject) -> bool:
+def is_constant_expression(obj: ExpressionObject) -> bool:
     return isinstance(obj, (IntegerLiteral, StringLiteral))
 
 
-class IntegerLiteral(BaseObject):
+class IntegerLiteral(ExpressionObject):
     def __init__(self, ast: AST):
         super().__init__(ast)
         self.lit: int = ast.val
-        self.type: types.Int = ast.type
+        self._type = ast.type
+
+    @property
+    def type(self):
+        return self._type
 
     @property
     def bytes(self):
         return self.lit.to_bytes(self.type.size, "little", signed=self.type.signed)
 
-    def compile_to(self, ctx: CompileContext, reg: Register):
-        ctx.emit(Mov(reg, Immediate(self.lit, self.size)))
+    def compile_to(self, ctx: CompileContext, to: Register):
+        ctx.emit(Mov(to, Immediate(self.lit, self.size)))
 
 
 class StringLiteral(BaseObject):

@@ -131,7 +131,7 @@ class ExpressionObject(BaseObject):
 
     @property
     def type(self):
-        return NotImplemented
+        raise NotImplementedError
 
     @property
     def size(self):
@@ -143,9 +143,7 @@ class ExpressionObject(BaseObject):
 
     def compile_to(self, ctx: 'CompileContext', to: Register):
         """Compiles to a location instead of pushing to the stack."""
-        yield from self.compile(ctx)
-        ctx.emit(Pop(to))
-        # just hope the optimiser will eliminate this.
+        raise NotImplementedError
 
     def load_lvalue_to(self, ctx: 'CompileContext', to: Register):  # pylint: disable=unused-argument
         raise self.error(f"Object of type <{self.__class__.__name__}> Holds no LValue information.")
@@ -179,8 +177,12 @@ class Scope(StatementObject):
     def __init__(self, ast):
         super().__init__(ast)
         self.vars: Dict[str, Variable] = {}
-        self.size = 0
+        self._size = 0
         self.body = ast.body
+
+    @property
+    def size(self):
+        return self._size
 
     def lookup_variable(self, name: str) -> Variable:
         return self.vars.get(name)

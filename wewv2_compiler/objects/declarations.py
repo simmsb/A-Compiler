@@ -1,7 +1,6 @@
 import types
 
 from tatsu.ast import AST
-
 from wewv2_compiler.objects.base import CompileContext, Scope, Variable
 from wewv2_compiler.objects.irObject import (Dereference, Mov, Pop, Prelude,
                                              Push, Register, Return)
@@ -28,8 +27,12 @@ class FunctionDeclare(Scope):
         super().__init__(ast)
         self.name = ast.name
         self.params = [Variable(i.identifier, i.type) for i in ast.params]
-        self.type = types.Function(ast.r, [i.t for i in ast.params], True)
+        self._type = types.Function(ast.r, [i.t for i in ast.params], True)
         # should functions be naturally const?
+
+    @property
+    def type(self):
+        return self._type
 
     @property
     def identifier(self) -> str:
