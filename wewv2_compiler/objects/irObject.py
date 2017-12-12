@@ -188,8 +188,9 @@ class Return(IRObject):
 class Call(IRObject):
     """Jump to location, push return address."""
 
-    def __init__(self, argsize: int):
+    def __init__(self, argsize: int, jump: Register):
         self.argsize = argsize
+        self.jump = jump
 
 
 class Resize(IRObject):

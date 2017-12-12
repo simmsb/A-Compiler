@@ -3,7 +3,7 @@ from typing import Iterable
 
 from base import BaseObject, CompileContext, ExpressionObject
 from irObject import (Binary, Call, Dereference, Immediate, Mov, NamedRegister,
-                      Push, Register, Resize)
+                      Push, Register, Resize, Unary)
 from tatsu.ast import AST
 
 
@@ -13,11 +13,23 @@ def unary_prefix(ast: AST):
         "*": DereferenceOP,
         "++": PreincrementOP,
         "--": PreincrementOP,
-        "~": BitwiseNegateOP,
-        "!": LogicalNegateOP,
-        "-": NumericalNegateOp,
-        "+": NumericAddOP
+        "~": UnaryOP,
+        "!": UnaryOP,
+        "-": UnaryOP,
+        "+": UnaryOP
     }[ast.op](ast)
+
+
+class UnaryOP(ExpressionObject):
+    def __init__(self, ast: AST):
+        super().__init__(ast)
+        self.op = ast.op
+        self.expr = ast.right
+
+    def compile(self, ctx: CompileContext) -> Register:
+        reg = yield from self.expr.compile(ctx)
+        ctx.emit(Unary(reg, self.op))
+        return reg
 
 
 def unary_postfix(ast: AST):
@@ -99,11 +111,10 @@ class FunctionCallOp(ExpressionObject):
 
     def compile(self, ctx: CompileContext) -> Register:
         for arg in self.args:
-            res = ctx.get_register(arg.size)
-            yield from arg.compile_to(ctx, res)
+            res = yield from arg.compile(ctx)
             ctx.emit(Push(res))
-        yield from self.fun.compile(ctx)
-        ctx.emit(Call(sum(i.size for i in self.args)))
+        res = yield from self.fun.compile(ctx)
+        ctx.emit(Call(sum(i.size for i in self.args), res))
         reg = ctx.get_register(self.size)
         ctx.emit(Mov(reg, NamedRegister.ret(self.size)))
         return reg
