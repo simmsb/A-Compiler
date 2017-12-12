@@ -13,8 +13,13 @@ class NotFinished(Exception):
     pass
 
 
+class CompileException(Exception):
+    pass
+
 # XXX: If we have many of these just use a tuple api instead
 # (req.object_request, "name") or something nice like that
+
+
 class ObjectRequest:
     """Request an object that might not be compiled yet."""
 
@@ -53,17 +58,17 @@ class BaseObject(metaclass=ApplyMethodMeta):
     """Base class of compilables."""
 
     def __init__(self, ast: AST):
-        self.__ast = ast
-        self.__info: ParseInfo = ast.parseinfo
+        self._ast = ast
+        self._info: ParseInfo = ast.parseinfo
 
     @property
     def identifier(self) -> str:
-        info = self.__info
+        info = self._info
         return f"{info.line:info.pos:info.endpos}"
 
     @property
     def highlight_lines(self) -> str:
-        info = self.__info
+        info = self._info
         startl, endl = info.line, info.endline
         startp, endp = info.pos, info.endpos
 
@@ -99,7 +104,7 @@ class BaseObject(metaclass=ApplyMethodMeta):
         return "\n".join(fmtr())
 
     def make_error(self, reason: str) -> str:
-        info = self.__info
+        info = self._info
         startl, endl = info.line, info.endline
 
         return ("Compilation error {}.\n"
@@ -108,7 +113,7 @@ class BaseObject(metaclass=ApplyMethodMeta):
                                  self.highlight_lines)
 
     def error(self, reason, *args, **kwargs):
-        return Exception(self.make_error(reason), *args, **kwargs)
+        return CompileException(self.make_error(reason), *args, **kwargs)
 
 
 class StatementObject(BaseObject):
@@ -125,9 +130,9 @@ class StatementObject(BaseObject):
 class ExpressionObject(BaseObject):
     """Derived base ast for expressions."""
 
-    _meta_fns = (("compile_to", make_generator),
-                 ("compile_to", wrap_add_compile_context),
-                 ("load_lvalue_to", make_generator))
+    _meta_fns = (("compile", make_generator),
+                 ("compile", wrap_add_compile_context),
+                 ("load_lvalue", make_generator))
 
     @property
     def type(self):
@@ -141,11 +146,12 @@ class ExpressionObject(BaseObject):
     def pointer_to(self):
         return types.Pointer(self.type)
 
-    def compile_to(self, ctx: 'CompileContext', to: Register):
-        """Compiles to a location instead of pushing to the stack."""
+    def compile(self, ctx: 'CompileContext') -> Register:
+        """Compiles an expression returning the register the result was placed in."""
         raise NotImplementedError
 
-    def load_lvalue_to(self, ctx: 'CompileContext', to: Register):  # pylint: disable=unused-argument
+    def load_lvalue(self, ctx: 'CompileContext') -> Register:  # pylint: disable=unused-argument
+        """Load the lvalue of an expression, returning the register the value was placed in."""
         raise self.error(f"Object of type <{self.__class__.__name__}> Holds no LValue information.")
 
 
@@ -280,15 +286,15 @@ class Compiler:
         :param to_send: Initial value to send to generator.
         """
         if hasattr(obj, "_context"):
-            ctx = obj._context
+            ctx = obj._context  # pylint: disable=protected-access
         else:
             ctx = CompileContext(self)  # if we already have a context
 
         if hasattr(obj, "_coro"):
-            coro = obj._coro
+            coro = obj._coro  # pylint: disable=protected-access
         else:
             coro = obj.compile(ctx)
-            obj._coro = coro
+            obj._coro = coro  # pylint: disable=protected-access
         while True:
             try:
                 r = coro.send(to_send)
@@ -326,8 +332,10 @@ class Compiler:
                 to_wake = self.waiting_coros.pop(i.identifier, ())
                 objects.extend((o, i) for o in to_wake)
                 self.compiled_objects[i.identifier] = i
-        for k, i in self.waiting_coros.items():
-            print(i.make_error(f"This object is waiting on name {k} which never compiled."))
+        if self.waiting_coros:
+            for k, i in self.waiting_coros.items():
+                print(i.make_error(f"This object is waiting on name {k} which never compiled."))
+            raise CompileException("code remaining that was waiting on something that never appeared.")
 
 
 class CompileContext:
@@ -372,24 +380,11 @@ class CompileContext:
         yield
         self.object_stack.pop()
 
-    @contextmanager
-    def reg(self, size: Union[int, Tuple[int]],
-            sign: Union[bool, Tuple[bool]]=False) -> Union[Register, Tuple[Register]]:
-        """Get a register of required size
-
-        :param size: Size of register(s) to get.
-        :param sign: Sign of register(s) to get.
-        """
-        if isinstance(size, int):
-            size = (size,)
-        if isinstance(sign, bool):
-            sign = (sign,)
-        sign += (False,) * (len(size) - len(sign))
-        regs = tuple(Register(self.regs_used + i, si, sg) for i, (si, sg) in
-                     enumerate(zip(size, sign)))
-        self.regs_used += len(size)
-        yield regs[0] if len(regs) == 1 else regs
-        self.regs_used -= len(size)
+    def get_register(self, size: int, sign: bool=False):
+        """Get a unique register."""
+        reg = Register(self.regs_used, size, sign)
+        self.regs_used += 1
+        return reg
 
     def lookup_variable(self, name: str) -> Variable:
         """Lookup a identifier in parent scope stack."""

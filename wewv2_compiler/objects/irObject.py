@@ -20,6 +20,8 @@ class Register:
 
     def resize(self, new_size: int=None, new_sign: bool=None) -> 'Register':
         """Get a resized copy of this register."""
+        self.size = new_size or self.size
+        self.sign = new_sign or self.sign
         return Register(self.reg, new_size or self.size,
                         new_sign or self.sign)
 

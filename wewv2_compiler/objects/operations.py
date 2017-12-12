@@ -39,15 +39,16 @@ class PreincrementOP(ExpressionObject):
     def type(self):
         return self.val.type
 
-    def load_lvalue_to(self, ctx: CompileContext, to: Register):
-        yield from self.val.load_lvalue_to(ctx, to)
+    def load_lvalue(self, ctx: CompileContext) -> Register:
+        return (yield from self.val.load_lvalue(ctx))
 
-    def compile_to(self, ctx: CompileContext, to: Register):
-        with ctx.reg(self.pointer_to.size) as res:
-            yield from self.load_lvalue_to(res)
-            ctx.emit(Mov(to, Dereference(res)))
-            ctx.emit(Binary.add(to, Immediate(1, to.size)))
-            ctx.emit(Mov(Dereference(res), to))
+    def compile(self, ctx: CompileContext) -> Register:
+        ptr = yield from self.load_lvalue(ctx)
+        tmp = ctx.get_register(self.size)
+        ctx.emit(Mov(tmp, Dereference(ptr)))
+        ctx.emit(Binary.add(tmp, Immediate(1, tmp.size)))
+        ctx.emit(Mov(Dereference(ptr), tmp))
+        return tmp
 
 
 class DereferenceOP(ExpressionObject):
@@ -59,12 +60,14 @@ class DereferenceOP(ExpressionObject):
     def type(self):
         return self.val.type.to
 
-    def load_lvalue_to(self, ctx: CompileContext, to: Register):
-        yield from self.val.compile_to(ctx, to)
+    def load_lvalue(self, ctx: CompileContext) -> Register:
+        return self.val.compile(ctx)
 
-    def compile_to(self, ctx: CompileContext, to: Register):
-        yield from self.load_lvalue_to(ctx, to)
-        ctx.emit(Mov(to, Dereference(to)))
+    def compile(self, ctx: CompileContext) -> Register:
+        ptr = yield from self.load_lvalue(ctx)
+        reg = ctx.get_register(self.size)
+        ctx.emit(Mov(reg, Dereference(ptr)))
+        return reg
 
 
 class CastExprOP(ExpressionObject):
@@ -74,13 +77,14 @@ class CastExprOP(ExpressionObject):
         self.expr = ast.left
         self.op = ast.op
 
-    def compile_to(self, ctx: CompileContext, to: Register):
-        with ctx.reg(self.expr.size) as res:
-            yield from self.expr.compile_to(ctx, res)
-            if self.op == "::":
-                ctx.emit(Resize(res, to))
-            else:
-                ctx.emit(Mov(to, res))
+    def compile(self, ctx: CompileContext) -> Register:
+        reg = yield from self.expr.compile(ctx)
+        res = reg.resize(self.type.size, self.type.sign)
+        if self.op == "::":
+            ctx.emit(Resize(reg, res))  # emit resize operation
+        else:
+            ctx.emit(Mov(res, reg))  # standard move, no entension
+        return res
 
 
 class FunctionCallOp(ExpressionObject):
@@ -93,14 +97,16 @@ class FunctionCallOp(ExpressionObject):
     def type(self):
         return self.fun.returns
 
-    def compile_to(self, ctx: CompileContext, to: Register):
+    def compile(self, ctx: CompileContext) -> Register:
         for arg in self.args:
-            with ctx.reg(arg.size) as res:
-                yield from arg.compile_to(ctx, res)
-                ctx.emit(Push(res))
+            res = ctx.get_register(arg.size)
+            yield from arg.compile_to(ctx, res)
+            ctx.emit(Push(res))
         yield from self.fun.compile(ctx)
         ctx.emit(Call(sum(i.size for i in self.args)))
-        ctx.emit(Mov(to, NamedRegister.ret(self.size)))
+        reg = ctx.get_register(self.size)
+        ctx.emit(Mov(reg, NamedRegister.ret(self.size)))
+        return reg
 
 
 class ArrayIndexOp(ExpressionObject):
@@ -114,20 +120,21 @@ class ArrayIndexOp(ExpressionObject):
         return self.arg.type.to  # extract pointer
 
     # Our lvalue is the memory to dereference
-    def load_lvalue_to(self, ctx: CompileContext, to: Register):
-        with ctx.context(self):
-            with ctx.reg((self.arg.size, self.offset.size)) as (argres, offres):
-                yield from self.arg.compile_to(ctx, argres)
-                yield from self.offset.compile_to(ctx, offres)
-                # resize to ptr size, we dont want this to grow XXX THINK
-                if self.offset.size != self.arg.size:
-                    ctx.emit(Resize(offres, offres.resize(self.arg.size)))
-                ctx.emit(Binary.add(argres, offres, to))
+    def load_lvalue(self, ctx: CompileContext) -> Register:
+        argres = yield from self.arg.compile(ctx)
+        offres = yield from self.offset.compile(ctx)
+        # resize to ptr size
+        if self.offset.size != self.arg.size:
+            offres0 = offres.resize(self.arg.size)
+            ctx.emit(Resize(offres, offres0))
+            offres = offres0
+        res = ctx.get_register(self.size)
+        ctx.emit(Binary.add(argres, offres, res))
+        return res
 
-    def compile_to(self, ctx: CompileContext, to: Register):
-        with ctx.reg(self.arg.size) as ptr:
-            yield from self.load_lvalue_to(ctx, ptr)
-            ctx.emit(Mov(to, Dereference(ptr)))
+    def compile(self, ctx: CompileContext) -> Register:
+        ptr = yield from self.load_lvalue(ctx)
+        ctx.emit(Mov(ptr.resize(self.size), Dereference(ptr)))
 
 
 class PostIncrementOp(ExpressionObject):
@@ -141,10 +148,10 @@ class PostIncrementOp(ExpressionObject):
     def type(self):
         return self.arg.type
 
-    def compile_to(self, ctx: CompileContext, to: Register):
-        with ctx.reg((self.pointer_to.size, self.size, self.size)) as (ptr, temp):
-            yield from self.arg.load_lvalue_to(ctx, ptr)
-            ctx.emit(Mov(temp, Dereference(ptr)))
-            ctx.emit(Binary(temp, Immediate(1, self.size), self.op[0], to))
-            ctx.emit(Mov(Dereference(ptr), temp))
-            ctx.emit(Mov(to, temp))
+    def compile(self, ctx: CompileContext) -> Register:
+        ptr = yield from self.arg.load_lvalue(ctx)
+        res, temp = ctx.get_register(self.size), ctx.get_register(self.size)
+        ctx.emit(Mov(res, Dereference(ptr)))
+        ctx.emit(Binary(res, Immediate(1, self.size), self.op[0], temp))
+        ctx.emit(Mov(Dereference(ptr), temp))
+        return res

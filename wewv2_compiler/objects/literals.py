@@ -1,7 +1,7 @@
 import types
 
 from base import BaseObject, CompileContext, ExpressionObject, ObjectRequest
-from irObject import Immediate, LoadVar, Mov, Register
+from irObject import Dereference, Immediate, LoadVar, Mov, Register
 from tatsu.ast import AST
 
 
@@ -23,11 +23,13 @@ class IntegerLiteral(ExpressionObject):
     def bytes(self):
         return self.lit.to_bytes(self.type.size, "little", signed=self.type.signed)
 
-    def compile_to(self, ctx: CompileContext, to: Register):
-        ctx.emit(Mov(to, Immediate(self.lit, self.size)))
+    def compile(self, ctx: CompileContext) -> Register:
+        reg = ctx.get_register(self.size, self.lit.sign)
+        ctx.emit(Mov(reg, Immediate(self.lit, self.size)))
+        return reg
 
 
-class StringLiteral(BaseObject):
+class StringLiteral(ExpressionObject):
 
     type = types.string_lit
 
@@ -35,23 +37,32 @@ class StringLiteral(BaseObject):
         super().__init__(ast)
         self.lit = ast.str
 
-    def compile_to(self, ctx: CompileContext, to: Register):
+    def compile(self, ctx: CompileContext) -> Register:
         var = ctx.compiler.add_string(self.lit)
-        ctx.emit(LoadVar(var, to))
+        reg = ctx.get_register(self.type.size)
+        ctx.emit(LoadVar(var, reg))
+        return reg
 
 
-class Identifier(BaseObject):
+class Identifier(ExpressionObject):
     def __init__(self, ast: AST):
         super().__init__(ast)
         self.name = ast.identifier
 
-    def compile_to(self, ctx: CompileContext, to: Register):
+    def load_lvalue(self, ctx: CompileContext) -> Register:
         var = yield ObjectRequest(self.name)
-        to.size = var.size  # XXX: hmmmmm
-        ctx.emit(LoadVar(var, to))
+        reg = ctx.get_register(var.size, var.sign)
+        ctx.emit(LoadVar(var, reg))
+        return reg, var
+
+    def compile(self, ctx: CompileContext) -> Register:
+        reg, var = yield from self.load_lvalue_to(ctx)
+        rego = reg.resize(var.size, var.sign)
+        ctx.emit(Mov(rego, Dereference(reg)))
+        return rego
 
 
-class ArrayLiteral(BaseObject):
+class ArrayLiteral(ExpressionObject):
     def __init__(self, ast: AST):
         super().__init__(ast)
         self.exprs = ast.obj
@@ -63,7 +74,7 @@ class ArrayLiteral(BaseObject):
     def type(self):
         return types.Pointer(self.exprs[0].type)
 
-    def compile_to(self, ctx: CompileContext, to: Register):
+    def compile_to(self, ctx: CompileContext) -> Register:
         #  this is only run if we're not in the form of a array initialisation.
         #  check that everything is a constant
         if not all(map(is_constant_expression, self.exprs)):
@@ -74,7 +85,9 @@ class ArrayLiteral(BaseObject):
         elif isinstance(self.type.to, types.string_lit):
             vars = [ctx.compiler.add_string(i.lit) for i in self.exprs]
             var = ctx.compiler.add_array(vars)
-        ctx.emit(LoadVar(var, to))
+        reg = ctx.get_register(var.size)
+        ctx.emit(LoadVar(var, reg))
+        return reg
 
 
 def char_literal(ast):
