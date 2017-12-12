@@ -80,12 +80,16 @@ class IRObject:
         self.jumps_to = []
         self.owner = None
 
+    def add_jump_to(self, from: 'IRObject'):
+        self.jumps_from.append(from)
+        from.jumps_to.append(self)
+
     def take_jumps_from(self, other: 'IRObject'):
         """Take all the jumps from another objects and make them owned by this."""
         for i in other.jumps_from:
             i.jumps_to.remove(self)
             i.jumps_to.append(self)
-        self.jumps_from = other.jumps_from
+        self.jumps_from.extend(other.jumps_from)
         other.jumps_from = []
 
     def __str__(self):

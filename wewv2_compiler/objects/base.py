@@ -398,3 +398,4 @@ class CompileContext:
         """Emit an IR instruction."""
         instr.parent = self.current_object
         self.code.append(instr)
+        return instr
