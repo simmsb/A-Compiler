@@ -1,9 +1,12 @@
 import types
+from typing import Optional
 
 from tatsu.ast import AST
-from wewv2_compiler.objects.base import CompileContext, Scope, Variable
+from wewv2_compiler.objects.base import (CompileContext, ExpressionObject,
+                                         Scope, StatementObject, Variable)
 from wewv2_compiler.objects.irObject import (Dereference, Mov, Pop, Prelude,
-                                             Push, Register, Return)
+                                             Push, Register, Return, SaveVar)
+from wewv2_compiler.objects.types import Type
 
 
 class FunctionDeclare(Scope):
@@ -47,3 +50,30 @@ class FunctionDeclare(Scope):
         ctx.emit(Prelude())
         yield from super().compile(ctx)
         ctx.emit(Return())
+
+
+class VariableDecl(StatementObject):
+
+    def __init__(self, ast: AST):
+        super().__init__(ast)
+        self.name = ast.name
+        self._type = ast.typ
+        self.val: Optional[ExpressionObject] = ast.val
+
+        if self._type == "infer":
+            self._type = self.val.type
+
+    @property
+    def type(self) -> Type:
+        return self._type
+
+    @property
+    def identifier(self) -> str:
+        return self.name
+
+    def compile(self, ctx: CompileContext):
+        var = ctx.declare_variable(self.name, self.type)
+        if isinstance(self.val, ExpressionObject):
+            reg = yield from self.val.compile(ctx)
+            ctx.emit(SaveVar(var, reg))
+        # otherwise do nothing

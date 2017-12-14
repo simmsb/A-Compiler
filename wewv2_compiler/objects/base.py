@@ -183,12 +183,8 @@ class Scope(StatementObject):
     def __init__(self, ast):
         super().__init__(ast)
         self.vars: Dict[str, Variable] = {}
-        self._size = 0
+        self.size = 0
         self.body = ast.body
-
-    @property
-    def size(self):
-        return self._size
 
     def lookup_variable(self, name: str) -> Variable:
         return self.vars.get(name)
@@ -201,20 +197,21 @@ class Scope(StatementObject):
                 yield from i.compile(ctx)
             ctx.emit(Epilog(self.size))
 
-    def declare_variable(self, var: Variable):
+    def declare_variable(self, name: str, type: types.Type):
         """Add a variable to this scope.
 
         raises if variable is redeclared to a different type than the already existing var.
         """
-        ax = self.vars.get(var.name)
+        ax = self.vars.get(name)
         if ax is not None:
-            if ax.type != var.type:
+            if ax.type != type:
                 raise self.error(
-                    f"Variable {var} of type {var.type} is already declared as type {ax.type}"
+                    f"Variable {name} of type {type} is already declared as type {ax.type}"
                 )
-            return  # variable already declared but is of the same type, ignore it
+            return ax  # variable already declared but is of the same type, ignore it
 
-        self.vars[var.name] = var
+        var = Variable(name, type, self)
+        self.vars[name] = var
         var.stack_offset = self.size
         self.size += var.size
 
@@ -225,6 +222,24 @@ class Compiler:
         self.compiled_objects: Dict[str, BaseObject] = {}
         self.waiting_coros: Dict[str, BaseObject] = {}
         self.data: List[Union[str, bytes]] = []
+
+    def declare_variable(self, name: str, type: typ):
+        """Add a variable to global scope.
+
+        raises if variable is redeclared to a different type than the already existing var.
+        """
+        ax = self.compiled_objects.get(name)
+        if ax is not None:
+            if ax.type != type:
+                raise self.error(
+                    f"Variable {name} of type {type} is already declared as type {ax.type}"
+                )
+            return ax  # variable already declared but is of the same type, ignore it
+
+        var = Variable(name, type, self)
+        self.compiled_objects[name] = var
+        var.global_offset = len(self.data)
+        self.data.append(bytes((0,) * typ.size))
 
     def add_string(self, string: str) -> Variable:
         """Add a string to the object table.
@@ -354,7 +369,7 @@ class CompileContext:
         #: Output IR
         self.code: List[IRObject] = []
 
-        #: Our in-use registers
+        #: Count of registers used
         self.regs_used = 0
 
     @property
@@ -362,8 +377,9 @@ class CompileContext:
         return self.object_stack[-1]
 
     @property
-    def current_scope(self) -> Scope:
-        return self.scope_stack[-1]
+    def current_scope(self) -> Optional[Scope]:
+        if self.scope_stack:
+            return self.scope_stack[-1]
 
     @contextmanager
     def scope(self, scope: Scope):
@@ -385,6 +401,11 @@ class CompileContext:
         reg = Register(self.regs_used, size, sign)
         self.regs_used += 1
         return reg
+
+    def declare_variable(self, name: str, typ: types.Type) -> Variable:
+        if isinstance(self.current_scope, Scope):
+            return self.current_scope.declare_variable(name, typ)
+        return self.compiler.declare_variable(name, typ)
 
     def lookup_variable(self, name: str) -> Variable:
         """Lookup a identifier in parent scope stack."""

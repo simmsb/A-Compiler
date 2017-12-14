@@ -5,7 +5,7 @@
 
 @@parseinfo :: False
 
-start = {statement}+ $ ;
+start = {decl}+ $ ;
 
 base_type
   =
@@ -39,7 +39,7 @@ type
 
 statement
   =
-  ( decl
+  ( var_decl
   | scope
   | if_stmt
   | loop_stmt
@@ -79,7 +79,7 @@ fun_decl
   ;
 
 var_decl
-  = "var" ~ name:identifier init:optional_def
+  = "var" ~ name:identifier >optional_def
   ;
 
 
