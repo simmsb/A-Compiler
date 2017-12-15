@@ -231,4 +231,22 @@ class BinAddOp(BinaryExpression):
         return types.Int((yield from self.size))
 
     def compile(self, ctx: CompileContext):
-        pass  # TODO: Me
+        lhs = yield from self.left.compile(ctx)
+        rhs = yield from self.right.compile(ctx)
+
+        if lhs.size < rhs.size:
+            lhs0 = lhs.resize(rhs.size)
+            ctx.emit(Resize(lhs, lhs0))
+            lhs = lhs0
+        elif rhs.size < lhs.size:
+            rhs0 = lhs.resize(lhs.size)
+            ctx.emit(Resize(rhs, rhs0))
+            rhs = rhs0
+
+        res = ctx.get_register(lhs.size)
+
+        op = {"+": "add",
+              "-": "sub"}[self.op]
+
+        ctx.emit(Binary(lhs, rhs, op, res))
+        return res
