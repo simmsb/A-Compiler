@@ -64,20 +64,20 @@ class Pointer(Type):
 
 class Array(Type):
 
-    def __init__(self, t: Type, l: int, const: bool=False):
-        self.t = t
+    def __init__(self, to: Type, l: int, const: bool=False):
+        self.to = to
         self.length = l
         self.const = const
 
     def __eq__(self, other: Type):
         if not isinstance(other, Array):
             return False
-        return (self.t == other.t and
+        return (self.to == other.to and
                 self.length == other.length and
                 self.consts == other.const)
 
     def __str__(self):
-        tp = f"[{self.t}@{self.length}]"
+        tp = f"[{self.to}@{self.length}]"
         if self.const:
             tp = f"|{tp}|"
         return tp
@@ -85,11 +85,11 @@ class Array(Type):
     @property
     def size(self) -> int:
         # return length of array in memory
-        return self.t.size * self.length
+        return self.to.size * self.length
 
     @property
     def cellsize(self) -> int:
-        return self.t.size
+        return self.to.size
 
 
 class Function(Type):

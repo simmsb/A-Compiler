@@ -52,11 +52,11 @@ class PreincrementOP(ExpressionObject):
         return self.val.type
 
     def load_lvalue(self, ctx: CompileContext) -> Register:
-        return (yield from self.val.load_lvalue(ctx))
+        return self.val.load_lvalue(ctx)
 
     def compile(self, ctx: CompileContext) -> Register:
         ptr = yield from self.load_lvalue(ctx)
-        tmp = ctx.get_register(self.size)
+        tmp = ctx.get_register((yield from self.size))
         ctx.emit(Mov(tmp, Dereference(ptr)))
         ctx.emit(Binary.add(tmp, Immediate(1, tmp.size)))
         ctx.emit(Mov(Dereference(ptr), tmp))
@@ -70,14 +70,14 @@ class DereferenceOP(ExpressionObject):
 
     @property
     def type(self):
-        return self.val.type.to
+        return (yield from self.val.type).to
 
     def load_lvalue(self, ctx: CompileContext) -> Register:
         return self.val.compile(ctx)
 
     def compile(self, ctx: CompileContext) -> Register:
         ptr = yield from self.load_lvalue(ctx)
-        reg = ctx.get_register(self.size)
+        reg = ctx.get_register((yield from self.size))
         ctx.emit(Mov(reg, Dereference(ptr)))
         return reg
 
@@ -85,13 +85,17 @@ class DereferenceOP(ExpressionObject):
 class CastExprOP(ExpressionObject):
     def __init__(self, ast: AST):
         super().__init__(ast)
-        self.type = ast.t
+        self._type = ast.t
         self.expr = ast.left
         self.op = ast.op
 
+    @property
+    def type(self):
+        return self._type
+
     def compile(self, ctx: CompileContext) -> Register:
         reg = yield from self.expr.compile(ctx)
-        res = reg.resize(self.type.size, self.type.sign)
+        res = reg.resize(self._type.size, self._type.sign)
         if self.op == "::":
             ctx.emit(Resize(reg, res))  # emit resize operation
         else:
@@ -107,16 +111,18 @@ class FunctionCallOp(ExpressionObject):
 
     @property
     def type(self):
-        return self.fun.returns
+        return (yield from self.fun).type.returns
 
     def compile(self, ctx: CompileContext) -> Register:
         for arg in self.args:
             res = yield from arg.compile(ctx)
             ctx.emit(Push(res))
         res = yield from self.fun.compile(ctx)
-        ctx.emit(Call(sum(i.size for i in self.args), res))
-        reg = ctx.get_register(self.size)
-        ctx.emit(Mov(reg, NamedRegister.ret(self.size)))
+        ctx.emit(Call(sum((yield from i.size) for i in self.args), res))
+
+        size = yield from self.size
+        reg = ctx.get_register(size)
+        ctx.emit(Mov(reg, NamedRegister.ret(size)))
         return reg
 
 
@@ -128,24 +134,31 @@ class ArrayIndexOp(ExpressionObject):
 
     @property
     def type(self):
-        return self.arg.type.to  # extract pointer
+        return (yield from self.arg.type).to  # extract pointer
 
     # Our lvalue is the memory to dereference
     def load_lvalue(self, ctx: CompileContext) -> Register:
+        atype = yield from self.arg.type
+        if not isinstance(atype, (types.Pointer, types.Array)):
+            raise self.error(f"Incompatible type to array index base {atype}")
+
         argres = yield from self.arg.compile(ctx)
         offres = yield from self.offset.compile(ctx)
-        # resize to ptr size
-        if self.offset.size != self.arg.size:
-            offres0 = offres.resize(self.arg.size)
-            ctx.emit(Resize(offres, offres0))
-            offres = offres0
-        res = ctx.get_register(self.size)
+
+        size = yield from self.size
+
+        offres0 = offres.resize(argres.size)  # resize pointer correctly
+        ctx.emit(Resize(offres, offres0))
+        offres = offres0
+
+        res = ctx.get_register(size)
+        ctx.emit(Binary.mul(offres, size))  # what to do what to do
         ctx.emit(Binary.add(argres, offres, res))
         return res
 
     def compile(self, ctx: CompileContext) -> Register:
         ptr = yield from self.load_lvalue(ctx)
-        ctx.emit(Mov(ptr.resize(self.size), Dereference(ptr)))
+        ctx.emit(Mov(ptr.resize((yield from self.size)), Dereference(ptr)))
 
 
 class PostIncrementOp(ExpressionObject):
@@ -161,8 +174,61 @@ class PostIncrementOp(ExpressionObject):
 
     def compile(self, ctx: CompileContext) -> Register:
         ptr = yield from self.arg.load_lvalue(ctx)
-        res, temp = ctx.get_register(self.size), ctx.get_register(self.size)
+        size = yield from self.size
+        res, temp = ctx.get_register(size), ctx.get_register(size)
         ctx.emit(Mov(res, Dereference(ptr)))
-        ctx.emit(Binary(res, Immediate(1, self.size), self.op[0], temp))
+        ctx.emit(Binary(res, Immediate(1, size), self.op[0], temp))
         ctx.emit(Mov(Dereference(ptr), temp))
         return res
+
+
+class BinaryExpression(ExpressionObject):
+
+    _compat_types = ()
+
+    @property
+    def size(self):
+        return max((yield from self.left.size),
+                   (yield from self.right.size))
+
+    def __init__(self, ast: AST):
+        super().__init__(ast)
+        self.left = ast.left
+        self.op = ast.op
+        self.right = ast.right
+        self._type = None
+
+    def compile(self, ctx: CompileContext):
+        op = self.op
+        left = yield from self.left.type
+        right = yield from self.right.type
+        # typecheck operands here
+
+        for o, (l, r), t in self._compat_types:
+            if (isinstance(left, l)
+                and isinstance(right, r)
+                    and o == op):
+                self._type = t
+                break
+        else:
+            raise self.error(f"Incompatible types for binary {op}: {left} and {right}")
+
+
+class BinAddOp(BinaryExpression):
+
+    _compat_types = (  # maybe follow algebraic rules to reduce repetition
+        ('+', (types.Pointer, types.Int), types.Pointer),
+        ('+', (types.Int, types.Pointer), types.Pointer),
+        ('+', (types.Int, types.Int), types.Int),
+        ('-', (types.Pointer, types.Pointer), types.Int),
+        ('-', (types.Int, types.Int), types.Int)
+    )
+
+    @property
+    def type(self):
+        if isinstance(self._type, types.Pointer):
+            return types.Pointer(types.Int((yield from self.size)))
+        return types.Int((yield from self.size))
+
+    def compile(self, ctx: CompileContext):
+        pass  # TODO: Me

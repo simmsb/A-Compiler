@@ -39,10 +39,18 @@ class ApplyMethodMeta(type):
 
 
 def make_generator(f):
+    if isinstance(f, property):
+        @wraps(f.fget)
+        def internal(*args, **kwargs):
+            return f.fget(*args, **kwargs)
+            yield
+        f.fget = internal
+        return f
+
     @wraps(f)
     def internal(*args, **kwargs):
         return f(*args, **kwargs)
-        yield  # pylint: disable=unreachable
+            yield  # pylint: disable=unreachable
     return internal
 
 
@@ -132,6 +140,9 @@ class ExpressionObject(BaseObject):
 
     _meta_fns = (("compile", make_generator),
                  ("compile", wrap_add_compile_context),
+                 ("type", make_generator)
+                 ("size", make_generator)
+                 ("pointer_to", make_generator)
                  ("load_lvalue", make_generator))
 
     @property
@@ -140,11 +151,11 @@ class ExpressionObject(BaseObject):
 
     @property
     def size(self):
-        return self.type.size
+        return (yield from self.type.size)
 
     @property
     def pointer_to(self):
-        return types.Pointer(self.type)
+        return types.Pointer(yield from self.type)
 
     def compile(self, ctx: 'CompileContext') -> Register:
         """Compiles an expression returning the register the result was placed in."""
@@ -378,7 +389,7 @@ class CompileContext:
 
     @property
     def current_scope(self) -> Optional[Scope]:
-        if self.scope_stack:
+        if self.scope_stack:  # will be empty at base level
             return self.scope_stack[-1]
 
     @contextmanager

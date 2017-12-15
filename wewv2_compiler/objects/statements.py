@@ -11,7 +11,7 @@ from wewv2_compiler.objects.literals import ArrayLiteral
 from wewv2_compiler.objects.types import Type
 
 
-class FunctionDeclare(Scope):
+class FunctionDecl(Scope):
     """Function definition object.
 
     Function definitions should expand to a declaration with assignment to a const global variable with the name of the function.
@@ -65,6 +65,9 @@ class VariableDecl(StatementObject):
         if self._type == "infer":
             self._type = self.val.type
 
+        if isinstance(self.val, ArrayLiteral):
+            self.val.to_array()
+
     @property
     def type(self) -> Type:
         return self._type
@@ -76,13 +79,12 @@ class VariableDecl(StatementObject):
     def compile(self, ctx: CompileContext):
         var = ctx.declare_variable(self.name, self.type)
         if isinstance(self.val, ArrayLiteral):
-            self.val.to_array()
             ptr = ctx.get_register(types.Pointer(self.val.type.t))
             ctx.emit(LoadVar(var, ptr, lvalue=True))
             for i in self.val.exprs:
                 res = yield from i.compile(ctx)
                 ctx.emit(Mov(Dereference(ptr), res))
-                ctx.emit(Binary(ptr, Immediate(1, types.Pointer.size), '+'))
+                ctx.emit(Binary.add(ptr, Immediate(self.size, types.Pointer.size)))
 
         if isinstance(self.val, ExpressionObject):
             reg = yield from self.val.compile(ctx)

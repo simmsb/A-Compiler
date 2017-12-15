@@ -21,26 +21,30 @@ class IntegerLiteral(ExpressionObject):
 
     @property
     def bytes(self):
-        return self.lit.to_bytes(self.type.size, "little", signed=self.type.signed)
+        typ = yield from self.type
+        return self.lit.to_bytes(typ.size, "little", signed=typ.signed)
 
     def compile(self, ctx: CompileContext) -> Register:
-        reg = ctx.get_register(self.size, self.lit.sign)
-        ctx.emit(Mov(reg, Immediate(self.lit, self.size)))
+        size = yield from self.size
+        reg = ctx.get_register(size, self.lit.sign)
+        ctx.emit(Mov(reg, Immediate(self.lit, size)))
         return reg
 
 
 class StringLiteral(ExpressionObject):
 
-    type = types.string_lit
-
     def __init__(self, ast: AST):
         super().__init__(ast)
         self.lit = ast.str
 
+    @property
+    def type(self):
+        return types.string_lit
+
     def compile(self, ctx: CompileContext) -> Register:
         var = ctx.compiler.add_string(self.lit)
-        reg = ctx.get_register(self.type.size)
-        ctx.emit(LoadVar(var, reg))
+        reg = ctx.get_register((yield from self.size))
+        ctx.emit(LoadVar(var, reg, lvalue=True))
         return reg
 
 
@@ -48,15 +52,25 @@ class Identifier(ExpressionObject):
     def __init__(self, ast: AST):
         super().__init__(ast)
         self.name = ast.identifier
+        self.var = None
+
+    @property
+    def type(self):
+        if self.var is None:
+            self.var = yield ObjectRequest(self.name)
+        return self.var.type
 
     def load_lvalue(self, ctx: CompileContext) -> Register:
-        var = yield ObjectRequest(self.name)
-        reg = ctx.get_register(var.size, var.sign)
-        ctx.emit(LoadVar(var, reg))
-        return reg, var
+        if self.var is None:
+            self.var = yield ObjectRequest(self.name)
+        reg = ctx.get_register(types.Pointer(self.var.type))
+        ctx.emit(LoadVar(self.var, reg, lvalue=True))
+        return reg, self.var
 
     def compile(self, ctx: CompileContext) -> Register:
-        reg, var = yield from self.load_lvalue_to(ctx)
+        reg, var = yield from self.load_lvalue(ctx)
+        if isinstance(var.type, types.Array):
+            return reg  # array type, value is the pointer
         rego = reg.resize(var.size, var.sign)
         ctx.emit(Mov(rego, Dereference(reg)))
         return rego
@@ -67,9 +81,6 @@ class ArrayLiteral(ExpressionObject):
         super().__init__(ast)
         self.exprs = ast.obj
 
-        if not all(i.type == self.type for i in self.exprs):
-            raise self.error(f"Conflicting array literal types.")
-
         self._type = types.Pointer(self.exprs[0].type, const=True)
 
     @property
@@ -78,19 +89,26 @@ class ArrayLiteral(ExpressionObject):
 
     def to_array(self):
         """Convert type to array object from pointer object."""
-        self._type = types.Array(self.type.to, len(self.exprs))
+        self._type = types.Array(self._type.to, len(self.exprs))
 
     def compile(self, ctx: CompileContext) -> Register:
         #  this is only run if we're not in the form of a array initialisation.
         #  check that everything is a constant
+        if not all((yield from i.type) == self._type for i in self.exprs):
+            raise self.error(f"Conflicting array literal types.")
+
         if not all(map(is_constant_expression, self.exprs)):
             raise self.error(f"Array literal terms are not constant.")
-        if isinstance(self.type.to, types.Int):
-            bytes = b''.join(i.bytes for i in self.exprs)
-            var = ctx.compiler.add_bytes(bytes)
-        elif isinstance(self.type.to, types.string_lit):
-            vars = [ctx.compiler.add_string(i.lit) for i in self.exprs]
-            var = ctx.compiler.add_array(vars)
+
+        type_ = yield from self.type
+
+        if isinstance(type_.to, types.Int):
+            bytes_ = b''.join(i.bytes for i in self.exprs)
+            var = ctx.compiler.add_bytes(bytes_)
+        elif isinstance(type_.to, types.string_lit):
+            vars_ = [ctx.compiler.add_string(i.lit) for i in self.exprs]
+            var = ctx.compiler.add_array(vars_)
+
         reg = ctx.get_register(var.size)
         ctx.emit(LoadVar(var, reg))
         return reg
