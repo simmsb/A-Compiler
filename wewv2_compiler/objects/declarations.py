@@ -4,8 +4,10 @@ from typing import Optional
 from tatsu.ast import AST
 from wewv2_compiler.objects.base import (CompileContext, ExpressionObject,
                                          Scope, StatementObject, Variable)
-from wewv2_compiler.objects.irObject import (Dereference, Mov, Pop, Prelude,
-                                             Push, Register, Return, SaveVar)
+from wewv2_compiler.objects.irObject import (Binary, Dereference, Immediate,
+                                             LoadVar, Mov, Pop, Prelude, Push,
+                                             Register, Return, SaveVar)
+from wewv2_compiler.objects.literals import ArrayLiteral
 from wewv2_compiler.objects.types import Type
 
 
@@ -73,6 +75,15 @@ class VariableDecl(StatementObject):
 
     def compile(self, ctx: CompileContext):
         var = ctx.declare_variable(self.name, self.type)
+        if isinstance(self.val, ArrayLiteral):
+            self.val.to_array()
+            ptr = ctx.get_register(types.Pointer(self.val.type.t))
+            ctx.emit(LoadVar(var, ptr, lvalue=True))
+            for i in self.val.exprs:
+                res = yield from i.compile(ctx)
+                ctx.emit(Mov(Dereference(ptr), res))
+                ctx.emit(Binary(ptr, Immediate(1, types.Pointer.size), '+'))
+
         if isinstance(self.val, ExpressionObject):
             reg = yield from self.val.compile(ctx)
             ctx.emit(SaveVar(var, reg))

@@ -64,7 +64,7 @@ class Pointer(Type):
 
 class Array(Type):
 
-    def __init__(self, t: Type, l: int, const: bool):
+    def __init__(self, t: Type, l: int, const: bool=False):
         self.t = t
         self.length = l
         self.const = const
@@ -85,7 +85,11 @@ class Array(Type):
     @property
     def size(self) -> int:
         # return length of array in memory
-        return self.t * self.length
+        return self.t.size * self.length
+
+    @property
+    def cellsize(self) -> int:
+        return self.t.size
 
 
 class Function(Type):

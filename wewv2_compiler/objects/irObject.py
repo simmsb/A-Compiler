@@ -104,10 +104,17 @@ class MakeVar(IRObject):
 
 
 class LoadVar(IRObject):
-    def __init__(self, variable, to):
+    def __init__(self, variable, to, lvalue: bool=False):
+        """Load a variable to a location.
+
+        :param variable: Variable info object.
+        :param to: Location to load to.
+        :param lvalue: If true: load the memory location, if false, load the value.
+        """
         super().__init__()
         self.variable = variable
         self.to = to
+        self.lvalue = lvalue
 
 
 class SaveVar(IRObject):

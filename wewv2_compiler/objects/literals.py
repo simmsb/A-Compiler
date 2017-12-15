@@ -70,11 +70,17 @@ class ArrayLiteral(ExpressionObject):
         if not all(i.type == self.type for i in self.exprs):
             raise self.error(f"Conflicting array literal types.")
 
+        self._type = types.Pointer(self.exprs[0].type, const=True)
+
     @property
     def type(self):
-        return types.Pointer(self.exprs[0].type)
+        return self._type
 
-    def compile_to(self, ctx: CompileContext) -> Register:
+    def to_array(self):
+        """Convert type to array object from pointer object."""
+        self._type = types.Array(self.type.to, len(self.exprs))
+
+    def compile(self, ctx: CompileContext) -> Register:
         #  this is only run if we're not in the form of a array initialisation.
         #  check that everything is a constant
         if not all(map(is_constant_expression, self.exprs)):
