@@ -1,5 +1,9 @@
+# pylint: disable=inconsistent-return-statements
+
+import inspect
 from compiler.objects import types
 from compiler.objects.ir_object import Epilog, IRObject, Prelude, Register
+from compiler.objects.statements import FunctionDecl
 from contextlib import contextmanager
 from functools import wraps
 from typing import Dict, List, Optional, Union
@@ -40,13 +44,20 @@ class ApplyMethodMeta(type):
 
 
 def make_generator(f):
+    """Make a function or a property getter a generator function."""
     if isinstance(f, property):
+        if inspect.isgeneratorfunction(f.fget):
+            return f
+
         @wraps(f.fget)
         def internal_p(*args, **kwargs):
             return f.fget(*args, **kwargs)
             yield  # pylint: disable=unreachable
 
         return property(internal_p)
+
+    if inspect.isgeneratorfunction(f):
+        return f
 
     @wraps(f)
     def internal(*args, **kwargs):
@@ -375,10 +386,9 @@ class Compiler:
                 self.compiled_objects[i.identifier] = i
         if self.waiting_coros:
             for k, i in self.waiting_coros.items():
-                print(
-                    i.make_error(
-                        f"This object is waiting on name {k} which never compiled."
-                    ))
+                print(i.make_error(
+                    f"This object is waiting on name {k} which never compiled."
+                ))
             raise CompileException(
                 "code remaining that was waiting on something that never appeared."
             )
@@ -405,10 +415,20 @@ class CompileContext:
 
     @property
     def current_object(self) -> BaseObject:
+        """Get the current object being compiled."""
         return self.object_stack[-1]
 
     @property
+    def top_function(self) -> Optional[FunctionDecl]:
+        """Get the top level object being compiled.
+        :returns: None if not compiling a function. The function node otherwise.
+        """
+        if self.object_stack and isinstance(self.object_stack[0], FunctionDecl):
+            return self.object_stack[0]
+
+    @property
     def current_scope(self) -> Optional[Scope]:
+        """Get the current active scope."""
         return self.scope_stack[-1] if self.scope_stack else None
 
     @contextmanager

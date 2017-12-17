@@ -132,8 +132,8 @@ equality
 
 relation
   =
-  left:shift op:('=<' |
-                 '=>' |
+  left:shift op:('<=' |
+                 '>=' |
                  '<'  |
                  '>'  ) ~ right:comparison
   ;

@@ -1,3 +1,4 @@
+# pylint: disable=no-self-use
 from compiler.objects.base import Scope
 from compiler.objects.literals import (ArrayLiteral, Identifier,
                                        IntegerLiteral, StringLiteral,
@@ -8,101 +9,101 @@ from compiler.objects.types import Array, Function, Int, Pointer
 
 
 class WewSemantics(object):
-    def start(self, ast):  # noqa
+    def start(self, ast):
         return ast
 
-    def base_type(self, ast):  # noqa
-        return ast
+    def base_type(self, ast):
+        return Int(ast.base_type)
 
-    def ptr_type(self, ast):  # noqa
+    def ptr_type(self, ast):
         return Pointer(ast.t)
 
-    def const_type(self, typ):  # noqa
+    def const_type(self, typ):
         typ.const = True
         return typ
 
-    def array_type(self, ast):  # noqa
+    def array_type(self, ast):
         return Array(ast.t, ast.s)
 
-    def fun_type(self, ast):  # noqa
+    def fun_type(self, ast):
         return Function(ast.r, ast.t)
 
-    def type(self, ast):  # noqa
+    def type(self, ast):
         return ast
 
-    def statement(self, ast):  # noqa
+    def statement(self, ast):
         return ast
 
-    def scope(self, ast):  # noqa
+    def scope(self, ast):
         return Scope(ast)
 
-    def if_stmt(self, ast):  # noqa
+    def if_stmt(self, ast):
         return ast
 
-    def loop_stmt(self, ast):  # noqa
+    def loop_stmt(self, ast):
         return ast
 
-    def return_stmt(self, ast):  # noqa
+    def return_stmt(self, ast):
         return ReturnStmt(ast)
 
-    def expression_stmt(self, ast):  # noqa
+    def expression_stmt(self, ast):
         return ast
 
-    def expr(self, ast):  # noqa
+    def expr(self, ast):
         return ast
 
-    def fun_decl(self, ast):  # noqa
+    def fun_decl(self, ast):
         return FunctionDecl(ast)
 
-    def var_decl(self, ast):  # noqa
+    def var_decl(self, ast):
         return VariableDecl(ast)
 
-    def optional_def(self, ast):  # noqa
+    def optional_def(self, ast):
         return ast
 
-    def decl(self, ast):  # noqa
+    def decl(self, ast):
         return ast
 
-    def assign_expr(self, ast):  # noqa
+    def assign_expr(self, ast):
         return ast
 
-    def logical(self, ast):  # noqa
+    def logical(self, ast):
         return ast
 
-    def bitwise(self, ast):  # noqa
+    def bitwise(self, ast):
         return ast
 
-    def boolean(self, ast):  # noqa
+    def boolean(self, ast):
         return ast
 
-    def comparison(self, ast):  # noqa
+    def comparison(self, ast):
         return ast
 
-    def equality(self, ast):  # noqa
+    def equality(self, ast):
         return ast
 
-    def relation(self, ast):  # noqa
+    def relation(self, ast):
         return ast
 
-    def shift(self, ast):  # noqa
+    def shift(self, ast):
         return ast
 
-    def bitshift(self, ast):  # noqa
+    def bitshift(self, ast):
         return ast
 
-    def binop(self, ast):  # noqa
+    def binop(self, ast):
         return ast
 
-    def additive(self, ast):  # noqa
+    def additive(self, ast):
         return BinAddOp(ast)
 
-    def multiplicative(self, ast):  # noqa
+    def multiplicative(self, ast):
         return ast
 
-    def multiply(self, ast):  # noqa
+    def multiply(self, ast):
         return ast
 
-    def unop(self, ast):  # noqa
+    def unop(self, ast):
         return ast
 
     def prefix(self, ast):
@@ -111,19 +112,19 @@ class WewSemantics(object):
     def postfix(self, ast):
         return unary_postfix(ast)
 
-    def postop(self, ast):  # noqa
+    def postop(self, ast):
         return ast
 
-    def singular(self, ast):  # noqa
+    def singular(self, ast):
         return ast
 
-    def subexpr(self, ast):  # noqa
+    def subexpr(self, ast):
         return ast
 
-    def literal(self, ast):  # noqa
+    def literal(self, ast):
         return ast
 
-    def arr_lit(self, ast):  # noqa
+    def arr_lit(self, ast):
         return ArrayLiteral(ast)
 
     def int_lit(self, ast):

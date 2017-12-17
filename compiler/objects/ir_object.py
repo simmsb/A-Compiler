@@ -168,6 +168,18 @@ class Binary(IRObject):
         return lambda left, right, to=None: cls(left, right, attr, to)
 
 
+class Compare(IRObject):
+    """Comparison operation.
+
+    Compares two operands and sets resultant registers.
+    """
+
+    def __init__(self, left, right):
+        super().__init__()
+        self.left = left
+        self.right = right
+
+
 class Push(IRObject):
     def __init__(self, arg):
         super().__init__()

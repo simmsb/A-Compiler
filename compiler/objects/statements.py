@@ -1,7 +1,8 @@
 from compiler.objects.base import (CompileContext, ExpressionObject, Scope,
                                    StatementObject, Variable)
 from compiler.objects.ir_object import (Binary, Dereference, Immediate,
-                                        LoadVar, Mov, Return, SaveVar)
+                                        LoadVar, Mov, Register, Resize, Return,
+                                        SaveVar)
 from compiler.objects.literals import ArrayLiteral
 from compiler.objects.types import Function, Pointer, Type
 from typing import Optional
@@ -61,11 +62,11 @@ class VariableDecl(StatementObject):
         self._type = ast.typ
         self.val: Optional[ExpressionObject] = ast.val
 
-        if self._type == "infer":
-            self._type = self.val.type
-
         if isinstance(self.val, ArrayLiteral):
             self.val.to_array()
+
+        if self._type == "infer":
+            self._type = self.val.type
 
     @property
     def type(self) -> Type:
@@ -102,7 +103,12 @@ class ReturnStmt(StatementObject):
         return self.expr.type
 
     def compile(self, ctx: CompileContext):
+        fn_type = yield from ctx.top_function.type
+        reg = yield from self.expr.compile(ctx)
         for i in reversed(ctx.scope_stack):
             ctx.emit(i.make_epilog())
-        reg = yield from self.expr.compile(ctx)
+        if reg.size != fn_type.size:
+            reg0 = reg.resize(fn_type.size)
+            ctx.emit(Resize(reg, reg0))
+            reg = reg0
         ctx.emit(Return(reg))
