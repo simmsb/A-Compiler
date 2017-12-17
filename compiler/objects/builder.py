@@ -1,10 +1,13 @@
-from wewv2_compiler.objects.literals import (ArrayLiteral, Identifier,
-                                             IntegerLiteral, StringLiteral,
-                                             char_literal)
-from wewv2_compiler.objects.operations import unary_postfix, unary_prefix
-from wewv2_compiler.objects.statements import FunctionDecl, VariableDecl
+from compiler.objects.base import Scope
+from compiler.objects.literals import (ArrayLiteral, Identifier,
+                                       IntegerLiteral, StringLiteral,
+                                       char_literal)
+from compiler.objects.operations import BinAddOp, unary_postfix, unary_prefix
+from compiler.objects.statements import FunctionDecl, ReturnStmt, VariableDecl
+from compiler.objects.types import Array, Function, Int, Pointer
 
-Class WewSemantics(object):
+
+class WewSemantics(object):
     def start(self, ast):  # noqa
         return ast
 
@@ -12,16 +15,17 @@ Class WewSemantics(object):
         return ast
 
     def ptr_type(self, ast):  # noqa
-        return ast
+        return Pointer(ast.t)
 
     def const_type(self, typ):  # noqa
         typ.const = True
+        return typ
 
     def array_type(self, ast):  # noqa
-        return ast
+        return Array(ast.t, ast.s)
 
     def fun_type(self, ast):  # noqa
-        return ast
+        return Function(ast.r, ast.t)
 
     def type(self, ast):  # noqa
         return ast
@@ -30,7 +34,7 @@ Class WewSemantics(object):
         return ast
 
     def scope(self, ast):  # noqa
-        return ast
+        return Scope(ast)
 
     def if_stmt(self, ast):  # noqa
         return ast
@@ -39,7 +43,7 @@ Class WewSemantics(object):
         return ast
 
     def return_stmt(self, ast):  # noqa
-        return ast
+        return ReturnStmt(ast)
 
     def expression_stmt(self, ast):  # noqa
         return ast
@@ -90,7 +94,7 @@ Class WewSemantics(object):
         return ast
 
     def additive(self, ast):  # noqa
-        return ast
+        return BinAddOp(ast)
 
     def multiplicative(self, ast):  # noqa
         return ast

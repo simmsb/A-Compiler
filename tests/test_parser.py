@@ -1,7 +1,4 @@
-import pytest
-import tatsu
-
-from wewv2_compiler.parser import lang
+from compiler.parser import lang
 
 
 def test_var_declaration():

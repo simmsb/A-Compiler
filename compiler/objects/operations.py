@@ -1,9 +1,10 @@
-import types
+from compiler.objects import types
+from compiler.objects.base import BaseObject, CompileContext, ExpressionObject
+from compiler.objects.ir_object import (Binary, Call, Dereference, Immediate,
+                                        Mov, NamedRegister, Push, Register,
+                                        Resize, Unary)
 from typing import Iterable
 
-from base import BaseObject, CompileContext, ExpressionObject
-from irObject import (Binary, Call, Dereference, Immediate, Mov, NamedRegister,
-                      Push, Register, Resize, Unary)
 from tatsu.ast import AST
 
 
@@ -25,6 +26,10 @@ class UnaryOP(ExpressionObject):
         super().__init__(ast)
         self.op = ast.op
         self.expr = ast.right
+
+    @property
+    def type(self):
+        return self.expr.type
 
     def compile(self, ctx: CompileContext) -> Register:
         reg = yield from self.expr.compile(ctx)
@@ -205,13 +210,25 @@ class BinaryExpression(ExpressionObject):
         # typecheck operands here
 
         for o, (l, r), t in self._compat_types:
-            if (isinstance(left, l)
-                and isinstance(right, r)
-                    and o == op):
+            if (isinstance(left, l) and isinstance(right, r) and o == op):
                 self._type = t
                 break
         else:
             raise self.error(f"Incompatible types for binary {op}: {left} and {right}")
+
+        lhs = yield from self.left.compile(ctx)
+        rhs = yield from self.right.compile(ctx)
+
+        if lhs.size < rhs.size:
+            lhs0 = lhs.resize(rhs.size)
+            ctx.emit(Resize(lhs, lhs0))
+            lhs = lhs0
+        elif rhs.size < lhs.size:
+            rhs0 = lhs.resize(lhs.size)
+            ctx.emit(Resize(rhs, rhs0))
+            rhs = rhs0
+
+        return lhs, rhs
 
 
 class BinAddOp(BinaryExpression):
@@ -231,17 +248,7 @@ class BinAddOp(BinaryExpression):
         return types.Int((yield from self.size))
 
     def compile(self, ctx: CompileContext):
-        lhs = yield from self.left.compile(ctx)
-        rhs = yield from self.right.compile(ctx)
-
-        if lhs.size < rhs.size:
-            lhs0 = lhs.resize(rhs.size)
-            ctx.emit(Resize(lhs, lhs0))
-            lhs = lhs0
-        elif rhs.size < lhs.size:
-            rhs0 = lhs.resize(lhs.size)
-            ctx.emit(Resize(rhs, rhs0))
-            rhs = rhs0
+        lhs, rhs = yield from super().compile(ctx)
 
         res = ctx.get_register(lhs.size)
 

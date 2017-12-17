@@ -78,15 +78,14 @@ fun_decl
   = "fn" ~ name:identifier '(' params:','.{n:identifier ':' t:type} ')' '->' r:type >scope
   ;
 
-var_decl
-  = "var" ~ name:identifier >optional_def
-  ;
-
-
 optional_def
   =
   | ":" typ:type ["=" val:expr]  # static
   | ":=" ~ val:expr typ:`infer`  # inferred
+  ;
+
+var_decl
+  = "var" ~ name:identifier >optional_def
   ;
 
 decl

@@ -1,7 +1,9 @@
-import types
+from compiler.objects import types
+from compiler.objects.base import (CompileContext, ExpressionObject,
+                                   ObjectRequest)
+from compiler.objects.ir_object import (Dereference, Immediate, LoadVar, Mov,
+                                        Register)
 
-from base import BaseObject, CompileContext, ExpressionObject, ObjectRequest
-from irObject import Dereference, Immediate, LoadVar, Mov, Register
 from tatsu.ast import AST
 
 

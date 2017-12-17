@@ -1,4 +1,5 @@
 from enum import IntEnum
+from typing import Optional
 
 
 def pullsize(arg):
@@ -80,9 +81,9 @@ class IRObject:
         self.jumps_to = []
         self.owner = None
 
-    def add_jump_to(self, from: 'IRObject'):
-        self.jumps_from.append(from)
-        from.jumps_to.append(self)
+    def add_jump_to(self, from_: 'IRObject'):
+        self.jumps_from.append(from_)
+        from_.jumps_to.append(self)
 
     def take_jumps_from(self, other: 'IRObject'):
         """Take all the jumps from another objects and make them owned by this."""
@@ -180,26 +181,42 @@ class Pop(IRObject):
 
 
 class Prelude(IRObject):
-    """Function prelude."""
-    pass
+    """Function/ scope prelude."""
+
+    def __init__(self, scope):
+        """Prelude of a scope.
+        :param scope: The scope this prelude is of."""
+        super().__init__()
+        self.scope = scope
 
 
 class Epilog(IRObject):
-    """Function epilog."""
+    """Function/ scope epilog."""
 
-    def __init__(self, size: int):
-        self.size = size
+    def __init__(self, scope):
+        """Epilog of a scope
+        :param scope: The scope this epilog is of."""
+        super().__init__()
+        self.scope = scope
 
 
 class Return(IRObject):
     """Function return"""
-    pass
+
+    def __init__(self, reg: Optional[Register]=None):
+        """Return from a scope.
+        This should be placed after preludes to all scopes beforehand.
+        :param reg: register to return. If this is None, return void.
+        """
+        super().__init__()
+        self.reg = reg
 
 
 class Call(IRObject):
     """Jump to location, push return address."""
 
     def __init__(self, argsize: int, jump: Register):
+        super().__init__()
         self.argsize = argsize
         self.jump = jump
 
@@ -208,6 +225,6 @@ class Resize(IRObject):
     """Resize data."""
 
     def __init__(self, from_: Register, to: Register):
-        super().__init__(to)
+        super().__init__()
         self.from_ = from_
         self.to = to

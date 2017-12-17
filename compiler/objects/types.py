@@ -64,7 +64,7 @@ class Pointer(Type):
 
 class Array(Type):
 
-    def __init__(self, to: Type, l: int, const: bool=False):
+    def __init__(self, to: Type, l: int=None, const: bool=False):
         self.to = to
         self.length = l
         self.const = const
@@ -94,7 +94,7 @@ class Array(Type):
 
 class Function(Type):
 
-    def __init__(self, returns: Type, args: List[Type], const: bool):
+    def __init__(self, returns: Type, args: List[Type], const: bool=False):
         self.returns = returns
         self.args = args
         self.const = const

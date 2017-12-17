@@ -1,11 +1,11 @@
+from compiler.objects import types
+from compiler.objects.ir_object import Epilog, IRObject, Prelude, Register
 from contextlib import contextmanager
 from functools import wraps
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Union
 
 from tatsu.ast import AST
 from tatsu.infos import ParseInfo
-from wewv2_compiler.objects import types
-from wewv2_compiler.objects.irObject import Epilog, IRObject, Pop, Register
 
 
 class NotFinished(Exception):
@@ -15,6 +15,7 @@ class NotFinished(Exception):
 
 class CompileException(Exception):
     pass
+
 
 # XXX: If we have many of these just use a tuple api instead
 # (req.object_request, "name") or something nice like that
@@ -41,16 +42,17 @@ class ApplyMethodMeta(type):
 def make_generator(f):
     if isinstance(f, property):
         @wraps(f.fget)
-        def internal(*args, **kwargs):
+        def internal_p(*args, **kwargs):
             return f.fget(*args, **kwargs)
-            yield
-        f.fget = internal
-        return f
+            yield  # pylint: disable=unreachable
+
+        return property(internal_p)
 
     @wraps(f)
     def internal(*args, **kwargs):
         return f(*args, **kwargs)
-            yield  # pylint: disable=unreachable
+        yield  # pylint: disable=unreachable
+
     return internal
 
 
@@ -59,6 +61,7 @@ def wrap_add_compile_context(f):
     def internal(self, ctx: 'CompileContext'):
         with ctx.context(self):
             yield from f(self, ctx)
+
     return internal
 
 
@@ -92,7 +95,8 @@ class BaseObject(metaclass=ApplyMethodMeta):
         def fmtr():
             if startl == endl:
                 # start and end on same line, only need simple fmt
-                width = (endp - startp) - 2  # leave space for carats + off by one
+                width = (
+                    endp - startp) - 2  # leave space for carats + off by one
                 separator = '-' * width
                 yield source[startl]
                 yield f"{'^':>{startp}}{separator}^"
@@ -116,9 +120,10 @@ class BaseObject(metaclass=ApplyMethodMeta):
         startl, endl = info.line, info.endline
 
         return ("Compilation error {}.\n"
-                "{}\n{}").format((f"on line {startl}" if startl == endl else
-                                  f"on lines {startl} to {endl}"), reason,
-                                 self.highlight_lines)
+                "{}\n{}").format(
+                    (f"on line {startl}"
+                     if startl == endl else f"on lines {startl} to {endl}"),
+                    reason, self.highlight_lines)
 
     def error(self, reason, *args, **kwargs):
         return CompileException(self.make_error(reason), *args, **kwargs)
@@ -131,8 +136,8 @@ class StatementObject(BaseObject):
         """Compile an object. If an expression, always pushes the result to the stack."""
         raise NotImplementedError
 
-    _meta_fns = (("compile", make_generator),
-                 ("compile", wrap_add_compile_context))
+    _meta_fns = (("compile", make_generator), ("compile",
+                                               wrap_add_compile_context))
 
 
 class ExpressionObject(BaseObject):
@@ -140,9 +145,9 @@ class ExpressionObject(BaseObject):
 
     _meta_fns = (("compile", make_generator),
                  ("compile", wrap_add_compile_context),
-                 ("type", make_generator)
-                 ("size", make_generator)
-                 ("pointer_to", make_generator)
+                 ("type", make_generator),
+                 ("size", make_generator),
+                 ("pointer_to", make_generator),
                  ("load_lvalue", make_generator))
 
     @property
@@ -155,7 +160,7 @@ class ExpressionObject(BaseObject):
 
     @property
     def pointer_to(self):
-        return types.Pointer(yield from self.type)
+        return types.Pointer((yield from self.type))
 
     def compile(self, ctx: 'CompileContext') -> Register:
         """Compiles an expression returning the register the result was placed in."""
@@ -163,13 +168,18 @@ class ExpressionObject(BaseObject):
 
     def load_lvalue(self, ctx: 'CompileContext') -> Register:  # pylint: disable=unused-argument
         """Load the lvalue of an expression, returning the register the value was placed in."""
-        raise self.error(f"Object of type <{self.__class__.__name__}> Holds no LValue information.")
+        raise self.error(
+            f"Object of type <{self.__class__.__name__}> Holds no LValue information."
+        )
 
 
 class Variable:
     """A reference to a variable, holds scope and location information."""
 
-    def __init__(self, name: str, type: types.Type, parent: Optional[BaseObject]=None):
+    def __init__(self,
+                 name: str,
+                 type: types.Type,
+                 parent: Optional[BaseObject] = None):
         self.type = type
         self.name = name
         self.parent = parent
@@ -204,9 +214,13 @@ class Scope(StatementObject):
         # we need to allocate stack space, scan instructions for variables.
 
         with ctx.scope(self):
+            ctx.emit(Prelude(self))
             for i in self.body:
                 yield from i.compile(ctx)
-            ctx.emit(Epilog(self.size))
+            ctx.emit(self.make_epilog())
+
+    def make_epilog(self) -> IRObject:
+        return Epilog(self)
 
     def declare_variable(self, name: str, type: types.Type):
         """Add a variable to this scope.
@@ -225,16 +239,16 @@ class Scope(StatementObject):
         self.vars[name] = var
         var.stack_offset = self.size
         self.size += var.size
+        return var
 
 
 class Compiler:
-
     def __init__(self):
         self.compiled_objects: Dict[str, BaseObject] = {}
         self.waiting_coros: Dict[str, BaseObject] = {}
         self.data: List[Union[str, bytes]] = []
 
-    def declare_variable(self, name: str, type: typ):
+    def declare_variable(self, name: str, typ: types.Type):
         """Add a variable to global scope.
 
         raises if variable is redeclared to a different type than the already existing var.
@@ -250,7 +264,8 @@ class Compiler:
         var = Variable(name, type, self)
         self.compiled_objects[name] = var
         var.global_offset = len(self.data)
-        self.data.append(bytes((0,) * typ.size))
+        self.data.append(bytes((0, ) * typ.size))
+        return var
 
     def add_string(self, string: str) -> Variable:
         """Add a string to the object table.
@@ -305,7 +320,7 @@ class Compiler:
         l = self.waiting_coros.setdefault(name, [])
         l.append(obj)
 
-    def run_over(self, obj: BaseObject, to_send: BaseObject=None):
+    def run_over(self, obj: BaseObject, to_send: BaseObject = None):
         """Run over a compile coro. If we dont finish raise :class:`NotFinished`
 
         :param obj: The object to start compiling. May or may not have already been visited.
@@ -360,8 +375,13 @@ class Compiler:
                 self.compiled_objects[i.identifier] = i
         if self.waiting_coros:
             for k, i in self.waiting_coros.items():
-                print(i.make_error(f"This object is waiting on name {k} which never compiled."))
-            raise CompileException("code remaining that was waiting on something that never appeared.")
+                print(
+                    i.make_error(
+                        f"This object is waiting on name {k} which never compiled."
+                    ))
+            raise CompileException(
+                "code remaining that was waiting on something that never appeared."
+            )
 
 
 class CompileContext:
@@ -389,8 +409,7 @@ class CompileContext:
 
     @property
     def current_scope(self) -> Optional[Scope]:
-        if self.scope_stack:  # will be empty at base level
-            return self.scope_stack[-1]
+        return self.scope_stack[-1] if self.scope_stack else None
 
     @contextmanager
     def scope(self, scope: Scope):
@@ -402,12 +421,13 @@ class CompileContext:
 
     @contextmanager
     def context(self, obj: BaseObject):
-        """Enter a context for compilation, minimises state passing between compiling objects and the context."""
+        """Enter a context for compilation.
+        This minimises state passing between compiling objects and the context."""
         self.object_stack.append(obj)
         yield
         self.object_stack.pop()
 
-    def get_register(self, size: int, sign: bool=False):
+    def get_register(self, size: int, sign: bool = False):
         """Get a unique register."""
         reg = Register(self.regs_used, size, sign)
         self.regs_used += 1

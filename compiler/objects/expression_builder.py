@@ -2,10 +2,10 @@
 DEAD CODE
 """
 
+from compiler.objects.ir_object import (Binary, Immediate, IRObject, Pop, Push,
+                                        Register, RegisterEnum, Resize,
+                                        pullsize)
 from typing import Iterable, Union
-
-from irObject import (Binary, Immediate, IRObject, Pop, Push, Register,
-                      RegisterEnum, Resize, pullsize)
 
 
 class FUUUUUUUCK(type):
