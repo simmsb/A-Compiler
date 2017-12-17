@@ -1,3 +1,5 @@
+Pipfile.lock
+.ropeproject
 *.log
 *.pyc
 .cache/
