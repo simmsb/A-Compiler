@@ -1,0 +1,48 @@
+#+AUTHOR: Ben Simms
+#+EMAIL: ben@bensimms.moe
+#+TITLE: NEA PROJECT: Programming language, compiler and Virtual Machine
+
+* Introduction
+As my A-Level Computer Science project I will be designing and implementing a
+Virtual Machine and compiler for my own programming language.
+
+* Problem description
+** Programming Language
+   I will be designing a progamming language that my compier will compile to
+   bytecode. After becoming proficient in several different languages I have
+   decided that the language should be similar in design to C, there will be few
+   abstractions, with the language following an imperative pattern of statements
+   and expressions, however I plan to design the syntax to be similar to modern
+   languages such as [[https:www.rust-lang.org][Rust]] and [[https:www.haskell.org][Haskell]], which have simple and easy to read type
+   systems unlike C where methods such as the [[http://ieng9.ucsd.edu/~cs30x/rt_lt.rule.html][right to left rule]] and [[http://c-faq.com/decl/spiral.anderson.html][spiral rule]]
+   are required methods to learn to understand complex declarations, in my
+   language all type info will be in a single group, and not mixed with
+   identifier names.
+** Virtual Machine
+   The virtual machine will be a simple Von-Neumann architecture cpu, with an
+   array of memory, registers and a stack, Instructions will be simple
+   instructions that perform an operation on one or two operands and store the
+   result in a provided register.
+
+   The virtual machine should be able to load a program from a file produced by
+   the compiler, then execute it.
+
+   The virtual machine should be as simple as possible, leaving as omplexity as
+   possible to the compiler, this would let the virtual machine be developed
+   faster and completed earlier, providing more time to develop the compiler and
+   making testing faster and easier.
+
+** Compiler
+   The compiler will have four stages and will be the main focus of my project.
+   * Stage 1: Lex/Parse :: The source file will be parsed into an abstract syntax
+        tree, then transformed into and internal tree holding type information
+        on expressions.
+   * Stage 2: IR Gen :: An internal, platform agnostic representation will be
+        generated in the form of [[https:en.wikipedia.org/wiki/Three-address_code][three-address code]] for an infinite register
+        machine.
+   * Stage 3: Optimization and Register Allocation :: At this stage any
+        optimisation passes will run, such as any unneeded instructions being
+        removed. The infinte register machine instructions from stage 2 will be
+        converted into using a finite number of registers.
+   * Stage 4: Code emission :: The IR is assembled into bytecode and a file is
+        generated with the instructions and data to be executed on the VM.
