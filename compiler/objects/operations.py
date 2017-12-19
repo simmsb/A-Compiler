@@ -1,12 +1,15 @@
 from compiler.objects import types
 from compiler.objects.base import (BaseObject, CompileContext,
                                    ExpressionObject, ObjectRequest)
-from compiler.objects.ir_object import (Binary, Call, Compare, Dereference,
-                                        Immediate, Mov, NamedRegister, Push,
-                                        Register, Resize, Unary)
+from compiler.objects.ir_object import (Binary, Call, Compare, CompType,
+                                        Dereference, Immediate, Jump,
+                                        JumpTarget, Mov, NamedRegister, Push,
+                                        Register, Resize, SetCmp, Unary)
 from typing import Generator, Iterable, Tuple
 
 from tatsu.ast import AST
+
+CompileType = Generator[ObjectRequest, BaseObject, Register]
 
 
 def unary_prefix(ast: AST):
@@ -32,7 +35,7 @@ class UnaryOP(ExpressionObject):
     def type(self):
         return self.expr.type
 
-    def compile(self, ctx: CompileContext) -> Generator[ObjectRequest, BaseObject, Register]:
+    def compile(self, ctx: CompileContext) -> CompileType:
         reg = yield from self.expr.compile(ctx)
         ctx.emit(Unary(reg, self.op))
         return reg
@@ -57,10 +60,10 @@ class PreincrementOP(ExpressionObject):
     def type(self):
         return self.val.type
 
-    def load_lvalue(self, ctx: CompileContext) -> Generator[ObjectRequest, BaseObject, Register]:
+    def load_lvalue(self, ctx: CompileContext) -> CompileType:
         return self.val.load_lvalue(ctx)
 
-    def compile(self, ctx: CompileContext) -> Generator[ObjectRequest, BaseObject, Register]:
+    def compile(self, ctx: CompileContext) -> CompileType:
         ptr = yield from self.load_lvalue(ctx)
         tmp = ctx.get_register((yield from self.size))
         ctx.emit(Mov(tmp, Dereference(ptr)))
@@ -78,10 +81,10 @@ class DereferenceOP(ExpressionObject):
     def type(self):
         return (yield from self.val.type).to
 
-    def load_lvalue(self, ctx: CompileContext) -> Generator[ObjectRequest, BaseObject, Register]:
+    def load_lvalue(self, ctx: CompileContext) -> CompileType:
         return self.val.compile(ctx)
 
-    def compile(self, ctx: CompileContext) -> Generator[ObjectRequest, BaseObject, Register]:
+    def compile(self, ctx: CompileContext) -> CompileType:
         ptr = yield from self.load_lvalue(ctx)
         reg = ctx.get_register((yield from self.size))
         ctx.emit(Mov(reg, Dereference(ptr)))
@@ -99,7 +102,7 @@ class CastExprOP(ExpressionObject):
     def type(self):
         return self._type
 
-    def compile(self, ctx: CompileContext) -> Generator[ObjectRequest, BaseObject, Register]:
+    def compile(self, ctx: CompileContext) -> CompileType:
         reg = yield from self.expr.compile(ctx)
         res = reg.resize(self._type.size, self._type.sign)
         if self.op == "::":
@@ -119,14 +122,14 @@ class FunctionCallOp(ExpressionObject):
     def type(self):
         return (yield from self.fun).type.returns
 
-    def compile(self, ctx: CompileContext) -> Generator[ObjectRequest, BaseObject, Register]:
+    def compile(self, ctx: CompileContext) -> CompileType:
         fun_typ = yield from self.fun.type
         arg_types = ((i, (yield from i.type)) for i in self.args)
 
         for arg_n, (lhs_type, (rhs_obj, rhs_type)) in enumerate(zip(fun_typ.args, arg_types)):
             if lhs_type != rhs_type:
                 raise rhs_obj.error(
-                    f"Argument {n} to call {self.fun.identifier} was of "
+                    f"Argument {arg_n} to call {self.fun.identifier} was of "
                     f"type {rhs_type} instead of expected {lhs_type}.")
 
         for arg in self.args:
@@ -152,7 +155,7 @@ class ArrayIndexOp(ExpressionObject):
         return (yield from self.arg.type).to  # extract pointer
 
     # Our lvalue is the memory to dereference
-    def load_lvalue(self, ctx: CompileContext) -> Generator[ObjectRequest, BaseObject, Register]:
+    def load_lvalue(self, ctx: CompileContext) -> CompileType:
         atype = yield from self.arg.type
         if not isinstance(atype, (types.Pointer, types.Array)):
             raise self.error(f"Incompatible type to array index base {atype}")
@@ -171,7 +174,7 @@ class ArrayIndexOp(ExpressionObject):
         ctx.emit(Binary.add(argres, offres, res))
         return res
 
-    def compile(self, ctx: CompileContext) -> Generator[ObjectRequest, BaseObject, Register]:
+    def compile(self, ctx: CompileContext) -> CompileType:
         ptr = yield from self.load_lvalue(ctx)
         ctx.emit(Mov(ptr.resize((yield from self.size)), Dereference(ptr)))
 
@@ -187,7 +190,7 @@ class PostIncrementOp(ExpressionObject):
     def type(self):
         return self.arg.type
 
-    def compile(self, ctx: CompileContext) -> Generator[ObjectRequest, BaseObject, Register]:
+    def compile(self, ctx: CompileContext) -> CompileType:
         ptr = yield from self.arg.load_lvalue(ctx)
         size = yield from self.size
         res, temp = ctx.get_register(size), ctx.get_register(size)
@@ -267,7 +270,7 @@ class BinAddOp(BinaryExpression):
             return types.Pointer(types.Int((yield from self.size)))
         return types.Int((yield from self.size))
 
-    def compile(self, ctx: CompileContext) -> Generator[ObjectRequest, BaseObject, Register]:
+    def compile(self, ctx: CompileContext) -> CompileType:
         lhs, rhs = yield from self.compile_meta(ctx)
 
         res = ctx.get_register(lhs.size)
@@ -295,7 +298,7 @@ class BinMulOp(BinaryExpression):
         signed = (lhs.signed and rhs.signed) if self.op == "/" else False
         return types.Int((yield from self.size), signed)
 
-    def compile(self, ctx: CompileContext) -> Generator[ObjectRequest, BaseObject, Register]:
+    def compile(self, ctx: CompileContext) -> CompileType:
         lhs, rhs = yield from self.compile_meta(ctx)
 
         res = ctx.get_register(lhs.size)
@@ -329,7 +332,7 @@ class BinShiftOp(BinaryExpression):
             signed = False
         return types.Int((yield from self.size), signed)
 
-    def compile(self, ctx: CompileContext) -> Generator[ObjectRequest, BaseObject, Register]:
+    def compile(self, ctx: CompileContext) -> CompileType:
         lhs, rhs = yield from self.compile_meta(ctx)
 
         res = ctx.get_register(lhs.size)
@@ -349,22 +352,63 @@ class BinRelOp(BinaryExpression):
     """Binary relational comparison operation."""
 
     _compat_types = (
-        (('<=', '>=', '<', '>'), (types.Int, types.Int), types.Int),
-        (('<=', '>=', '<', '>'), (types.Pointer, types.Pointer), types.Int)
+        (('<=', '>=', '<', '>', '==', '!='), (types.Int, types.Int), types.Int),
+        (('<=', '>=', '<', '>', '==', '!='), (types.Pointer, types.Pointer), types.Int)
     )
 
     @property
     def type(self):
         return types.Int('u1')  # always results in 0 or 1 (unsigned 1 byte int)
 
-    def compile(self, ctx: CompileContext) -> Generator[ObjectRequest, BaseObject, Register]:
+    @property
+    def size(self):
+        return (yield from self.type).size
+
+    def compile(self, ctx: CompileContext) -> CompileType:
+        op = {
+            '<=': CompType.leq,
+            '<': CompType.lt,
+            '==': CompType.eq,
+            '!=': CompType.neq,
+            '>': CompType.gt,
+            '>=': CompType.geq
+        }[self.op]
+
         lhs, rhs = yield from self.compile_meta(ctx)
-
         res = ctx.get_register(1)
-
         ctx.emit(Compare(lhs, rhs))
-        # TODO: NOT FINISHED
-        # TODO: finsh comparison operation
-        # Add comparison set ops to IR instructions
-        # Add comparison op in vm
-        # op = {'<=': ''}
+        ctx.emit(SetCmp(res, op))
+
+
+class BoolCompOp(ExpressionObject):
+    """Short-circuiting boolean comparison operators."""
+
+    def __init__(self, ast: AST):
+        super().__init__(ast)
+        self.op = ast.op
+        self.left = ast.left
+        self.right = ast.right
+
+    @property
+    def type(self):
+        return types.Int('u1')
+
+    def compile(self, ctx: CompileContext):
+        r1 = yield from self.left.compile(ctx)
+        ctx.emit(Compare(r1, Immediate(0, r1.size)))
+        target = JumpTarget()
+
+        op = {
+            '||': CompType.neq,
+            '&&': CompType.eq
+        }[self.op]
+
+        jump = ctx.emit(Jump(target, op))
+        r2 = yield from self.right.compile(ctx)
+        if r2.size != r1.size:
+            r2_ = r2.resize(r1.size)
+            ctx.emit(Resize(r2, r2_))
+            r2 = r2_
+        ctx.emit(Mov(r1, r2))
+        ctx.emit(jump)
+        return r1

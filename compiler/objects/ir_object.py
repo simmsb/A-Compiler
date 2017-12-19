@@ -13,6 +13,10 @@ class RegisterEnum(IntEnum):
      fff) = range(12)
 
 
+class CompType(IntEnum):
+    (leq, lt, eq, neq, gt, geq) = range(6)
+
+
 class Register:
     def __init__(self, reg: int, size: int, sign: bool=False):
         self.reg = reg
@@ -180,6 +184,15 @@ class Compare(IRObject):
         self.right = right
 
 
+class SetCmp(IRObject):
+    """Set register from last comparison."""
+
+    def __init__(self, reg, op):
+        super().__init__()
+        self.reg = reg
+        self.op = op
+
+
 class Push(IRObject):
     def __init__(self, arg):
         super().__init__()
@@ -231,6 +244,20 @@ class Call(IRObject):
         super().__init__()
         self.argsize = argsize
         self.jump = jump
+
+
+class Jump(IRObject):
+    """Conditional jump."""
+
+    def __init__(self, location, comparison):
+        super().__init__()
+        self.location = location
+        self.comparison = comparison
+
+
+class JumpTarget(IRObject):
+    """Jump target."""
+    pass
 
 
 class Resize(IRObject):

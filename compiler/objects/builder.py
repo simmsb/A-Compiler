@@ -3,7 +3,8 @@ from compiler.objects.base import Scope
 from compiler.objects.literals import (ArrayLiteral, Identifier,
                                        IntegerLiteral, StringLiteral,
                                        char_literal)
-from compiler.objects.operations import BinAddOp, unary_postfix, unary_prefix
+from compiler.objects.operations import (BinAddOp, BinRelOp, BoolCompOp,
+                                         unary_postfix, unary_prefix)
 from compiler.objects.statements import FunctionDecl, ReturnStmt, VariableDecl
 from compiler.objects.types import Array, Function, Int, Pointer
 
@@ -74,16 +75,16 @@ class WewSemantics(object):
         return ast
 
     def boolean(self, ast):
-        return ast
+        return BoolCompOp(ast)
 
     def comparison(self, ast):
         return ast
 
     def equality(self, ast):
-        return ast
+        return BinRelOp(ast)
 
     def relation(self, ast):
-        return ast
+        return BinRelOp(ast)
 
     def shift(self, ast):
         return ast
