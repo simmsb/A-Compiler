@@ -17,14 +17,16 @@ class NotFinished(Exception):
     pass
 
 
-class CompileException(Exception):
-    pass
+class CompileException(Exception): 
+    def __init__(self, reason: str, trace: str=None):
+        super().__init__(reason, trace)
+        self.reason = reason
+        self.trace = trace
 
 
-# XXX: If we have many of these just use a tuple api instead
+# If we have many of these just use a tuple api instead
 # (req.object_request, "name") or something nice like that
-
-
+# 
 class ObjectRequest:
     """Request an object that might not be compiled yet."""
 
@@ -126,18 +128,17 @@ class BaseObject(metaclass=ApplyMethodMeta):
 
         return "\n".join(fmtr())
 
-    def make_error(self, reason: str) -> str:
+    def make_error(self) -> str:
         info = self._info
         startl, endl = info.line, info.endline
 
-        return ("Compilation error {}.\n"
-                "{}\n{}").format(
-                    (f"on line {startl}"
-                     if startl == endl else f"on lines {startl} to {endl}"),
-                    reason, self.highlight_lines)
+        return "\n".join(((f"on line {startl}"
+                           if startl == endl else
+                           f"on lines {startl} to {endl}"),
+                          self.highlight_lines))
 
-    def error(self, reason, *args, **kwargs):
-        return CompileException(self.make_error(reason), *args, **kwargs)
+    def error(self, reason):
+        return CompileException(reason, self.make_error())
 
 
 class StatementObject(BaseObject):
@@ -189,9 +190,9 @@ class Variable:
 
     def __init__(self,
                  name: str,
-                 type: types.Type,
+                 type_: types.Type,
                  parent: Optional[BaseObject] = None):
-        self.type = type
+        self.type = type_
         self.name = name
         self.parent = parent
 
@@ -222,8 +223,6 @@ class Scope(StatementObject):
         return self.vars.get(name)
 
     def compile(self, ctx: 'CompileContext'):
-        # we need to allocate stack space, scan instructions for variables.
-
         with ctx.scope(self):
             ctx.emit(Prelude(self))
             for i in self.body:
@@ -233,20 +232,20 @@ class Scope(StatementObject):
     def make_epilog(self) -> IRObject:
         return Epilog(self)
 
-    def declare_variable(self, name: str, type: types.Type):
+    def declare_variable(self, name: str, typ: types.Type):
         """Add a variable to this scope.
 
         raises if variable is redeclared to a different type than the already existing var.
         """
         ax = self.vars.get(name)
         if ax is not None:
-            if ax.type != type:
+            if ax.type != typ:
                 raise self.error(
-                    f"Variable {name} of type {type} is already declared as type {ax.type}"
+                    f"Variable {name} of type {typ} is already declared as type {ax.type}"
                 )
             return ax  # variable already declared but is of the same type, ignore it
 
-        var = Variable(name, type, self)
+        var = Variable(name, typ, self)
         self.vars[name] = var
         var.stack_offset = self.size
         self.size += var.size
@@ -267,7 +266,7 @@ class Compiler:
         ax = self.compiled_objects.get(name)
         if ax is not None:
             if ax.type != type:
-                raise self.error(
+                raise CompileException(
                     f"Variable {name} of type {type} is already declared as type {ax.type}"
                 )
             return ax  # variable already declared but is of the same type, ignore it
@@ -386,12 +385,10 @@ class Compiler:
                 self.compiled_objects[i.identifier] = i
         if self.waiting_coros:
             for k, i in self.waiting_coros.items():
-                print(i.make_error(
-                    f"This object is waiting on name {k} which never compiled."
-                ))
+                print(i.make_error(),
+                      f"This object is waiting on name {k} which never compiled.")
             raise CompileException(
-                "code remaining that was waiting on something that never appeared."
-            )
+                "code remaining that was waiting on something that never appeared.")
 
 
 class CompileContext:
@@ -414,9 +411,10 @@ class CompileContext:
         self.regs_used = 0
 
     @property
-    def current_object(self) -> BaseObject:
+    def current_object(self) -> Optional[BaseObject]:
         """Get the current object being compiled."""
-        return self.object_stack[-1]
+        if self.object_stack:
+            return self.object_stack[-1]
 
     @property
     def top_function(self) -> Optional[FunctionDecl]:
@@ -444,7 +442,12 @@ class CompileContext:
         """Enter a context for compilation.
         This minimises state passing between compiling objects and the context."""
         self.object_stack.append(obj)
-        yield
+        try:
+            yield
+        except CompileException as e:
+            if e.trace is None and self.current_object:  # add in the trace
+                raise self.current_object.error(e.reason) from None
+            raise e from None
         self.object_stack.pop()
 
     def get_register(self, size: int, sign: bool = False):
