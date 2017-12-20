@@ -65,7 +65,6 @@ def make_generator(f):
     def internal(*args, **kwargs):
         return f(*args, **kwargs)
         yield  # pylint: disable=unreachable
-
     return internal
 
 
@@ -145,11 +144,12 @@ class StatementObject(BaseObject):
     """Derived base ast for statements."""
 
     def compile(self, ctx: 'CompileContext'):
-        """Compile an object. If an expression, always pushes the result to the stack."""
+        """Compile an object
+        Statement objects do not return a register."""
         raise NotImplementedError
 
-    _meta_fns = (("compile", make_generator), ("compile",
-                                               wrap_add_compile_context))
+    _meta_fns = (("compile", make_generator),
+                 ("compile", wrap_add_compile_context))
 
 
 class ExpressionObject(BaseObject):
