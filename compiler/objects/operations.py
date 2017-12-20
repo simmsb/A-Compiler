@@ -5,7 +5,7 @@ from compiler.objects.ir_object import (Binary, Call, Compare, CompType,
                                         Dereference, Immediate, Jump,
                                         JumpTarget, Mov, NamedRegister, Push,
                                         Register, Resize, SetCmp, Unary)
-from typing import Generator, Iterable, Tuple
+from typing import Generator, Iterable, Tuple, Union
 
 from tatsu.ast import AST
 
@@ -205,7 +205,8 @@ class BinaryExpression(ExpressionObject):
 
     _compat_types is used to typecheck the expression and set the return type of it."""
 
-    _compat_types: Tuple[Union[Tuple[str], str], Tuple[types.Type, types.Type], types.Type] = ()
+    _compat_types: Tuple[Union[Tuple[str], str],
+                         Tuple[types.Type, types.Type], types.Type] = ()
 
     @property
     def size(self):
@@ -238,7 +239,8 @@ class BinaryExpression(ExpressionObject):
                 continue
             break
         else:
-            raise self.error(f"Incompatible types for binary {op}: {left} and {right}")
+            raise self.error(
+                f"Incompatible types for binary {op}: {left} and {right}")
 
         lhs = yield from self.left.compile(ctx)
         rhs = yield from self.right.compile(ctx)
@@ -358,7 +360,8 @@ class BinRelOp(BinaryExpression):
 
     @property
     def type(self):
-        return types.Int('u1')  # always results in 0 or 1 (unsigned 1 byte int)
+        # always results in 0 or 1 (unsigned 1 byte int)
+        return types.Int('u1')
 
     @property
     def size(self):
@@ -397,7 +400,6 @@ class BoolCompOp(ExpressionObject):
         r1 = yield from self.left.compile(ctx)
         ctx.emit(Compare(r1, Immediate(0, r1.size)))
         target = JumpTarget()
-
         op = {
             '||': CompType.neq,
             '&&': CompType.eq
