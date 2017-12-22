@@ -9,7 +9,7 @@ from typing import Generator, Iterable, Tuple, Union
 
 from tatsu.ast import AST
 
-CompileType = Generator[ObjectRequest, BaseObject, Register]
+CompileType = Generator[ObjectRequest, BaseObject, Register]  # pylint: disable=invalid-name
 
 
 def unary_prefix(ast: AST):
@@ -170,7 +170,7 @@ class ArrayIndexOp(ExpressionObject):
         offres = offres0
 
         res = ctx.get_register(size)
-        ctx.emit(Binary.mul(offres, size))  # what to do what to do
+        ctx.emit(Binary.mul(offres, size))
         ctx.emit(Binary.add(argres, offres, res))
         return res
 
