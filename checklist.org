@@ -1,0 +1,44 @@
+#+AUTHOR: Ben Simms
+#+EMAIL: ben@bensimms.moe
+#+TITLE: Compiler Checklist
+
+* Compiler Logic [2/5]
+- [-] Type system
+- [X] Function bodies
+  + [X] Scopes
+- [-] Flow Control
+  + [ ] Loops
+  + [ ] If statements
+  + [X] Return Statement
+- [-] Expressions
+  + [-] Binary Expressions
+    - [X] Addition/ subtraction
+    - [X] Multiplication/ Division
+    - [X] Bit shifts
+    - [X] Comparison operators
+    - [X] Short circuiting comparisons
+    - [ ] Bitwise operators
+    - [ ] Assignment operator 
+  + [X] Unary expressions
+    - [X] Prefix
+      + [X] Prefix increment/ decrement
+      + [X] Bitwise not
+      + [X] Logical not
+      + [X] Unary negate
+      + [X] Unary positive
+      + [X] Dereference
+    - [X] Postfix
+      + [X] Array indexing
+      + [X] Postincrement / Decrement
+      + [X] Reinterpret/ const cast
+      + [X] Function calling
+  + [X] Literals
+    - [X] Integer literals
+      + [X] Char Literals
+    - [X] Array literals
+      + [X] String Literals
+  + [X] Identifiers
+- [X] Variable declarations
+  + [X] Array initialiser
+  + [X] Inferred type
+    

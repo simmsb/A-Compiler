@@ -9,8 +9,8 @@ def pullsize(arg):
 
 
 class RegisterEnum(IntEnum):
-    (stackptr, baseptr, irptr, ret, acc1, acc2, aaa, bbb, ccc, ddd, eee,
-     fff) = range(12)
+    (stackptr, baseptr, irptr, ret, acc1,
+     acc2, aaa, bbb, ccc, ddd, eee, fff) = range(12)
 
 
 class CompType(IntEnum):
