@@ -1,0 +1,9 @@
+* Good Stuff
+- https://github.com/Maratyszcza/PeachPy
+- https://github.com/numba/llvmlite
+
+* Plan
+ - Multiple ir -> executable transformers
+   + custom vm codegen
+   + LLVM codegen
+   + PeachPy codegen

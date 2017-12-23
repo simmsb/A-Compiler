@@ -29,6 +29,8 @@
       + [X] Dereference
     - [X] Postfix
       + [X] Array indexing
+        - [X] Pointer style
+        - [X] Array style
       + [X] Postincrement / Decrement
       + [X] Reinterpret/ const cast
       + [X] Function calling
