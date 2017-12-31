@@ -224,7 +224,7 @@ class Scope(StatementObject):
     def lookup_variable(self, name: str) -> Variable:
         return self.vars.get(name)
 
-    def compile(self, ctx: 'CompileContext') -> :
+    def compile(self, ctx: 'CompileContext') -> StmtCompileType:
         with ctx.scope(self):
             ctx.emit(Prelude(self))
             for i in self.body:

@@ -2,13 +2,13 @@
 #+EMAIL: ben@bensimms.moe
 #+TITLE: Compiler Checklist
 
-* Compiler Logic [3/5]
+* Compiler Logic [4/5]
 - [-] Type system
 - [X] Function bodies
   + [X] Scopes
-- [-] Flow Control
-  + [ ] Loops
-  + [ ] If statements
+- [X] Flow Control
+  + [X] Loops
+  + [X] If statements
   + [X] Return Statement
 - [X] Expressions
   + [X] Binary Expressions
@@ -44,3 +44,6 @@
   + [X] Array initialiser
   + [X] Inferred type
     
+* Code Generator
+- [ ] Register allocator
+- [ ] Assembler

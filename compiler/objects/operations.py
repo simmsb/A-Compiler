@@ -123,6 +123,9 @@ class FunctionCallOp(ExpressionObject):
         fun_typ = yield from self.fun.type
         arg_types = ((i, (yield from i.type)) for i in self.args)
 
+        if not isinstance(fun_typ, types.Function):
+            raise self.error("Called object is not a function.")
+
         for arg_n, (lhs_type, (rhs_obj, rhs_type)) in enumerate(zip(fun_typ.args, arg_types)):
             if lhs_type != rhs_type:
                 raise rhs_obj.error(
@@ -279,7 +282,9 @@ class BinAddOp(BinaryExpression):
         return types.Int((yield from self.size))
 
     def compile(self, ctx: CompileContext) -> ExprCompileType:
-        lhs: Register, rhs: Register = (yield from self.compile_meta(ctx))
+        lhs: Register
+        rhs: Register
+        lhs, rhs = (yield from self.compile_meta(ctx))
 
         res = ctx.get_register(lhs.size)
 
@@ -307,7 +312,9 @@ class BinMulOp(BinaryExpression):
         return types.Int((yield from self.size), signed)
 
     def compile(self, ctx: CompileContext) -> ExprCompileType:
-        lhs: Register, rhs: Register = (yield from self.compile_meta(ctx))
+        lhs: Register
+        rhs: Register
+        lhs, rhs = yield from self.compile_meta(ctx)
 
         res = ctx.get_register(lhs.size)
 
@@ -340,7 +347,9 @@ class BinShiftOp(BinaryExpression):
         return types.Int((yield from self.size), signed)
 
     def compile(self, ctx: CompileContext) -> ExprCompileType:
-        lhs: Register, rhs: Register = (yield from self.compile_meta(ctx))
+        lhs: Register
+        rhs: Register
+        lhs, rhs = yield from self.compile_meta(ctx)
 
         res = ctx.get_register(lhs.size)
 
@@ -382,7 +391,9 @@ class BinRelOp(BinaryExpression):
             '>=': CompType.geq
         }[self.op]
 
-        lhs: Register, rhs: Register = (yield from self.compile_meta(ctx))
+        lhs: Register
+        rhs: Register
+        lhs, rhs = yield from self.compile_meta(ctx)
         res = ctx.get_register(1)
         ctx.emit(Compare(lhs, rhs))
         ctx.emit(SetCmp(res, op))
@@ -402,7 +413,9 @@ class BitwiseOp(BinaryExpression):
             "&": "and"
         }[self.op]
 
-        lhs: Register, rhs: Register = (yield from self.compile_meta(ctx))
+        lhs: Register
+        rhs: Register
+        lhs, rhs = yield from self.compile_meta(ctx)
         res = ctx.get_register(lhs.size)
         ctx.emit(Binary(lhs, rhs, op, res))
         return res

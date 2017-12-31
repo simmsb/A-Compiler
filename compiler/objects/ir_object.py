@@ -14,7 +14,7 @@ class RegisterEnum(IntEnum):
 
 
 class CompType(IntEnum):
-    (leq, lt, eq, neq, gt, geq) = range(6)
+    (leq, lt, eq, neq, gt, geq, uncond) = range(7)
 
 
 class Register:

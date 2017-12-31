@@ -1,11 +1,11 @@
 # pylint: disable=no-self-use
 from compiler.objects.base import Scope
-from compiler.objects.literals import (ArrayLiteral, Identifier,
-                                       IntegerLiteral, StringLiteral,
-                                       char_literal)
+from compiler.objects.literals import (
+    ArrayLiteral, Identifier, IntegerLiteral, StringLiteral, char_literal)
 from compiler.objects.operations import (BinAddOp, BinRelOp, BoolCompOp,
-                                         unary_postfix, unary_prefix)
-from compiler.objects.statements import FunctionDecl, ReturnStmt, VariableDecl
+                                         unary_postfix, unary_prefix, AssignOp,
+                                         BitwiseOp, BinShiftOp, BinMulOp)
+from compiler.objects.statements import FunctionDecl, ReturnStmt, VariableDecl, IFStmt, LoopStmt
 from compiler.objects.types import Array, Function, Int, Pointer
 
 
@@ -39,10 +39,10 @@ class WewSemantics(object):
         return Scope(ast)
 
     def if_stmt(self, ast):
-        return ast
+        return IFStmt(ast)
 
     def loop_stmt(self, ast):
-        return ast
+        return LoopStmt(ast)
 
     def return_stmt(self, ast):
         return ReturnStmt(ast)
@@ -66,13 +66,13 @@ class WewSemantics(object):
         return ast
 
     def assign_expr(self, ast):
-        return ast
+        return AssignOp(ast)
 
     def logical(self, ast):
         return ast
 
     def bitwise(self, ast):
-        return ast
+        return BitwiseOp(ast)
 
     def boolean(self, ast):
         return BoolCompOp(ast)
@@ -90,7 +90,7 @@ class WewSemantics(object):
         return ast
 
     def bitshift(self, ast):
-        return ast
+        return BinShiftOp(ast)
 
     def binop(self, ast):
         return ast
@@ -102,7 +102,7 @@ class WewSemantics(object):
         return ast
 
     def multiply(self, ast):
-        return ast
+        return BinMulOp(ast)
 
     def unop(self, ast):
         return ast
