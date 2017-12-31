@@ -2,7 +2,7 @@
 #+EMAIL: ben@bensimms.moe
 #+TITLE: Compiler Checklist
 
-* Compiler Logic [2/5]
+* Compiler Logic [3/5]
 - [-] Type system
 - [X] Function bodies
   + [X] Scopes
@@ -10,15 +10,15 @@
   + [ ] Loops
   + [ ] If statements
   + [X] Return Statement
-- [-] Expressions
-  + [-] Binary Expressions
+- [X] Expressions
+  + [X] Binary Expressions
     - [X] Addition/ subtraction
     - [X] Multiplication/ Division
     - [X] Bit shifts
     - [X] Comparison operators
     - [X] Short circuiting comparisons
-    - [ ] Bitwise operators
-    - [ ] Assignment operator 
+    - [X] Bitwise operators
+    - [X] Assignment operator 
   + [X] Unary expressions
     - [X] Prefix
       + [X] Prefix increment/ decrement

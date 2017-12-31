@@ -1,6 +1,6 @@
 from compiler.objects import types
 from compiler.objects.base import (BaseObject, CompileContext,
-                                   ExpressionObject, ObjectRequest)
+                                   ExpressionObject, ObjectRequest, ExprCompileType)
 from compiler.objects.ir_object import (Binary, Call, Compare, CompType,
                                         Dereference, Immediate, Jump,
                                         JumpTarget, Mov, NamedRegister, Push,
@@ -8,9 +8,6 @@ from compiler.objects.ir_object import (Binary, Call, Compare, CompType,
 from typing import Generator, Iterable, Tuple, Union
 
 from tatsu.ast import AST
-
-CompileType = Generator[ObjectRequest, BaseObject, Register]  # pylint: disable=invalid-name
-
 
 def unary_prefix(ast: AST):
     """Build a unary prefix op from an ast node."""
@@ -29,14 +26,14 @@ class UnaryOP(ExpressionObject):
     def __init__(self, ast: AST):
         super().__init__(ast)
         self.op = ast.op
-        self.expr = ast.right
+        self.expr: ExpressionObject = ast.right
 
     @property
     def type(self):
         return self.expr.type
 
-    def compile(self, ctx: CompileContext) -> CompileType:
-        reg = yield from self.expr.compile(ctx)
+    def compile(self, ctx: CompileContext) -> ExprCompileType:
+        reg: Register = (yield from self.expr.compile(ctx))
         ctx.emit(Unary(reg, self.op))
         return reg
 
@@ -53,18 +50,18 @@ def unary_postfix(ast: AST):
 class PreincrementOP(ExpressionObject):
     def __init__(self, ast: AST):
         super().__init__(ast)
-        self.val: ExpressionObject = ast.right
+        self.expr: ExpressionObject = ast.right
         self.op = ast.op
 
     @property
     def type(self):
-        return self.val.type
+        return self.expr.type
 
-    def load_lvalue(self, ctx: CompileContext) -> CompileType:
-        return self.val.load_lvalue(ctx)
+    def load_lvalue(self, ctx: CompileContext) -> ExprCompileType:
+        return self.expr.load_lvalue(ctx)
 
-    def compile(self, ctx: CompileContext) -> CompileType:
-        ptr = yield from self.load_lvalue(ctx)
+    def compile(self, ctx: CompileContext) -> ExprCompileType:
+        ptr: Register = (yield from self.load_lvalue(ctx))
         tmp = ctx.get_register((yield from self.size))
         ctx.emit(Mov(tmp, Dereference(ptr)))
         ctx.emit(Binary.add(tmp, Immediate(1, tmp.size)))
@@ -75,17 +72,17 @@ class PreincrementOP(ExpressionObject):
 class DereferenceOP(ExpressionObject):
     def __init__(self, ast: AST):
         super().__init__(ast)
-        self.val = ast.right
+        self.expr: ExpressionObject = ast.right
 
     @property
     def type(self):
-        return (yield from self.val.type).to
+        return (yield from self.expr.type).to
 
-    def load_lvalue(self, ctx: CompileContext) -> CompileType:
-        return self.val.compile(ctx)
+    def load_lvalue(self, ctx: CompileContext) -> ExprCompileType:
+        return self.expr.compile(ctx)
 
-    def compile(self, ctx: CompileContext) -> CompileType:
-        ptr = yield from self.load_lvalue(ctx)
+    def compile(self, ctx: CompileContext) -> ExprCompileType:
+        ptr: Register = (yield from self.load_lvalue(ctx))
         reg = ctx.get_register((yield from self.size))
         ctx.emit(Mov(reg, Dereference(ptr)))
         return reg
@@ -95,15 +92,15 @@ class CastExprOP(ExpressionObject):
     def __init__(self, ast: AST):
         super().__init__(ast)
         self._type = ast.t
-        self.expr = ast.left
+        self.expr: ExpressionObject = ast.left
         self.op = ast.op
 
     @property
     def type(self):
         return self._type
 
-    def compile(self, ctx: CompileContext) -> CompileType:
-        reg = yield from self.expr.compile(ctx)
+    def compile(self, ctx: CompileContext) -> ExprCompileType:
+        reg: Register = (yield from self.expr.compile(ctx))
         res = reg.resize(self._type.size, self._type.sign)
         if self.op == "::":
             ctx.emit(Resize(reg, res))  # emit resize operation
@@ -122,7 +119,7 @@ class FunctionCallOp(ExpressionObject):
     def type(self):
         return (yield from self.fun).type.returns
 
-    def compile(self, ctx: CompileContext) -> CompileType:
+    def compile(self, ctx: CompileContext) -> ExprCompileType:
         fun_typ = yield from self.fun.type
         arg_types = ((i, (yield from i.type)) for i in self.args)
 
@@ -133,9 +130,9 @@ class FunctionCallOp(ExpressionObject):
                     f"type {rhs_type} instead of expected {lhs_type}.")
 
         for arg in self.args:
-            res = yield from arg.compile(ctx)
+            res: Register = (yield from arg.compile(ctx))
             ctx.emit(Push(res))
-        res = yield from self.fun.compile(ctx)
+        res: Register = (yield from self.fun.compile(ctx))
         ctx.emit(Call(sum((yield from i.size) for i in self.args), res))
 
         size = yield from self.size
@@ -155,15 +152,18 @@ class ArrayIndexOp(ExpressionObject):
         return (yield from self.arg.type).to  # extract pointer
 
     # Our lvalue is the memory to dereference
-    def load_lvalue(self, ctx: CompileContext) -> CompileType:
+    def load_lvalue(self, ctx: CompileContext) -> ExprCompileType:
         atype = yield from self.arg.type
         if not isinstance(atype, (types.Pointer, types.Array)):
             raise self.error(f"Incompatible type to array index base {atype}")
 
-        argres = yield from self.arg.compile(ctx)
-        offres = yield from self.offset.compile(ctx)
+        if isinstance(atype.to, types.Array):  # if we are indexing a multi-dimensional array, dont dereference
+            argres: Register = (yield from self.arg.load_lvalue(ctx))
+        else:
+            argres: Register = (yield from self.arg.compile(ctx))
+        offres: Register = (yield from self.offset.compile(ctx))
 
-        size = yield from self.size
+        size = yield from self.size  # if type.to is an array, this will be the size of the internal array
 
         offres0 = offres.resize(argres.size)  # resize pointer correctly
         ctx.emit(Resize(offres, offres0))
@@ -174,9 +174,11 @@ class ArrayIndexOp(ExpressionObject):
         ctx.emit(Binary.add(argres, offres, res))
         return res
 
-    def compile(self, ctx: CompileContext) -> CompileType:
-        ptr = yield from self.load_lvalue(ctx)
-        ctx.emit(Mov(ptr.resize((yield from self.size)), Dereference(ptr)))
+    def compile(self, ctx: CompileContext) -> ExprCompileType:
+        ptr: Register = (yield from self.load_lvalue(ctx))
+        res = ctx.get_register((yield from self.size))
+        ctx.emit(Mov(res, Dereference(ptr)))
+        return res
 
 
 class PostIncrementOp(ExpressionObject):
@@ -190,8 +192,8 @@ class PostIncrementOp(ExpressionObject):
     def type(self):
         return self.arg.type
 
-    def compile(self, ctx: CompileContext) -> CompileType:
-        ptr = yield from self.arg.load_lvalue(ctx)
+    def compile(self, ctx: CompileContext) -> ExprCompileType:
+        ptr: Register = (yield from self.arg.load_lvalue(ctx))
         size = yield from self.size
         res, temp = ctx.get_register(size), ctx.get_register(size)
         ctx.emit(Mov(res, Dereference(ptr)))
@@ -213,6 +215,10 @@ class BinaryExpression(ExpressionObject):
         return max((yield from self.left.size),
                    (yield from self.right.size))
 
+    @property
+    def type(self):
+        return self._type
+
     def __init__(self, ast: AST):
         super().__init__(ast)
         self.left = ast.left
@@ -220,7 +226,7 @@ class BinaryExpression(ExpressionObject):
         self.right = ast.right
         self._type = None
 
-    def compile_meta(self, ctx: CompileContext) -> Tuple[Register, Register]:
+    def compile_meta(self, ctx: CompileContext) -> Generator[BaseObject, ObjectRequest, Tuple[Register, Register]]:
         """Binary expression meta compile, returns registers of both side
         Both registers returned have equal size."""
         op = self.op
@@ -242,8 +248,8 @@ class BinaryExpression(ExpressionObject):
             raise self.error(
                 f"Incompatible types for binary {op}: {left} and {right}")
 
-        lhs = yield from self.left.compile(ctx)
-        rhs = yield from self.right.compile(ctx)
+        lhs: Register = (yield from self.left.compile(ctx))
+        rhs: Register = (yield from self.right.compile(ctx))
 
         if lhs.size < rhs.size:
             lhs0 = lhs.resize(rhs.size)
@@ -272,8 +278,8 @@ class BinAddOp(BinaryExpression):
             return types.Pointer(types.Int((yield from self.size)))
         return types.Int((yield from self.size))
 
-    def compile(self, ctx: CompileContext) -> CompileType:
-        lhs, rhs = yield from self.compile_meta(ctx)
+    def compile(self, ctx: CompileContext) -> ExprCompileType:
+        lhs: Register, rhs: Register = (yield from self.compile_meta(ctx))
 
         res = ctx.get_register(lhs.size)
 
@@ -300,8 +306,8 @@ class BinMulOp(BinaryExpression):
         signed = (lhs.signed and rhs.signed) if self.op == "/" else False
         return types.Int((yield from self.size), signed)
 
-    def compile(self, ctx: CompileContext) -> CompileType:
-        lhs, rhs = yield from self.compile_meta(ctx)
+    def compile(self, ctx: CompileContext) -> ExprCompileType:
+        lhs: Register, rhs: Register = (yield from self.compile_meta(ctx))
 
         res = ctx.get_register(lhs.size)
 
@@ -314,7 +320,6 @@ class BinMulOp(BinaryExpression):
 
         ctx.emit(Binary(lhs, rhs, op, res))
         return res
-
 
 class BinShiftOp(BinaryExpression):
     """Binary shift operation.
@@ -334,8 +339,8 @@ class BinShiftOp(BinaryExpression):
             signed = False
         return types.Int((yield from self.size), signed)
 
-    def compile(self, ctx: CompileContext) -> CompileType:
-        lhs, rhs = yield from self.compile_meta(ctx)
+    def compile(self, ctx: CompileContext) -> ExprCompileType:
+        lhs: Register, rhs: Register = (yield from self.compile_meta(ctx))
 
         res = ctx.get_register(lhs.size)
 
@@ -367,7 +372,7 @@ class BinRelOp(BinaryExpression):
     def size(self):
         return (yield from self.type).size
 
-    def compile(self, ctx: CompileContext) -> CompileType:
+    def compile(self, ctx: CompileContext) -> ExprCompileType:
         op = {
             '<=': CompType.leq,
             '<': CompType.lt,
@@ -377,10 +382,55 @@ class BinRelOp(BinaryExpression):
             '>=': CompType.geq
         }[self.op]
 
-        lhs, rhs = yield from self.compile_meta(ctx)
+        lhs: Register, rhs: Register = (yield from self.compile_meta(ctx))
         res = ctx.get_register(1)
         ctx.emit(Compare(lhs, rhs))
         ctx.emit(SetCmp(res, op))
+
+
+class BitwiseOp(BinaryExpression):
+    """Binary bitwise operators."""
+
+    _compat_types = (
+        (("|", "^", "&"), (types.Int, types.Int), types.Int),
+    )
+
+    def compile(self, ctx: CompileContext) -> ExprCompileType:
+        op = {
+            "|": "or",
+            "^": "xor",
+            "&": "and"
+        }[self.op]
+
+        lhs: Register, rhs: Register = (yield from self.compile_meta(ctx))
+        res = ctx.get_register(lhs.size)
+        ctx.emit(Binary(lhs, rhs, op, res))
+        return res
+
+
+class AssignOp(ExpressionObject):
+    """Assignment operation."""
+
+    def __init__(self, ast: AST):
+        super().__init__(ast)
+        self.left: ExpressionObject = ast.left
+        self.right: ExpressionObject = ast.right
+
+    @property
+    def type(self):
+        return self.right.type
+
+    def compile(self, ctx: CompileContext) -> ExprCompileType:
+        lhs: Register = (yield from self.left.load_lvalue(ctx))
+        rhs: Register = (yield from self.right.compile(ctx))
+
+        lhs_size = yield from self.left.size
+        if lhs_size != rhs.size:
+            rhs_ = rhs.resize(lhs_size)
+            ctx.emit(Resize(rhs, rhs_))
+            rhs = rhs_
+        ctx.emit(Mov(Dereference(lhs), rhs))
+        return rhs
 
 
 class BoolCompOp(ExpressionObject):
@@ -389,15 +439,15 @@ class BoolCompOp(ExpressionObject):
     def __init__(self, ast: AST):
         super().__init__(ast)
         self.op = ast.op
-        self.left = ast.left
-        self.right = ast.right
+        self.left: ExpressionObject = ast.left
+        self.right: ExpressionObject = ast.right
 
     @property
     def type(self):
         return types.Int('u1')
 
-    def compile(self, ctx: CompileContext):
-        r1 = yield from self.left.compile(ctx)
+    def compile(self, ctx: CompileContext) -> ExprCompileType:
+        r1: Register = (yield from self.left.compile(ctx))
         ctx.emit(Compare(r1, Immediate(0, r1.size)))
         target = JumpTarget()
         op = {
@@ -406,7 +456,7 @@ class BoolCompOp(ExpressionObject):
         }[self.op]
 
         jump = ctx.emit(Jump(target, op))
-        r2 = yield from self.right.compile(ctx)
+        r2: Register = (yield from self.right.compile(ctx))
         if r2.size != r1.size:
             r2_ = r2.resize(r1.size)
             ctx.emit(Resize(r2, r2_))

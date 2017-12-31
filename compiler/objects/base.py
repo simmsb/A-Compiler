@@ -6,7 +6,7 @@ from compiler.objects.ir_object import Epilog, IRObject, Prelude, Register
 from compiler.objects.statements import FunctionDecl
 from contextlib import contextmanager
 from functools import wraps
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union, Generator
 
 from tatsu.ast import AST
 from tatsu.infos import ParseInfo
@@ -23,6 +23,8 @@ class CompileException(Exception):
         self.reason = reason
         self.trace = trace
 
+StmtCompileType = Generator['ObjectRequest', 'BaseObject', None] # pylint: disable=invalid-name
+ExprCompileType = Generator['ObjectRequest', 'BaseObject', Register]  # pylint: disable=invalid-name
 
 # If we have many of these just use a tuple api instead
 # (req.object_request, "name") or something nice like that
@@ -174,11 +176,11 @@ class ExpressionObject(BaseObject):
     def pointer_to(self):
         return types.Pointer((yield from self.type))
 
-    def compile(self, ctx: 'CompileContext') -> Register:
+    def compile(self, ctx: 'CompileContext') -> ExprCompileType:
         """Compiles an expression returning the register the result was placed in."""
         raise NotImplementedError
 
-    def load_lvalue(self, ctx: 'CompileContext') -> Register:  # pylint: disable=unused-argument
+    def load_lvalue(self, ctx: 'CompileContext') -> ExprCompileType:  # pylint: disable=unused-argument
         """Load the lvalue of an expression, returning the register the value was placed in."""
         raise self.error(
             f"Object of type <{self.__class__.__name__}> Holds no LValue information."
@@ -222,7 +224,7 @@ class Scope(StatementObject):
     def lookup_variable(self, name: str) -> Variable:
         return self.vars.get(name)
 
-    def compile(self, ctx: 'CompileContext'):
+    def compile(self, ctx: 'CompileContext') -> :
         with ctx.scope(self):
             ctx.emit(Prelude(self))
             for i in self.body:
