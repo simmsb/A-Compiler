@@ -83,7 +83,7 @@ class IRObject:
     def __init__(self):
         self.jumps_from = []
         self.jumps_to = []
-        self.owner = None
+        self.parent = None
 
     def add_jump_to(self, from_: 'IRObject'):
         self.jumps_from.append(from_)

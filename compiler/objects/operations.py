@@ -259,7 +259,7 @@ class BinaryExpression(ExpressionObject):
             ctx.emit(Resize(lhs, lhs0))
             lhs = lhs0
         elif rhs.size < lhs.size:
-            rhs0 = lhs.resize(lhs.size)
+            rhs0 = rhs.resize(rhs.size)
             ctx.emit(Resize(rhs, rhs0))
             rhs = rhs0
 
@@ -278,8 +278,8 @@ class BinAddOp(BinaryExpression):
     @property
     def type(self):
         if isinstance(self._type, types.Pointer):
-            return types.Pointer(types.Int((yield from self.size)))
-        return types.Int((yield from self.size))
+            return types.Pointer(types.Int.fromsize((yield from self.size)))
+        return types.Int.fromsize((yield from self.size))
 
     def compile(self, ctx: CompileContext) -> ExprCompileType:
         lhs: Register
@@ -309,7 +309,7 @@ class BinMulOp(BinaryExpression):
         lhs = yield from self.left.type
         rhs = yield from self.right.type
         signed = (lhs.signed and rhs.signed) if self.op == "/" else False
-        return types.Int((yield from self.size), signed)
+        return types.Int.fromsize((yield from self.size), signed)
 
     def compile(self, ctx: CompileContext) -> ExprCompileType:
         lhs: Register
@@ -344,7 +344,7 @@ class BinShiftOp(BinaryExpression):
             signed = lhs.signed
         else:
             signed = False
-        return types.Int((yield from self.size), signed)
+        return types.Int.fromsize((yield from self.size), signed)
 
     def compile(self, ctx: CompileContext) -> ExprCompileType:
         lhs: Register

@@ -15,7 +15,7 @@ class IntegerLiteral(ExpressionObject):
     def __init__(self, ast: AST):
         super().__init__(ast)
         self.lit: int = ast.val
-        self._type = ast.type
+        self._type = ast.type or types.Int('s2')
 
     @property
     def type(self):
@@ -27,9 +27,8 @@ class IntegerLiteral(ExpressionObject):
         return self.lit.to_bytes(typ.size, "little", signed=typ.signed)
 
     def compile(self, ctx: CompileContext) -> Register:
-        size = yield from self.size
-        reg = ctx.get_register(size, self.lit.sign)
-        ctx.emit(Mov(reg, Immediate(self.lit, size)))
+        reg = ctx.get_register(self._type.size, self._type.signed)
+        ctx.emit(Mov(reg, Immediate(self.lit, self._type.size)))
         return reg
 
 

@@ -1,11 +1,11 @@
 # pylint: disable=no-self-use
-from compiler.objects.base import Scope
+from compiler.objects.base import Scope, FunctionDecl
 from compiler.objects.literals import (
     ArrayLiteral, Identifier, IntegerLiteral, StringLiteral, char_literal)
 from compiler.objects.operations import (BinAddOp, BinRelOp, BoolCompOp,
                                          unary_postfix, unary_prefix, AssignOp,
                                          BitwiseOp, BinShiftOp, BinMulOp)
-from compiler.objects.statements import FunctionDecl, ReturnStmt, VariableDecl, IFStmt, LoopStmt
+from compiler.objects.statements import ReturnStmt, VariableDecl, IFStmt, LoopStmt
 from compiler.objects.types import Array, Function, Int, Pointer
 
 
@@ -14,7 +14,7 @@ class WewSemantics(object):
         return ast
 
     def base_type(self, ast):
-        return Int(ast.base_type)
+        return Int(ast)
 
     def ptr_type(self, ast):
         return Pointer(ast.t)

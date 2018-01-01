@@ -2,11 +2,11 @@
 
 import inspect
 from compiler.objects import types
-from compiler.objects.ir_object import Epilog, IRObject, Prelude, Register
-from compiler.objects.statements import FunctionDecl
+from compiler.objects.ir_object import Epilog, IRObject, Prelude, Register, Return
 from contextlib import contextmanager
 from functools import wraps
 from typing import Dict, List, Optional, Union, Generator
+from itertools import chain
 
 from tatsu.ast import AST
 from tatsu.infos import ParseInfo
@@ -17,7 +17,8 @@ class NotFinished(Exception):
     pass
 
 
-class CompileException(Exception): 
+class CompileException(Exception):
+
     def __init__(self, reason: str, trace: str=None):
         super().__init__(reason, trace)
         self.reason = reason
@@ -28,7 +29,7 @@ ExprCompileType = Generator['ObjectRequest', 'BaseObject', Register]  # pylint: 
 
 # If we have many of these just use a tuple api instead
 # (req.object_request, "name") or something nice like that
-# 
+#
 class ObjectRequest:
     """Request an object that might not be compiled yet."""
 
@@ -40,7 +41,17 @@ class ApplyMethodMeta(type):
     """Looks up _meta_fns in class and applies functions to asked methods."""
 
     def __new__(mcs, name, bases, attrs):
-        for k, v in attrs.get("_meta_fns", ()):
+        # grab our meta functions stuff
+        if "_meta_fns" in attrs:
+            metas = attrs["_meta_fns"]
+        else:
+            for klass in chain.from_iterable(m.mro() for m in bases):
+                if hasattr(klass, "_meta_fns"):
+                    metas = klass._meta_fns
+                    break
+            else:
+                metas = ()
+        for k, v in metas:
             attr = attrs.get(k)
             if attr is not None:
                 attrs[k] = v(attr)
@@ -74,7 +85,7 @@ def wrap_add_compile_context(f):
     @wraps(f)
     def internal(self, ctx: 'CompileContext'):
         with ctx.context(self):
-            yield from f(self, ctx)
+            return (yield from f(self, ctx))
 
     return internal
 
@@ -83,8 +94,11 @@ class BaseObject(metaclass=ApplyMethodMeta):
     """Base class of compilables."""
 
     def __init__(self, ast: AST):
+        self.context = None
         self._ast = ast
         self._info: ParseInfo = ast.parseinfo
+        if ast.parseinfo is None:
+            raise Exception("Parseinfo was none somehow")
 
     @property
     def identifier(self) -> str:
@@ -170,7 +184,7 @@ class ExpressionObject(BaseObject):
 
     @property
     def size(self):
-        return (yield from self.type.size)
+        return (yield from self.type).size
 
     @property
     def pointer_to(self):
@@ -219,7 +233,7 @@ class Scope(StatementObject):
         super().__init__(ast)
         self.vars: Dict[str, Variable] = {}
         self.size = 0
-        self.body = ast.body
+        self.body = [i[0] for i in ast.body]
 
     def lookup_variable(self, name: str) -> Variable:
         return self.vars.get(name)
@@ -252,6 +266,46 @@ class Scope(StatementObject):
         var.stack_offset = self.size
         self.size += var.size
         return var
+
+
+class FunctionDecl(Scope):
+    """Function definition object.
+
+    Function definitions should expand to a declaration with
+    assignment to a const global variable with the name of the function.
+
+    Stack shape:
+
+    | p1 | p2 | p3 | p4 | return_addr | stored_base_pointer | v1 | v2 | v3 |
+
+    """
+
+    def __init__(self, ast: AST):
+        super().__init__(ast)
+        self.name = ast.name
+        self.params = [Variable(i[0], i[2]) for i in ast.params]
+        for var, offset in zip(self.params, range(len(self.params), 0, -1)):
+            var.stack_offset = -offset
+        self._type = types.Function(ast.r, [i[2] for i in ast.params], True)
+        # should functions be naturally const?
+
+    @property
+    def type(self) -> types.Type:
+        return self._type
+
+    @property
+    def identifier(self) -> str:
+        return self.name
+
+    def lookup_variable(self, name: str) -> Optional[Variable]:
+        v = super().lookup_variable(name)
+        if v is None:
+            return self.params.get(name)
+        return None  # shut up pylint
+
+    def compile(self, ctx: 'CompileContext') -> StmtCompileType:
+        yield from super().compile(ctx)
+        ctx.emit(Return())
 
 
 class Compiler:
@@ -338,10 +392,11 @@ class Compiler:
         :param obj: The object to start compiling. May or may not have already been visited.
         :param to_send: Initial value to send to generator.
         """
-        if hasattr(obj, "_context"):
-            ctx = obj._context  # pylint: disable=protected-access
+        if obj.context is None:
+            ctx = CompileContext(self)
+            obj.context = ctx
         else:
-            ctx = CompileContext(self)  # if we already have a context
+            ctx = obj.context
 
         if hasattr(obj, "_coro"):
             coro = obj._coro  # pylint: disable=protected-access

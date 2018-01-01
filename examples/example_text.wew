@@ -1,0 +1,4 @@
+fn main(argc: u8, argv: **u1) -> u2 {
+  var str := "teststring\n";
+  var a := 3 * 2 * 1;
+}

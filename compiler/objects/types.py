@@ -11,6 +11,10 @@ class Int(Type):
     def __init__(self, t: str, const: bool=False):
         self.t = t
         self.const = const
+        
+    @classmethod
+    def fromsize(cls, size: int, sign: bool=False):
+        return cls(f"{'s' if sign else 'u'}{size}")
 
     def __eq__(self, other: Type):
         if not isinstance(other, Int):
@@ -19,7 +23,7 @@ class Int(Type):
                 self.t == other.t)
 
     def __str__(self):
-        tp = str(self.t)
+        tp = self.t
         if self.const:
             tp = f"|{tp}|"
         return tp

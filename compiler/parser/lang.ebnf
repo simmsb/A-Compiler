@@ -3,7 +3,7 @@
 @@comments :: /{~(\n|.)*~}/
 @@eol_comments :: /~~.*?$/
 
-@@parseinfo :: False
+@@parseinfo :: True
 
 start = {decl}+ $ ;
 
@@ -75,7 +75,7 @@ expr
   ;
 
 fun_decl
-  = "fn" ~ name:identifier '(' params:','.{n:identifier ':' t:type} ')' '->' r:type >scope
+  = "fn" ~ name:name '(' params:','.{name ':' type} ')' '->' r:type >scope
   ;
 
 optional_def
@@ -85,7 +85,7 @@ optional_def
   ;
 
 var_decl
-  = "var" ~ name:identifier >optional_def
+  = "var" ~ name:name >optional_def
   ;
 
 decl
@@ -232,7 +232,7 @@ arr_lit
 
 int = /\d+/ ;
 int_lit = val:(>int) ['/' type:base_type] ;
-str = /".+"/ ;
-chr = /'.'/ ;
-
-identifier = /[A-Za-z]\w*/;
+str = str:/".+"/ ;
+chr = chr:/'.'/ ;
+name = /[A-Za-z]\w*/ ;
+identifier = identifier:name ;
