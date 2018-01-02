@@ -90,8 +90,9 @@ var_decl
 
 decl
   =
-  | fun_decl
+  ( fun_decl
   | var_decl
+  ) [';']
   ;
 
 assign_expr

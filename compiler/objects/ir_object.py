@@ -36,27 +36,6 @@ class Register:
     __repr__ = __str__
 
 
-class NamedRegister:
-    def __init__(self, reg: RegisterEnum, size: int, sign: bool=False):
-        self.reg = reg
-        self.size = size
-        self.sign = sign
-
-    @classmethod
-    def __getattr__(cls, attr: str) -> 'NamedRegister':
-        return lambda size, sign=False: cls(RegisterEnum(attr), size, sign)
-
-    def resize(self, new_size: int=None, new_sign: bool=None) -> 'Register':
-        """Get a resized copy of this register."""
-        return Register(self.reg, new_size or self.size,
-                        new_sign or self.sign)
-
-    def __str__(self):
-        return f"%{self.reg.name}{'s' if self.sign else 'u'}{self.size}"
-
-    __repr__ = __str__
-
-
 class Immediate:
     def __init__(self, val: int, size: int):
         self.val = val
@@ -240,10 +219,11 @@ class Return(IRObject):
 class Call(IRObject):
     """Jump to location, push return address."""
 
-    def __init__(self, argsize: int, jump: Register):
+    def __init__(self, argsize: int, jump: Register, result: Register):
         super().__init__()
         self.argsize = argsize
         self.jump = jump
+        self.result = result
 
 
 class Jump(IRObject):

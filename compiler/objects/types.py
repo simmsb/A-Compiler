@@ -4,6 +4,7 @@ from typing import List
 class Type:
     size = 0
     const = False
+    signed = False
 
 
 class Int(Type):
@@ -78,7 +79,7 @@ class Array(Type):
             return False
         return (self.to == other.to and
                 self.length == other.length and
-                self.consts == other.const)
+                self.const == other.const)
 
     def __str__(self):
         tp = f"[{self.to}@{self.length}]"

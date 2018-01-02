@@ -1,10 +1,12 @@
-from compiler.objects import types
-from compiler.objects.base import (CompileContext, ExpressionObject,
-                                   ObjectRequest)
-from compiler.objects.ir_object import (Dereference, Immediate, LoadVar, Mov,
-                                        Register)
+from typing import Tuple, Generator, List, Union
 
 from tatsu.ast import AST
+
+from compiler.objects import types
+from compiler.objects.base import (CompileContext, ExpressionObject,
+                                   ObjectRequest, Variable, BaseObject)
+from compiler.objects.ir_object import (Dereference, Immediate, LoadVar, Mov,
+                                        Register)
 
 
 def is_constant_expression(obj: ExpressionObject) -> bool:
@@ -61,18 +63,22 @@ class Identifier(ExpressionObject):
             self.var = yield ObjectRequest(self.name)
         return self.var.type
 
-    def load_lvalue(self, ctx: CompileContext) -> Register:
+    def load_value(self, ctx: CompileContext) -> Generator[ObjectRequest, Variable, Tuple[Register, Variable]]:
         if self.var is None:
             self.var = yield ObjectRequest(self.name)
-        reg = ctx.get_register(types.Pointer(self.var.type))
+        reg = ctx.get_register(types.Pointer(self.var.type).size)
         ctx.emit(LoadVar(self.var, reg, lvalue=True))
         return reg, self.var
 
+    def load_lvalue(self, ctx: 'CompileContext') -> Register:
+        reg, _ = yield from self.load_value(ctx)
+        return reg
+
     def compile(self, ctx: CompileContext) -> Register:
-        reg, var = yield from self.load_lvalue(ctx)
+        reg, var = yield from self.load_value(ctx)
         if isinstance(var.type, types.Array):
             return reg  # array type, value is the pointer
-        rego = reg.resize(var.size, var.sign)
+        rego = reg.resize(var.size)
         ctx.emit(Mov(rego, Dereference(reg)))
         return rego
 
@@ -80,12 +86,14 @@ class Identifier(ExpressionObject):
 class ArrayLiteral(ExpressionObject):
     def __init__(self, ast: AST):
         super().__init__(ast)
-        self.exprs = ast.obj
+        self.exprs: List[ExpressionObject] = ast.obj
 
-        self._type = types.Pointer(self.exprs[0].type, const=True)
+        self._type = None
 
     @property
-    def type(self):
+    def type(self) -> Generator[ObjectRequest, Variable, Union[types.Array, types.Pointer]]:
+        if self._type is None:
+            self._type = types.Pointer((yield from self.exprs[0].type), const=True)
         return self._type
 
     def to_array(self):
@@ -95,18 +103,19 @@ class ArrayLiteral(ExpressionObject):
     def compile(self, ctx: CompileContext) -> Register:
         #  this is only run if we're not in the form of a array initialisation.
         #  check that everything is a constant
-        if not all((yield from i.type) == self._type for i in self.exprs):
+        my_type = yield from self.type
+        if not all((yield from i.type) == my_type for i in self.exprs):
             raise self.error(f"Conflicting array literal types.")
 
         if not all(map(is_constant_expression, self.exprs)):
             raise self.error(f"Array literal terms are not constant.")
 
-        type_ = yield from self.type
-
-        if isinstance(type_.to, types.Int):
-            bytes_ = b''.join(i.bytes for i in self.exprs)
+        if isinstance(my_type.to, types.Int):
+            self.exprs: List[IntegerLiteral]
+            bytes_ = b''.join(i.lit.to_bytes((yield from i.size)) for i in self.exprs)
             var = ctx.compiler.add_bytes(bytes_)
-        elif isinstance(type_.to, types.string_lit):
+        elif isinstance(my_type.to, types.string_lit):
+            self.exprs: List[StringLiteral]
             vars_ = [ctx.compiler.add_string(i.lit) for i in self.exprs]
             var = ctx.compiler.add_array(vars_)
 

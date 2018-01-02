@@ -33,6 +33,8 @@ class WewSemantics(object):
         return ast
 
     def statement(self, ast):
+        if isinstance(ast, list):
+            return ast[0]
         return ast
 
     def scope(self, ast):
@@ -63,6 +65,10 @@ class WewSemantics(object):
         return ast
 
     def decl(self, ast):
+        # 'decl ;' results in [<decl>, ';']
+        # but 'decl' results in <decl>
+        if isinstance(ast, list):
+            return ast[0]
         return ast
 
     def assign_expr(self, ast):

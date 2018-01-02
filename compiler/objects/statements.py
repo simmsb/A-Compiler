@@ -1,11 +1,11 @@
 from compiler.objects.base import (CompileContext, ExpressionObject, Scope,
-                                   StatementObject, StmtCompileType)
+                                   StatementObject, StmtCompileType, ObjectRequest, BaseObject, Variable)
 from compiler.objects.ir_object import (Binary, Dereference, Immediate,
                                         LoadVar, Mov, Register, Resize, Return,
                                         SaveVar, JumpTarget, Compare, CompType, Jump)
 from compiler.objects.literals import ArrayLiteral
-from compiler.objects.types import Pointer
-from typing import Optional
+from compiler.objects.types import Pointer, Type
+from typing import Optional, Generator
 
 from tatsu.ast import AST
 
@@ -22,9 +22,11 @@ class VariableDecl(StatementObject):
             self.val.to_array()
 
     @property
-    def type(self):
+    def type(self) -> Generator[ObjectRequest, Variable, Type]:
         if self._type == "infer":
-            return (yield from self.val.type)
+            if self.val is None:
+                raise self.error(f"Variable {self.name} has no initialiser or type.")
+            self._type = (yield from self.val.type)
         return self._type
 
     @property
@@ -33,14 +35,15 @@ class VariableDecl(StatementObject):
 
     def compile(self, ctx: CompileContext) -> StmtCompileType:
         var = ctx.declare_variable(self.name, (yield from self.type))
+        # TODO: but what about M u l t i - d i m e n s i o n a l arrays?
         if isinstance(self.val, ArrayLiteral):
-            ptr = ctx.get_register(Pointer(self.val.type.t))
+            ptr = ctx.get_register(Pointer((yield from self.val.type).to).size)
             ctx.emit(LoadVar(var, ptr, lvalue=True))
             for i in self.val.exprs:
                 res = yield from i.compile(ctx)
                 ctx.emit(Mov(Dereference(ptr), res))
                 ctx.emit(Binary.add(ptr, Immediate(
-                    self.size, Pointer(var.type).size)))
+                        (yield from self.type).size, Pointer(var.type).size)))
 
         if isinstance(self.val, ExpressionObject):
             reg = yield from self.val.compile(ctx)
