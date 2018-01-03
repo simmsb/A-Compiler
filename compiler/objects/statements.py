@@ -1,5 +1,5 @@
 from compiler.objects.base import (CompileContext, ExpressionObject, Scope,
-                                   StatementObject, StmtCompileType, ObjectRequest, BaseObject, Variable)
+                                   StatementObject, StmtCompileType, ObjectRequest, Variable)
 from compiler.objects.ir_object import (Binary, Dereference, Immediate,
                                         LoadVar, Mov, Register, Resize, Return,
                                         SaveVar, JumpTarget, Compare, CompType, Jump)
@@ -43,7 +43,8 @@ class VariableDecl(StatementObject):
                 res = yield from i.compile(ctx)
                 ctx.emit(Mov(Dereference(ptr), res))
                 ctx.emit(Binary.add(ptr, Immediate(
-                        (yield from self.type).size, Pointer(var.type).size)))
+                    (yield from self.type).size,
+                    Pointer(var.type).size)))
 
         if isinstance(self.val, ExpressionObject):
             reg = yield from self.val.compile(ctx)

@@ -37,6 +37,7 @@ def test_incompatible_types_to_add():
     with raises(CompileException):
         compile_source(decl)
 
+
 def test_var_ref():
     decl = ("var a := 3;"
             "fn test() -> u1 {"

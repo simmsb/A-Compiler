@@ -190,7 +190,8 @@ class ExpressionObject(BaseObject):
 
     @property
     def size(self) -> Generator[ObjectRequest, 'Variable', int]:
-        return (yield from self.type).size
+        typ = (yield from self.type)
+        return typ.size
 
     @property
     def pointer_to(self):
@@ -466,12 +467,12 @@ class Compiler:
             # look for either a global object or a scope variable.
             var = ctx.lookup_variable(r.name)
             if var:
-                coro.send(var)
+                to_send = var
                 continue
 
             var = self.identifiers.get(r.name)
             if var:
-                coro.send(var)
+                to_send = var
                 continue
 
             # if nothing was found place coro on waiting list and start compiling something else.
@@ -482,14 +483,17 @@ class Compiler:
     def compile(self, objects: List[StatementObject]):
         """Compile a list of objects."""
         objects: List[Tuple[StatementObject, Any]] = [(o, None) for o in objects]
-        for i, t in objects:
+        while objects:
+            i, t = objects.pop()
             try:
                 self.run_over(i, t)
             except NotFinished:
                 pass
-            else:
-                to_wake = self.waiting_coros.pop(i.identifier, ())
-                objects.extend((o, i) for o in to_wake)
+            else:  # TODO: scrap identifier things and just rescan waiting objects every finish
+                var = self.identifiers.get(i.identifier)
+                if var:
+                    to_wake = self.waiting_coros.pop(i.identifier, ())
+                    objects.extend((o, var) for o in to_wake)
                 self.compiled_objects.append(i)
         if self.waiting_coros:
             for k, l in self.waiting_coros.items():
