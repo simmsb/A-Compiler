@@ -49,7 +49,7 @@ statement
   ;
 
 scope
-  = '{' body:{statement}+ '}'
+  = '{' body:{statement}* '}'
   ;
 
 if_stmt

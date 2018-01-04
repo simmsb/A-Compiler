@@ -1,10 +1,10 @@
 from compiler.objects import types
-from compiler.objects.base import (BaseObject, CompileContext,
-                                   ExpressionObject, ObjectRequest, ExprCompileType, Variable)
+from compiler.objects.base import (BaseObject, CompileContext, ExprCompileType,
+                                   ExpressionObject, ObjectRequest, Variable)
 from compiler.objects.ir_object import (Binary, Call, Compare, CompType,
                                         Dereference, Immediate, Jump,
-                                        JumpTarget, Mov, Push,
-                                        Register, Resize, SetCmp, Unary)
+                                        JumpTarget, Mov, Push, Register,
+                                        Resize, SetCmp, Unary)
 from typing import Generator, Iterable, Tuple, Union
 
 from tatsu.ast import AST
@@ -431,7 +431,12 @@ class AssignOp(ExpressionObject):
         lhs: Register = (yield from self.left.load_lvalue(ctx))
         rhs: Register = (yield from self.right.compile(ctx))
 
-        lhs_size = yield from self.left.size
+        lhs_type = yield from self.left.type
+        lhs_size = lhs_type.size
+
+        if lhs_type.const:
+            raise self.error("cannot assign to const type.")
+
         if lhs_size != rhs.size:
             rhs_ = rhs.resize(lhs_size)
             ctx.emit(Resize(rhs, rhs_))

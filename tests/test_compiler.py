@@ -1,10 +1,7 @@
 from compiler.objects import compile_source
 from compiler.objects.base import CompileException
 from pytest import raises
-
-
-def emptyfn(body: str) -> str:
-    return f"fn test() -> u1 {{{body}}}"
+from tests.helpers import emptyfn
 
 
 def test_var_declaration_global():
@@ -43,4 +40,10 @@ def test_var_ref():
             "fn test() -> u1 {"
             "    var b := a * 3;"
             "}")
+    compile_source(decl)
+
+
+def test_var_assn():
+    decl = emptyfn("var a := 3;"
+                   "a = 4;")
     compile_source(decl)

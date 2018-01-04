@@ -1,16 +1,18 @@
-from compiler.parser import lang
+from compiler.objects import parse_source
+from compiler import objects
+from tests.helpers import emptyfn
 
 
 def test_var_declaration():
     decl = "var a : (u2, *u4, [s2], *[s4]) -> *(s2)"
-    lang.parse(decl)
+    parse_source(decl)
 
 
 def test_fn_declaration():
     decl = """fn b(a:[[*s4@3]@5], b:u2) -> u4 {
         return 1
     }"""
-    lang.parse(decl)
+    parse_source(decl)
 
 
 def test_multiple_advanced():
@@ -23,4 +25,27 @@ def test_multiple_advanced():
         n[1+2]--
         return f(a)
     }"""
-    lang.parse(decl)
+    parse_source(decl)
+
+
+def test_function_decl():
+    decl = "fn func(a: u1, b: *u2) -> u4 {};"
+    body, = parse_source(decl)
+
+    assert isinstance(body, objects.base.FunctionDecl)
+
+    assert body._type == objects.types.Function(
+        objects.types.Int('u4'),
+        (objects.types.Int('u1'),
+         objects.types.Pointer(
+             objects.types.Int('u2'))),
+        True)
+
+
+def test_return_parse():
+    decl = emptyfn("return 1;")
+    fn, = parse_source(decl)
+
+    rtn_stmt = fn.body[0]
+
+    assert isinstance(rtn_stmt, objects.statements.ReturnStmt)

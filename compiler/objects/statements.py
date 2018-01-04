@@ -1,11 +1,12 @@
-from compiler.objects.base import (CompileContext, ExpressionObject, Scope,
-                                   StatementObject, StmtCompileType, ObjectRequest, Variable)
-from compiler.objects.ir_object import (Binary, Dereference, Immediate,
-                                        LoadVar, Mov, Register, Resize, Return,
-                                        SaveVar, JumpTarget, Compare, CompType, Jump)
+from compiler.objects.base import (CompileContext, ExpressionObject,
+                                   ObjectRequest, Scope, StatementObject,
+                                   StmtCompileType, Variable)
+from compiler.objects.ir_object import (Binary, Compare, CompType, Dereference,
+                                        Immediate, Jump, JumpTarget, LoadVar,
+                                        Mov, Register, Resize, Return, SaveVar)
 from compiler.objects.literals import ArrayLiteral
 from compiler.objects.types import Pointer, Type
-from typing import Optional, Generator
+from typing import Generator, Optional
 
 from tatsu.ast import AST
 
@@ -59,7 +60,12 @@ class ReturnStmt(StatementObject):
         self.expr: ExpressionObject = ast.e
 
     def compile(self, ctx: CompileContext):
-        fn_type = yield from ctx.top_function.type
+        fn_type: Type = (yield from ctx.top_function.type)
+        expr_type: Type = (yield from self.expr.type)
+
+        if not fn_type.implicitly_casts_to(expr_type):
+            raise self.error(f"Return type '{expr_type}' cannot be casted to '{fn_type}'.")
+
         reg = yield from self.expr.compile(ctx)
         for i in reversed(ctx.scope_stack):
             ctx.emit(i.make_epilog())

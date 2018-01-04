@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Tuple
 
 
 class Type:
@@ -6,13 +6,21 @@ class Type:
     const = False
     signed = False
 
+    can_cast_to: Tuple['Type'] = ()
+
+    def implicitly_casts_to(self, other: 'Type') -> bool:
+        """Determine if it is valid to implicitly cast the the other type to this type.
+        does not care about size.
+        """
+        return any(isinstance(other, i) for i in self.can_cast_to)
+
 
 class Int(Type):
 
     def __init__(self, t: str, const: bool=False):
         self.t = t
         self.const = const
-        
+
     @classmethod
     def fromsize(cls, size: int, sign: bool=False):
         return cls(f"{'s' if sign else 'u'}{size}")
@@ -29,9 +37,12 @@ class Int(Type):
             tp = f"|{tp}|"
         return tp
 
+    def __repr__(self):
+        return f"Int({self.t!r}, {self.const!r})"
+
     @property
-    def casts_to(self):
-        return Int, Pointer, Function
+    def can_cast_to(self) -> Tuple[Type]:
+        return Int,
 
     @property
     def size(self):
@@ -62,9 +73,13 @@ class Pointer(Type):
             tp = f"|{tp}|"
         return tp
 
+    def __repr__(self):
+        return f"Pointer({self.to!r}, {self.const!r})"
+
     @property
-    def casts_to(self):
-        return Int, Pointer, Function
+    def can_cast_to(self) -> Tuple[Type]:
+        return Pointer, Function
+
 
 
 class Array(Type):
@@ -87,6 +102,13 @@ class Array(Type):
             tp = f"|{tp}|"
         return tp
 
+    def __repr__(self):
+        return f"Array({self.to!r}, {self.length!r}, {self.const!r})"
+
+    @property
+    def can_cast_to(self) -> Tuple[Type]:
+        return Pointer, Function, Array
+
     @property
     def size(self) -> int:
         # return length of array in memory
@@ -105,11 +127,15 @@ class Function(Type):
         self.const = const
 
     def __str__(self):
-        types = ",".join(map(str, self.args))
+        types = ", ".join(map(str, self.args))
         fns = f"({types}) -> {self.returns}"
         if self.const:
             fns = f"|{fns}|"
         return fns
+
+    def __repr__(self):
+        types = ", ".join(map(repr, self.args))
+        return f"Function({self.returns!r}, ({types}), {self.const!r})"
 
     def __eq__(self, other: Type):
         if not isinstance(other, Function):
@@ -117,6 +143,10 @@ class Function(Type):
         return (self.returns == other.returns and
                 all(a == b for a, b in zip(self.args, other.args)) and
                 self.const == other.const)
+
+    @property
+    def can_cast_to(self) -> Tuple[Type]:
+        return Pointer, Function
 
 
 char = Int('u1')

@@ -1,12 +1,15 @@
 # pylint: disable=no-self-use
-from compiler.objects.base import Scope, FunctionDecl
-from compiler.objects.literals import (
-    ArrayLiteral, Identifier, IntegerLiteral, StringLiteral, char_literal)
-from compiler.objects.operations import (BinAddOp, BinRelOp, BoolCompOp,
-                                         unary_postfix, unary_prefix, AssignOp,
-                                         BitwiseOp, BinShiftOp, BinMulOp)
-from compiler.objects.statements import ReturnStmt, VariableDecl, IFStmt, LoopStmt
-from compiler.objects.types import Array, Function, Int, Pointer
+from compiler.objects.base import FunctionDecl, Scope
+from compiler.objects.literals import (ArrayLiteral, Identifier,
+                                       IntegerLiteral, StringLiteral,
+                                       char_literal)
+from compiler.objects.operations import (AssignOp, BinAddOp, BinMulOp,
+                                         BinRelOp, BinShiftOp, BitwiseOp,
+                                         BoolCompOp, unary_postfix,
+                                         unary_prefix)
+from compiler.objects.statements import (IFStmt, LoopStmt, ReturnStmt,
+                                         VariableDecl)
+from compiler.objects.types import Array, Function, Int, Pointer, Type
 
 
 class WewSemantics(object):
@@ -20,7 +23,9 @@ class WewSemantics(object):
         return Pointer(ast.t)
 
     def const_type(self, typ):
-        typ.const = True
+        assert isinstance(typ.t, Type)
+
+        typ.t.const = True
         return typ
 
     def array_type(self, ast):
@@ -138,7 +143,7 @@ class WewSemantics(object):
         return IntegerLiteral(ast)
 
     def int(self, ast):
-        return int(ast.int)
+        return int(ast)
 
     def str(self, ast):
         return StringLiteral(ast)

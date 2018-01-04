@@ -2,11 +2,12 @@
 
 import inspect
 from compiler.objects import types
-from compiler.objects.ir_object import Epilog, IRObject, Prelude, Register, Return
+from compiler.objects.ir_object import (Epilog, IRObject, Prelude, Register,
+                                        Return)
 from contextlib import contextmanager
 from functools import wraps
-from typing import Dict, List, Optional, Union, Generator, Any, Tuple
 from itertools import chain
+from typing import Any, Dict, Generator, List, Optional, Tuple, Union
 
 from tatsu.ast import AST
 from tatsu.infos import ParseInfo
@@ -128,8 +129,7 @@ class BaseObject(metaclass=ApplyMethodMeta):
         def fmtr():
             if startl == endl:
                 # start and end on same line, only need simple fmt
-                width = (
-                                endp - startp) - 2  # leave space for carats + off by one
+                width = (endp - startp) - 2  # leave space for carats + off by one
                 separator = '-' * width
                 yield source[startl]
                 yield f"{'^':>{startp}}{separator}^"
@@ -263,7 +263,7 @@ class Scope(StatementObject):
         if ax is not None:
             if ax.type != typ:
                 raise CompileException(
-                        f"Variable {name} of type '{typ}' is already declared as type '{ax.type}'"
+                    f"Variable {name} of type '{typ}' is already declared as type '{ax.type}'"
                 )
             return ax  # variable already declared but is of the same type, ignore it
 
@@ -287,7 +287,7 @@ class Scope(StatementObject):
         if ax is not None:
             if ax.type != typ:
                 raise CompileException(
-                        f"Variable {name} of type {typ} is already declared as type {ax.type}"
+                    f"Variable {name} of type {typ} is already declared as type {ax.type}"
                 )
             return ax  # variable already declared but is of the same type, ignore it
 
@@ -304,7 +304,7 @@ class FunctionDecl(Scope):
     Function definitions should expand to a declaration with
     assignment to a const global variable with the name of the function.
 
-    Stack shape:
+    Stack shape: (not that it matters in this stage of the compiler)
 
     | p1 | p2 | p3 | p4 | return_addr | stored_base_pointer | v1 | v2 | v3 |
 
@@ -314,10 +314,10 @@ class FunctionDecl(Scope):
         super().__init__(ast)
         self.name = ast.name
         self.params = {i[0]: Variable(i[0], i[2]) for i in ast.params}
-        for var, offset in zip(self.params, range(len(self.params), 0, -1)):
+        for var, offset in zip(self.params.values(), range(len(self.params), 0, -1)):
             var.stack_offset = -offset
         self._type = types.Function(ast.r, [i[2] for i in ast.params], True)
-        # should functions be naturally const?
+        # TODO: should functions be naturally const?
 
     @property
     def type(self) -> types.Type:
@@ -331,6 +331,7 @@ class FunctionDecl(Scope):
         v = super().lookup_variable(name)
         if v is None:
             return self.params.get(name)
+        return v
 
     def compile(self, ctx: 'CompileContext') -> StmtCompileType:
         ctx.make_variable(self.name, self.type, self)
@@ -342,7 +343,7 @@ class Compiler:
     def __init__(self):
         self.identifiers: Dict[str, Variable] = {}
         self.compiled_objects: List[BaseObject] = []
-        self.waiting_coros: Dict[str, List[BaseObject]] = {}
+        self.waiting_coros: Dict[str, List[Tuple[BaseObject, BaseObject]]] = {}
         self.data: List[Union[str, bytes, List[Variable]]] = []
 
     def make_variable(self, name: str, typ: types.Type, obj: BaseObject) -> Variable:
@@ -391,7 +392,8 @@ class Compiler:
         If string to insert already exists returns reference to exising.
 
         :param string: The string to insert.
-        :returns: The variable reference created."""
+        :returns: The variable reference created.
+        """
         key = f"string-lit-{string}"
         val = Variable(key, types.string_lit)
         if string not in self.data:
@@ -407,7 +409,8 @@ class Compiler:
         Unlike :func:`add_string` always creates a new object.
 
         :param data: The bytes to insert.
-        :returns: The variable reference created."""
+        :returns: The variable reference created.
+        """
         index = len(self.data)
         key = f"raw-data-{index}"
         val = Variable(key, types.string_lit)
@@ -421,7 +424,8 @@ class Compiler:
         Unlike :func:`add_string` always creates a new object.
 
         :param vars: The variables to insert.
-        :returns: The variable reference created."""
+        :returns: The variable reference created.
+        """
         assert vars
         index = len(self.data)
         key = f"var-array-{index}"
@@ -430,13 +434,15 @@ class Compiler:
         self.data.append(vars)
         return val
 
-    def add_waiting(self, name: str, obj: BaseObject):
+    def add_waiting(self, name: str, obj: BaseObject, from_: Optional[BaseObject]=None):
         """Add a coro to the waiting list.
 
         :param name: The name to wait on.
-        :param obj: The object that should sleep."""
+        :param obj: The object that should sleep.
+        :param from_: The object that made the request (current top of stack)
+        """
         coros = self.waiting_coros.setdefault(name, [])
-        coros.append(obj)
+        coros.append((obj, from_))
 
     def run_over(self, obj: StatementObject, to_send: Variable = None):
         """Run over a compile coro. If we dont finish raise :class:`NotFinished`
@@ -477,7 +483,7 @@ class Compiler:
 
             # if nothing was found place coro on waiting list and start compiling something else.
 
-            self.add_waiting(r.name, obj)
+            self.add_waiting(r.name, obj, ctx.current_object)
             raise NotFinished
 
     def compile(self, objects: List[StatementObject]):
@@ -493,13 +499,13 @@ class Compiler:
                 var = self.identifiers.get(i.identifier)
                 if var:
                     to_wake = self.waiting_coros.pop(i.identifier, ())
-                    objects.extend((o, var) for o in to_wake)
+                    objects.extend((o, var) for (o, _) in to_wake)
                 self.compiled_objects.append(i)
         if self.waiting_coros:
             for k, l in self.waiting_coros.items():
-                for i in l:
-                    print(i.make_error(),
-                          f"This object is waiting on an object of name: '{k}' which never compiled.")
+                for (waiting_obj, err_obj) in l:
+                    err = (waiting_obj if err_obj is None else err_obj).make_error()
+                    print(err, f"This object is waiting on an object of name: '{k}' which never compiled.")
             raise CompileException(
                     "code remaining that was waiting on something that never appeared.")
 

@@ -1,12 +1,11 @@
-from typing import Tuple, Generator, List, Union
-
-from tatsu.ast import AST
-
 from compiler.objects import types
 from compiler.objects.base import (CompileContext, ExpressionObject,
-                                   ObjectRequest, Variable, BaseObject)
+                                   ObjectRequest, Variable)
 from compiler.objects.ir_object import (Dereference, Immediate, LoadVar, Mov,
                                         Register)
+from typing import Generator, List, Tuple, Union
+
+from tatsu.ast import AST
 
 
 def is_constant_expression(obj: ExpressionObject) -> bool:
