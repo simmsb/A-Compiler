@@ -9,5 +9,5 @@ The main target of the compiler is my [[https://github.com/nitros12/A-VM][virtua
 [[https://github.com/Maratyszcza/PeachPy][PeachPy]] at some point to produce x86_64 binaries and also a LLVM backend
 eventually.
 
-file:compiler/parser contains the language definition of my language
-file:compiler/objects contains the AST nodes and IR generator
+[[file:compiler/parser]] contains the language definition of my language
+[[file:compiler/objects]] contains the AST nodes and IR generator
