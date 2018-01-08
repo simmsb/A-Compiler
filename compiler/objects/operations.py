@@ -78,6 +78,8 @@ class DereferenceOP(ExpressionObject):
     @property
     def type(self):
         ptr: Union[types.Pointer, types.Array] = (yield from self.expr.type)
+        if not isinstance(ptr, (types.Pointer, types.Array)):
+            raise self.error("Operand to dereference is not of pointer or array type.")
         return ptr.to
 
     def load_lvalue(self, ctx: CompileContext) -> ExprCompileType:
@@ -151,8 +153,11 @@ class ArrayIndexOp(ExpressionObject):
 
     @property
     def type(self):
-        return (yield from self.arg.type).to  # extract pointer
-
+        ptr = yield from self.arg.type
+        if not isinstance(ptr, (types.Pointer, types.Array)):
+            raise self.error("Operand to index operator is not of pointer or array type.")
+        return ptr
+        
     # Our lvalue is the memory to dereference
     def load_lvalue(self, ctx: CompileContext) -> ExprCompileType:
         atype = yield from self.arg.type

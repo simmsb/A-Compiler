@@ -39,13 +39,13 @@ type
 
 statement
   =
-  ( var_decl
-  | scope
-  | if_stmt
-  | loop_stmt
-  | return_stmt
-  | expression_stmt
-  ) [';']  # semicolon is optional
+  | ( var_decl
+    | scope
+    | if_stmt
+    | loop_stmt
+    | return_stmt
+    ) [';']  # semicolon is optional for non expr-stmts
+  | expression_stmt ';'
   ;
 
 scope
@@ -186,7 +186,7 @@ prefix
       '~'  |
       '!'  |
       '-'  |
-      '+'  ) ~ right:unop
+      '+'  ) right:unop
   ;
 
 postop
