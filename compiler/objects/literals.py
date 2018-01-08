@@ -1,6 +1,6 @@
 from compiler.objects import types
 from compiler.objects.base import (CompileContext, ExpressionObject,
-                                   ObjectRequest, Variable)
+                                   ObjectRequest, Variable, ExprCompileType)
 from compiler.objects.ir_object import (Dereference, Immediate, LoadVar, Mov,
                                         Register)
 from typing import Generator, List, Tuple, Union
@@ -43,7 +43,7 @@ class StringLiteral(ExpressionObject):
     def type(self):
         return types.string_lit
 
-    def compile(self, ctx: CompileContext) -> Register:
+    def compile(self, ctx: CompileContext) -> ExprCompileType:
         var = ctx.compiler.add_string(self.lit)
         reg = ctx.get_register((yield from self.size))
         ctx.emit(LoadVar(var, reg, lvalue=True))
@@ -69,11 +69,11 @@ class Identifier(ExpressionObject):
         ctx.emit(LoadVar(self.var, reg, lvalue=True))
         return reg, self.var
 
-    def load_lvalue(self, ctx: 'CompileContext') -> Register:
+    def load_lvalue(self, ctx: CompileContext) -> ExprCompileType:
         reg, _ = yield from self.load_value(ctx)
         return reg
 
-    def compile(self, ctx: CompileContext) -> Register:
+    def compile(self, ctx: CompileContext) -> ExprCompileType:
         reg, var = yield from self.load_value(ctx)
         if isinstance(var.type, types.Array):
             return reg  # array type, value is the pointer
@@ -99,7 +99,7 @@ class ArrayLiteral(ExpressionObject):
         """Convert type to array object from pointer object."""
         self._type = types.Array(self._type.to, len(self.exprs))
 
-    def compile(self, ctx: CompileContext) -> Register:
+    def compile(self, ctx: CompileContext) -> ExprCompileType:
         #  this is only run if we're not in the form of a array initialisation.
         #  check that everything is a constant
         my_type = yield from self.type
