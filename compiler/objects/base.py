@@ -315,6 +315,7 @@ class FunctionDecl(Scope):
         self.name = ast.name
         self.params = {i[0]: Variable(i[0], i[2]) for i in ast.params}
         for var, offset in zip(self.params.values(), range(len(self.params), 0, -1)):
+            # TODO: Factor in the size of parameters
             var.stack_offset = -offset
         self._type = types.Function(ast.r, [i[2] for i in ast.params], True)
         # TODO: should functions be naturally const?

@@ -12,7 +12,7 @@ class Type:
         """Determine if it is valid to implicitly cast the the other type to this type.
         does not care about size.
         """
-        return any(isinstance(other, i) for i in self.can_cast_to)
+        return isinstance(other, self.can_cast_to)
 
 
 class Int(Type):

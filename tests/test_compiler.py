@@ -47,3 +47,14 @@ def test_var_assn():
     decl = emptyfn("var a := 3;"
                    "a = 4;")
     compile_source(decl)
+
+
+def test_return_stmt():
+    decl = emptyfn("return 1;")
+    compile_source(decl)
+
+
+def test_incompatible_types_to_return():
+    decl = emptyfn("return 1::*u1;")
+    with raises(CompileException):
+        compile_source(decl)

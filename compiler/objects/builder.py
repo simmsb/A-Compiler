@@ -54,9 +54,6 @@ class WewSemantics(object):
     def return_stmt(self, ast):
         return ReturnStmt(ast)
 
-    def expression_stmt(self, ast):
-        return ast
-
     def expr(self, ast):
         return ast
 

@@ -19,9 +19,6 @@ class VariableDecl(StatementObject):
         self._type = ast.typ
         self.val: Optional[ExpressionObject] = ast.val
 
-        if isinstance(self.val, ArrayLiteral):
-            self.val.to_array()
-
     @property
     def type(self) -> Generator[ObjectRequest, Variable, Type]:
         if self._type == "infer":
@@ -35,6 +32,8 @@ class VariableDecl(StatementObject):
         return self.name
 
     def compile(self, ctx: CompileContext) -> StmtCompileType:
+        if isinstance(self.val, ArrayLiteral):
+            yield from self.val.to_array()
         var = ctx.declare_variable(self.name, (yield from self.type))
         # TODO: but what about M u l t i - d i m e n s i o n a l arrays?
         if isinstance(self.val, ArrayLiteral):
@@ -60,11 +59,11 @@ class ReturnStmt(StatementObject):
         self.expr: ExpressionObject = ast.e
 
     def compile(self, ctx: CompileContext):
-        fn_type: Type = (yield from ctx.top_function.type)
+        fn_type = ctx.top_function.type
         expr_type: Type = (yield from self.expr.type)
 
-        if not fn_type.implicitly_casts_to(expr_type):
-            raise self.error(f"Return type '{expr_type}' cannot be casted to '{fn_type}'.")
+        if not fn_type.returns.implicitly_casts_to(expr_type):
+            raise self.error(f"Return type '{expr_type}' cannot be casted to '{fn_type.returns}'.")
 
         reg = yield from self.expr.compile(ctx)
         for i in reversed(ctx.scope_stack):
@@ -91,7 +90,7 @@ class IFStmt(StatementObject):
         else_jmp = end_jmp if self.else_ is None else JumpTarget()
         ctx.emit(Jump(else_jmp, CompType.eq))
         yield from self.body.compile(ctx)
-        if self.else_:  # if there is no else body, just jump to the end
+        if self.else_:  # if there is no else body, else_jmp = end_jmp so no need to emit anything but the end marker.
             ctx.emit(Jump(end_jmp, CompType.uncond))
             ctx.emit(else_jmp)
             yield from self.else_.compile(ctx)

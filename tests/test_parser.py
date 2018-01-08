@@ -10,20 +10,20 @@ def test_var_declaration():
 
 def test_fn_declaration():
     decl = """fn b(a:[[*s4@3]@5], b:u2) -> u4 {
-        return 1
+        return 1;
     }"""
     parse_source(decl)
 
 
 def test_multiple_advanced():
     decl = """fn b(a:|[[|*s4|@3]@5]|, b:u2) -> |u4| {
-        var a: [u4@4] = {1, 2, 3, 4}
-        a = 5 * (4 + (4 / 3))
-        if a < b {print(wew, lad)}
+        var a: [u4@4] = {1, 2, 3, 4};
+        a = 5 * (4 + (4 / 3));
+        if a < b {print(wew, lad);}
         x++; ~~ we need a semicolon here
-        n = *(0:::*u2)
-        n[1+2]--
-        return f(a)
+        n = *(0:::*u2);
+        (n[1+2])--;
+        return f(a);
     }"""
     parse_source(decl)
 

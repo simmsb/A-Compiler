@@ -3,6 +3,8 @@
 @@comments :: /{~(\n|.)*~}/
 @@eol_comments :: /~~.*?$/
 
+@@left_recursion :: False
+
 @@parseinfo :: True
 
 start = {decl}+ $ ;
@@ -45,7 +47,7 @@ statement
     | loop_stmt
     | return_stmt
     ) [';']  # semicolon is optional for non expr-stmts
-  | expression_stmt ';'
+  | expr ';'
   ;
 
 scope
@@ -63,11 +65,6 @@ loop_stmt
 
 return_stmt = "return" ~ e:expr ;
 
-expression_stmt
-  =
-  expr
-  ;
-
 expr
   =
   | assign_expr
@@ -80,8 +77,8 @@ fun_decl
 
 optional_def
   =
-  | ":" typ:type ["=" val:expr]  # static
   | ":=" ~ val:expr typ:`infer`  # inferred
+  | ":" typ:type ["=" val:expr]  # static
   ;
 
 var_decl
@@ -197,12 +194,12 @@ postop
 
 postfix
   =
-  | left:postop '(' args:','.{expr} ')' type:`f`
-  | left:postop '[' ~ args:expr ']' type:`b`
-  | left:postop op:'++' type:`d`
-  | left:postop op:'--' type:`d`
-  | left:postop op:':::' ~ t:type type:`c`  # reinterpret expr
-  | left:postop op:'::' ~ t:type type:`c`  # cast expr
+  | left:singular '(' args:','.{expr} ')' type:`f`
+  | left:singular '[' ~ args:expr ']' type:`b`
+  | left:singular op:'++' type:`d`
+  | left:singular op:'--' type:`d`
+  | left:singular op:':::' ~ t:type type:`c`  # reinterpret expr
+  | left:singular op:'::' ~ t:type type:`c`  # cast expr
   ;
 
 singular

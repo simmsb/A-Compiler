@@ -97,7 +97,8 @@ class ArrayLiteral(ExpressionObject):
 
     def to_array(self):
         """Convert type to array object from pointer object."""
-        self._type = types.Array(self._type.to, len(self.exprs))
+        to = (yield from self.exprs[0].type) if self._type is None else self._type.to
+        self._type = types.Array(to, len(self.exprs))
 
     def compile(self, ctx: CompileContext) -> ExprCompileType:
         #  this is only run if we're not in the form of a array initialisation.

@@ -105,7 +105,7 @@ class CastExprOP(ExpressionObject):
 
     def compile(self, ctx: CompileContext) -> ExprCompileType:
         reg: Register = (yield from self.expr.compile(ctx))
-        res = reg.resize(self._type.size, self._type.sign)
+        res = reg.resize(self._type.size, self._type.signed)
         if self.op == "::":
             ctx.emit(Resize(reg, res))  # emit resize operation
         else:
