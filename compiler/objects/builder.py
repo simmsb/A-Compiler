@@ -118,8 +118,18 @@ class WewSemantics(object):
     def prefix(self, ast):
         return unary_prefix(ast)
 
+    def postfixexpr(self, ast):
+        return ast
+
     def postfix(self, ast):
-        return unary_postfix(ast)
+        # postfix gets a bit weird since we cant have left recursion
+        # instead we parse a list of expressions on the right hand side
+        # then we unfold this by generating ast nodes from left to right
+        final = ast.left
+        for i in ast.exprs:
+            i["left"] = final
+            final = unary_postfix(i)
+        return final
 
     def postop(self, ast):
         return ast

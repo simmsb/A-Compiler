@@ -22,7 +22,7 @@ def test_multiple_advanced():
         if a < b {print(wew, lad);}
         x++; ~~ we need a semicolon here
         n = *(0:::*u2);
-        (n[1+2])--;
+        n[1+2]--;
         return f(a);
     }"""
     parse_source(decl)

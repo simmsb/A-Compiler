@@ -192,14 +192,19 @@ postop
   | singular
   ;
 
+postfixexpr
+  =
+  | '(' args:','.{expr} ')' type:`f`
+  | '[' ~ args:expr ']' type:`b`
+  | op:'++' type:`d`
+  | op:'--' type:`d`
+  | op:':::' ~ t:type type:`c`  # reinterpret expr
+  | op:'::' ~ t:type type:`c`  # cast expr
+  ; 
+
 postfix
   =
-  | left:singular '(' args:','.{expr} ')' type:`f`
-  | left:singular '[' ~ args:expr ']' type:`b`
-  | left:singular op:'++' type:`d`
-  | left:singular op:'--' type:`d`
-  | left:singular op:':::' ~ t:type type:`c`  # reinterpret expr
-  | left:singular op:'::' ~ t:type type:`c`  # cast expr
+  left:singular exprs:{postfixexpr}
   ;
 
 singular
