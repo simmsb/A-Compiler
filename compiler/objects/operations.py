@@ -16,6 +16,7 @@ def unary_prefix(ast: AST):
         "*": DereferenceOP,
         "++": PreincrementOP,
         "--": PreincrementOP,
+        "&": MemrefOp,
         "~": UnaryOP,
         "!": UnaryOP,
         "-": UnaryOP,
@@ -23,7 +24,22 @@ def unary_prefix(ast: AST):
     }[ast.op](ast)
 
 
+class MemrefOp(ExpressionObject):
+
+    def __init__(self, ast: AST):
+        super().__init__(ast)
+        self.expr: ExpressionObject = ast.right
+
+    @property
+    def type(self):
+        return types.Pointer((yield from self.expr.type))
+
+    def compile(self, ctx: CompileContext) -> ExprCompileType:
+        return (yield from self.expr.load_lvalue(ctx))
+
+
 class UnaryOP(ExpressionObject):
+
     def __init__(self, ast: AST):
         super().__init__(ast)
         self.op = ast.op
@@ -49,6 +65,7 @@ def unary_postfix(ast: AST):
 
 
 class PreincrementOP(ExpressionObject):
+
     def __init__(self, ast: AST):
         super().__init__(ast)
         self.expr: ExpressionObject = ast.right
@@ -71,6 +88,7 @@ class PreincrementOP(ExpressionObject):
 
 
 class DereferenceOP(ExpressionObject):
+
     def __init__(self, ast: AST):
         super().__init__(ast)
         self.expr: ExpressionObject = ast.right
@@ -93,6 +111,7 @@ class DereferenceOP(ExpressionObject):
 
 
 class CastExprOP(ExpressionObject):
+
     def __init__(self, ast: AST):
         super().__init__(ast)
         self._type = ast.t
@@ -114,6 +133,7 @@ class CastExprOP(ExpressionObject):
 
 
 class FunctionCallOp(ExpressionObject):
+
     def __init__(self, ast: AST):
         super().__init__(ast)
         self.fun: ExpressionObject = ast.left
@@ -131,7 +151,7 @@ class FunctionCallOp(ExpressionObject):
         if len(self.args) != len(fun_typ.args):
             raise self.error("Incorrect number of args to function.\n"
                              f"Expected {len(fun_typ.args)} got {len(self.args)}")
-        
+
         # check that the argument types are valid
         arg_types = ((i, (yield from i.type)) for i in self.args)
         for arg_n, (lhs_type, (rhs_obj, rhs_type)) in enumerate(zip(fun_typ.args, arg_types)):
@@ -154,6 +174,7 @@ class FunctionCallOp(ExpressionObject):
 
 
 class ArrayIndexOp(ExpressionObject):
+
     def __init__(self, ast: AST):
         super().__init__(ast)
         self.arg = ast.left
@@ -165,7 +186,7 @@ class ArrayIndexOp(ExpressionObject):
         if not isinstance(ptr, (types.Pointer, types.Array)):
             raise self.error("Operand to index operator is not of pointer or array type.")
         return ptr.to
-        
+
     # Our lvalue is the memory to dereference
     def load_lvalue(self, ctx: CompileContext) -> ExprCompileType:
         atype = yield from self.arg.type
@@ -197,6 +218,7 @@ class ArrayIndexOp(ExpressionObject):
 
 
 class PostIncrementOp(ExpressionObject):
+
     def __init__(self, ast: AST):
         super().__init__(ast)
         self.arg = ast.left
@@ -218,6 +240,7 @@ class PostIncrementOp(ExpressionObject):
 
 
 class BinaryExpression(ExpressionObject):
+
     """Generic binary expression (a `x` b)
 
     _compat_types is used to typecheck the expression and set the return type of it."""

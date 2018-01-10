@@ -258,3 +258,10 @@ def test_function_call_fail_type():
             "}")
     with raises(CompileException):
         compile_source(decl)
+
+
+def test_memory_reference_op():
+    decl = emptyfn("var a: u1;"
+                   "return &a;",
+                   "*u1")
+    compile_source(decl)
