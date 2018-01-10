@@ -26,7 +26,7 @@ class WewSemantics(object):
         assert isinstance(typ.t, Type)
 
         typ.t.const = True
-        return typ
+        return typ.t
 
     def array_type(self, ast):
         return Array(ast.t, ast.s)

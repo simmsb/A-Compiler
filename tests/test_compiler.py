@@ -31,15 +31,133 @@ def test_var_multiple_different():
         compile_source(decl)
 
 
-# TODO: more binary operation type tests
+def test_types_to_binary_add_op():
+    """Test types to binary add operation."""
+    tests = (
+        "1 + 1",
+        "1 - 1",
+        "1 + 1::*u4",
+        "1::u2 + 1::u8",
+        "1::u2 + 1::s8",
+        "1::*u4 + 1",
+        "1::*u4 - 1::*u4"
+    )
 
-def test_incompatible_types_to_multiply():
-    """Test that multiplying a integer by a pointer is invalid."""
-    decl = emptyfn("var a := 3;"
-                   "var b : *u1;"
-                   "a * b;")
-    with raises(CompileException):
-        compile_source(decl)
+    for i in tests:
+        compile_source(emptyfn(i + ";"))
+
+
+def test_incompatible_types_to_binary_add_op():
+    """Test incorrect types to binary add operation."""
+    tests = (
+        "1::*u4 + 1::*u4",
+    )
+
+    for i in tests:
+        with raises(CompileException):
+            compile_source(emptyfn(i + ";"))
+
+
+def test_types_to_binary_mul_op():
+    """Test types to binary multiply operation."""
+    tests = (
+        "1 * 1",
+        "1 / 1"
+    )
+
+    for i in tests:
+        compile_source(emptyfn(i + ";"))
+
+def test_incompatible_types_to_mul_op():
+    """Test incorrect types to binary multiply operation."""
+    tests = (
+        "1 * 1::*u4",
+        "1::*u4 * 1::*u4"
+    )
+
+    for i in tests:
+        with raises(CompileException):
+            compile_source(emptyfn(i + ";"))
+
+
+def test_types_to_binary_shift_op():
+    """Test types to binary shift operation."""
+    tests = (
+        "1 << 1",
+        "1 >> 1"
+    )
+
+    for i in tests:
+        compile_source(emptyfn(i + ";"))
+
+
+def test_incompatible_types_to_shift_op():
+    """Test incorrect types to binary shift operation."""
+    tests = (
+        "1 << 1::*u4",
+        "1::*u4 >> 1::*u4"
+    )
+
+    for i in tests:
+        with raises(CompileException):
+            compile_source(emptyfn(i + ";"))
+
+
+def test_types_to_binary_relation_op():
+    """Test types to binary relation operation."""
+    tests = (
+        "1 < 1",
+        "1::*u1 < 1::*u1"
+    )
+
+    for i in tests:
+        compile_source(emptyfn(i + ";"))
+
+
+def test_incompatible_types_to_relation_op():
+    """Test incorrect types to binary relation operation."""
+    tests = (
+        "1 < 1::*u4",
+        "1::*u4 > 1"
+    )
+
+    for i in tests:
+        with raises(CompileException):
+            compile_source(emptyfn(i + ";"))
+
+
+def test_types_to_binary_bitwise_op():
+    """Test types to binary bitwise operation."""
+    tests = (
+        "1 | 1",
+    )
+
+    for i in tests:
+        compile_source(emptyfn(i + ";"))
+
+
+def test_incompatible_types_to_bitwise_op():
+    """Test incorrect types to binary bitwise operation."""
+    tests = (
+        "1 | 1::*u4",
+        "1::*u4 | 1::*u4"
+    )
+
+    for i in tests:
+        with raises(CompileException):
+            compile_source(emptyfn(i + ";"))
+
+
+def test_types_to_binary_comparison_op():
+    """Test types to binary comparison operation."""
+    tests = (
+        "1 || 1",
+        "1 || 1::*u1",
+        "1::*u1 || 1"
+    )
+
+    for i in tests:
+        compile_source(emptyfn(i + ";"))
 
 
 def test_var_ref_subscope():
@@ -74,6 +192,14 @@ def test_var_assn():
     decl = emptyfn("var a := 3;"
                    "a = 4;")
     compile_source(decl)
+
+
+def test_invalid_var_assn():
+    """Test variable initialisation and invalid const assignment."""
+    decl = emptyfn("var a:|u4| = 3;"
+                   "a = 4;")
+    with raises(CompileException):
+        compile_source(decl)
 
 
 def test_return_stmt():
