@@ -25,6 +25,9 @@ class CompileException(Exception):
         self.reason = reason
         self.trace = trace
 
+    def __str__(self):
+        return f"{self.reason}\n{self.trace}"
+
 
 StmtCompileType = Generator['ObjectRequest', 'Variable', None]  # pylint: disable=invalid-name
 ExprCompileType = Generator['ObjectRequest', 'Variable', Register]  # pylint: disable=invalid-name
@@ -109,7 +112,7 @@ class BaseObject(metaclass=ApplyMethodMeta):
     @property
     def identifier(self) -> str:
         info = self._info
-        return f"{info.line:info.pos:info.endpos}"
+        return f"{info.line}:{info.pos}:{info.endpos}"
 
     @property
     def highlight_lines(self) -> str:

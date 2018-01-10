@@ -130,14 +130,20 @@ class Unary(IRObject):
         return lambda arg: cls(arg, attr)
 
 
-class Binary(IRObject):
-    """Binary operation.
+class BinaryMeta(type):
 
-    valid ops:
-    add, sub, mul, div, etc etc.
+    def __getattr__(cls, attr):
+        if attr in cls.valid_ops:
+            return lambda left, right, to=None: cls(left, right, attr, to)
+
+
+class Binary(IRObject, metaclass=BinaryMeta):
+    """Binary operation.
 
     if :param to: is not provided, defaults to :param left:
     """
+
+    valid_ops = ("add", "sub", "mul", "div")
 
     def __init__(self, left, right, op: str, to=None):
         super().__init__()
@@ -145,10 +151,6 @@ class Binary(IRObject):
         self.right = right
         self.op = op
         self.to = to or left
-
-    @classmethod
-    def __getattr__(cls, attr):
-        return lambda left, right, to=None: cls(left, right, attr, to)
 
 
 class Compare(IRObject):

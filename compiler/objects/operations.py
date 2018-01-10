@@ -109,7 +109,7 @@ class CastExprOP(ExpressionObject):
         if self.op == "::":
             ctx.emit(Resize(reg, res))  # emit resize operation
         else:
-            ctx.emit(Mov(res, reg))  # standard move, no entension
+            ctx.emit(Mov(res, reg))  # standard move, no extension
         return res
 
 
@@ -121,7 +121,7 @@ class FunctionCallOp(ExpressionObject):
 
     @property
     def type(self):
-        return (yield from self.fun).type.returns
+        return (yield from self.fun.type).returns
 
     def compile(self, ctx: CompileContext) -> ExprCompileType:
         fun_typ = yield from self.fun.type
@@ -130,14 +130,19 @@ class FunctionCallOp(ExpressionObject):
         if not isinstance(fun_typ, types.Function):
             raise self.error("Called object is not a function.")
 
+        # check that the argument types are valid
         for arg_n, (lhs_type, (rhs_obj, rhs_type)) in enumerate(zip(fun_typ.args, arg_types)):
-            if lhs_type != rhs_type:
+            if not lhs_type.implicitly_casts_to(rhs_type):
                 raise rhs_obj.error(
                     f"Argument {arg_n} to call {self.fun.identifier} was of "
                     f"type {rhs_type} instead of expected {lhs_type}.")
 
-        for arg in self.args:
+        for arg, typ in zip(self.args, fun_typ.args):
             arg_reg: Register = (yield from arg.compile(ctx))
+            if arg_reg.size != typ.size:
+                arg_reg0 = arg_reg.resize(typ.size)
+                ctx.emit(Resize(arg_reg, arg_reg0))
+                arg_reg = arg_reg0
             ctx.emit(Push(arg_reg))
         fun: Register = (yield from self.fun.compile(ctx))
         result_reg: Register = ctx.get_register((yield from self.size))
@@ -156,7 +161,7 @@ class ArrayIndexOp(ExpressionObject):
         ptr = yield from self.arg.type
         if not isinstance(ptr, (types.Pointer, types.Array)):
             raise self.error("Operand to index operator is not of pointer or array type.")
-        return ptr
+        return ptr.to
         
     # Our lvalue is the memory to dereference
     def load_lvalue(self, ctx: CompileContext) -> ExprCompileType:
@@ -164,7 +169,7 @@ class ArrayIndexOp(ExpressionObject):
         if not isinstance(atype, (types.Pointer, types.Array)):
             raise self.error(f"Incompatible type to array index base {atype}")
 
-        if isinstance(atype.to, types.Array):  # if we are indexing a multi-dimensional array, dont dereference
+        if isinstance(atype.to, types.Array):  # if we are indexing a multi-dimensional array, don't dereference
             argres: Register = (yield from self.arg.load_lvalue(ctx))
         else:
             argres: Register = (yield from self.arg.compile(ctx))

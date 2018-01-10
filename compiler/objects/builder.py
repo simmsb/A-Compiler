@@ -122,7 +122,7 @@ class WewSemantics(object):
         return ast
 
     def postfix(self, ast):
-        # postfix gets a bit weird since we cant have left recursion
+        # since we cant have left recursion we cant parse postfix operations recursively
         # instead we parse a list of expressions on the right hand side
         # then we unfold this by generating ast nodes from left to right
         final = ast.left
