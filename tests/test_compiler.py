@@ -100,7 +100,7 @@ def test_no_lvalue():
 
 
 def test_function_call():
-    """Test that functions reference correctly and can be called."""
+    """Test that functions reference correctly and can be called, and that argument types work."""
     decl = ("fn a(b: u1, c: *u2) -> u2 {"
             "    return c[b];"
             "}"
@@ -108,3 +108,27 @@ def test_function_call():
             "    a(1, 2::*u2);"
             "}")
     compile_source(decl)
+
+
+def test_function_call_fail_count():
+    """Test that an incorrect number of arguments to functions are invalid."""
+    decl = ("fn a(b: u1, c: *u2) -> u2 {"
+            "    return c[b];"
+            "}"
+            "fn main() -> u1 {"
+            "    a(1);"
+            "}")
+    with raises(CompileException):
+        compile_source(decl)
+
+
+def test_function_call_fail_type():
+    """Test that an incorrect type of arguments to functions are invalid."""
+    decl = ("fn a(b: u1, c: *u2) -> u2 {"
+            "    return c[b];"
+            "}"
+            "fn main() -> u1 {"
+            "    a(0::*u1, 1);"
+            "}")
+    with raises(CompileException):
+        compile_source(decl)

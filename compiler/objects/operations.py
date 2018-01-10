@@ -124,13 +124,16 @@ class FunctionCallOp(ExpressionObject):
         return (yield from self.fun.type).returns
 
     def compile(self, ctx: CompileContext) -> ExprCompileType:
-        fun_typ = yield from self.fun.type
-        arg_types = ((i, (yield from i.type)) for i in self.args)
-
+        fun_typ: types.Function = (yield from self.fun.type)
         if not isinstance(fun_typ, types.Function):
             raise self.error("Called object is not a function.")
 
+        if len(self.args) != len(fun_typ.args):
+            raise self.error("Incorrect number of args to function.\n"
+                             f"Expected {len(fun_typ.args)} got {len(self.args)}")
+        
         # check that the argument types are valid
+        arg_types = ((i, (yield from i.type)) for i in self.args)
         for arg_n, (lhs_type, (rhs_obj, rhs_type)) in enumerate(zip(fun_typ.args, arg_types)):
             if not lhs_type.implicitly_casts_to(rhs_type):
                 raise rhs_obj.error(
