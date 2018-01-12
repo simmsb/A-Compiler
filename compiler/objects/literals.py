@@ -100,21 +100,27 @@ class ArrayLiteral(ExpressionObject):
         to = (yield from self.exprs[0].type) if self._type is None else self._type.to
         self._type = types.Array(to, len(self.exprs))
 
+    def check_types(self):
+        my_type = (yield from self.type).to
+        # XXX: this will break in py3.7, change to a manual for loop instead
+        expr_types = yield from [(yield from i.type) for i in self.exprs]
+        if not all(i.implicitly_casts_to(my_type) for i in expr_types):
+            raise self.error(f"Conflicting array literal types.")
+
     def compile(self, ctx: CompileContext) -> ExprCompileType:
         #  this is only run if we're not in the form of a array initialisation.
         #  check that everything is a constant
-        my_type = yield from self.type
-        if not all((yield from i.type).implicitly_casts_to(my_type.to) for i in self.exprs):
-            raise self.error(f"Conflicting array literal types.")
+        my_type = (yield from self.type).to
+        yield from self.check_types()
 
         if not all(map(is_constant_expression, self.exprs)):
             raise self.error(f"Array literal terms are not constant.")
 
-        if isinstance(my_type.to, types.Int):
+        if isinstance(my_type, types.Int):
             self.exprs: List[IntegerLiteral]
-            bytes_ = b''.join(i.lit.to_bytes(my_type.to.size) for i in self.exprs)
+            bytes_ = b''.join(i.lit.to_bytes(my_type.size) for i in self.exprs)
             var = ctx.compiler.add_bytes(bytes_)
-        elif isinstance(my_type.to, types.string_lit):
+        elif isinstance(my_type, types.string_lit):
             self.exprs: List[StringLiteral]
             vars_ = [ctx.compiler.add_string(i.lit) for i in self.exprs]
             var = ctx.compiler.add_array(vars_)

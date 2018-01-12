@@ -37,6 +37,7 @@ class VariableDecl(StatementObject):
         var = ctx.declare_variable(self.name, (yield from self.type))
         # TODO: but what about M u l t i - d i m e n s i o n a l arrays?
         if isinstance(self.val, ArrayLiteral):
+            yield from self.val.check_types()
             ptr = ctx.get_register(Pointer((yield from self.val.type).to).size)
             ctx.emit(LoadVar(var, ptr, lvalue=True))
             for i in self.val.exprs:

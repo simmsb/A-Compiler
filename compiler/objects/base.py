@@ -1,17 +1,19 @@
 # pylint: disable=inconsistent-return-statements
 
 import inspect
-from compiler.objects import types
-from compiler.objects.ir_object import (Epilog, IRObject, Prelude, Register,
-                                        Return)
+import sys
+
 from contextlib import contextmanager
 from functools import wraps
 from itertools import chain, accumulate
-from typing import Any, Dict, Generator, List, Optional, Tuple, Union
+from typing import Any, Dict, Generator, List, Optional, Tuple, Union, Iterable
 
 from tatsu.ast import AST
 from tatsu.infos import ParseInfo
 
+from compiler.objects import types
+from compiler.objects.ir_object import (Epilog, IRObject, Prelude, Register,
+                                        Return)
 
 class NotFinished(Exception):
     """Raised when a compilation is waiting on another object."""
@@ -20,7 +22,7 @@ class NotFinished(Exception):
 
 class CompileException(Exception):
 
-    def __init__(self, reason: str, trace: str = None):
+    def __init__(self, reason: str, trace: Optional[str] = None):
         super().__init__(reason, trace)
         self.reason = reason
         self.trace = trace
@@ -161,7 +163,7 @@ class BaseObject(metaclass=ApplyMethodMeta):
                            f"on lines {startl} to {endl}"),
                           self.highlight_lines))
 
-    def error(self, reason):
+    def error(self, reason: str):
         return CompileException(reason, self.make_error())
 
 
@@ -207,8 +209,7 @@ class ExpressionObject(BaseObject):
     def load_lvalue(self, ctx: 'CompileContext') -> ExprCompileType:  # pylint: disable=unused-argument
         """Load the lvalue of an expression, returning the register the value was placed in."""
         raise self.error(
-                f"Object of type <{self.__class__.__name__}> Holds no LValue information."
-        )
+            f"Object of type <{self.__class__.__name__}> Holds no LValue information.")
 
 
 class Variable:
@@ -470,22 +471,21 @@ class Compiler:
                 to_send = None
             except StopIteration:
                 return
-
+            
             assert isinstance(r, ObjectRequest)
-
             # look for either a global object or a scope variable.
             var = ctx.lookup_variable(r.name)
-            if var:
+            if var is not None:
                 to_send = var
                 continue
 
             var = self.identifiers.get(r.name)
-            if var:
+            if var is not None:
                 to_send = var
                 continue
 
             # if nothing was found place coro on waiting list and start compiling something else.
-
+            
             self.add_waiting(r.name, obj, ctx.current_object)
             raise NotFinished
 
@@ -500,7 +500,7 @@ class Compiler:
                 pass
             else:  # TODO: scrap identifier things and just rescan waiting objects every finish
                 var = self.identifiers.get(i.identifier)
-                if var:
+                if var is not None:
                     to_wake = self.waiting_coros.pop(i.identifier, ())
                     objects.extend((o, var) for (o, _) in to_wake)
                 self.compiled_objects.append(i)
@@ -508,10 +508,9 @@ class Compiler:
             for k, l in self.waiting_coros.items():
                 for (waiting_obj, err_obj) in l:
                     err = (waiting_obj if err_obj is None else err_obj).make_error()
-                    print(err, f"This object is waiting on an object of name: '{k}' which never compiled.")
+                    print(err, f"This object is waiting on an object of name: '{k}' which never compiled.", file=sys.stderr)
             raise CompileException(
-                    "code remaining that was waiting on something that never appeared.")
-
+                "code remaining that was waiting on something that never appeared.")
 
 class CompileContext:
     """A compilation context. Once context exists for every file level code object."""
