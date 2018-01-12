@@ -1,12 +1,11 @@
 # pylint: disable=inconsistent-return-statements
 
-import inspect
 import sys
 
 from contextlib import contextmanager
 from functools import wraps
-from itertools import chain, accumulate
-from typing import Any, Dict, Generator, List, Optional, Tuple, Union, Iterable
+from itertools import accumulate
+from typing import Any, Dict, Coroutine, List, Optional, Tuple, Union
 
 from tatsu.ast import AST
 from tatsu.infos import ParseInfo
@@ -31,8 +30,8 @@ class CompileException(Exception):
         return f"{self.reason}\n{self.trace}"
 
 
-StmtCompileType = Generator['ObjectRequest', 'Variable', None]  # pylint: disable=invalid-name
-ExprCompileType = Generator['ObjectRequest', 'Variable', Register]  # pylint: disable=invalid-name
+StmtCompileType = Coroutine['ObjectRequest', 'Variable', None]  # pylint: disable=invalid-name
+ExprCompileType = Coroutine['ObjectRequest', 'Variable', Register]  # pylint: disable=invalid-name
 
 
 # If we have many of these just use a tuple api instead
@@ -45,63 +44,16 @@ class ObjectRequest:
         self.name = name
 
 
-class ApplyMethodMeta(type):
-    """Looks up _meta_fns in class and applies functions to asked methods."""
-
-    # Why did I do this this was a bad idea why?
-
-    def __new__(mcs, name, bases, attrs):
-        # grab our meta functions stuff
-        if "_meta_fns" in attrs:
-            metas = attrs["_meta_fns"]
-        else:
-            for klass in chain.from_iterable(m.mro() for m in bases):
-                if hasattr(klass, "_meta_fns"):
-                    metas = klass._meta_fns
-                    break
-            else:
-                metas = ()
-        for k, v in metas:
-            attr = attrs.get(k)
-            if attr is not None:
-                attrs[k] = v(attr)
-        return super().__new__(mcs, name, bases, attrs)
-
-
-def make_generator(f):
-    """Make a function or a property getter a generator function."""
-    if isinstance(f, property):
-        if inspect.isgeneratorfunction(f.fget):
-            return f
-
-        @wraps(f.fget)
-        def internal_p(*args, **kwargs):
-            return f.fget(*args, **kwargs)
-            yield  # pylint: disable=unreachable
-
-        return property(internal_p)
-
-    if inspect.isgeneratorfunction(f):
-        return f
-
+def with_ctx(f):
     @wraps(f)
-    def internal(*args, **kwargs):
-        return f(*args, **kwargs)
-        yield  # pylint: disable=unreachable
-
-    return internal
-
-
-def wrap_add_compile_context(f):
-    @wraps(f)
-    def internal(self, ctx: 'CompileContext'):
+    async def internal(self, ctx: 'CompileContext', *args, **kwargs):
         with ctx.context(self):
-            return (yield from f(self, ctx))
+            return await f(self, ctx, *args, **kwargs)
 
     return internal
 
 
-class BaseObject(metaclass=ApplyMethodMeta):
+class BaseObject:
     """Base class of compilables."""
 
     def __init__(self, ast: AST):
@@ -170,43 +122,34 @@ class BaseObject(metaclass=ApplyMethodMeta):
 class StatementObject(BaseObject):
     """Derived base ast for statements."""
 
-    def compile(self, ctx: 'CompileContext') -> StmtCompileType:
+    @with_ctx
+    async def compile(self, ctx: 'CompileContext') -> StmtCompileType:
         """Compile an object
         Statement objects do not return a register."""
         raise NotImplementedError
-
-    _meta_fns = (("compile", make_generator),
-                 ("compile", wrap_add_compile_context))
 
 
 class ExpressionObject(BaseObject):
     """Derived base ast for expressions."""
 
-    _meta_fns = (("compile", make_generator),
-                 ("compile", wrap_add_compile_context),
-                 ("type", make_generator),
-                 ("size", make_generator),
-                 ("pointer_to", make_generator),
-                 ("load_lvalue", make_generator))
-
     @property
-    def type(self) -> Generator[ObjectRequest, 'Variable', types.Type]:
+    def type(self) -> Coroutine[ObjectRequest, 'Variable', types.Type]:
         raise NotImplementedError
 
     @property
-    def size(self) -> Generator[ObjectRequest, 'Variable', int]:
-        typ = (yield from self.type)
-        return typ.size
+    async def size(self) -> Coroutine[ObjectRequest, 'Variable', int]:
+        return (await self.type).size
 
     @property
     def pointer_to(self):
         return types.Pointer((yield from self.type))
 
-    def compile(self, ctx: 'CompileContext') -> ExprCompileType:
+    @with_ctx
+    async def compile(self, ctx: 'CompileContext') -> ExprCompileType:
         """Compiles an expression returning the register the result was placed in."""
         raise NotImplementedError
 
-    def load_lvalue(self, ctx: 'CompileContext') -> ExprCompileType:  # pylint: disable=unused-argument
+    async def load_lvalue(self, ctx: 'CompileContext') -> ExprCompileType:  # pylint: disable=unused-argument
         """Load the lvalue of an expression, returning the register the value was placed in."""
         raise self.error(
             f"Object of type <{self.__class__.__name__}> Holds no LValue information.")
@@ -249,11 +192,12 @@ class Scope(StatementObject):
     def lookup_variable(self, name: str) -> Variable:
         return self.vars.get(name)
 
-    def compile(self, ctx: 'CompileContext') -> StmtCompileType:
+    @with_ctx
+    async def compile(self, ctx: 'CompileContext') -> StmtCompileType:
         with ctx.scope(self):
             ctx.emit(Prelude(self))
             for i in self.body:
-                yield from i.compile(ctx)
+                await i.compile(ctx)
             ctx.emit(self.make_epilog())
 
     def make_epilog(self) -> IRObject:
@@ -337,9 +281,10 @@ class FunctionDecl(Scope):
             return self.params.get(name)
         return v
 
-    def compile(self, ctx: 'CompileContext') -> StmtCompileType:
+    @with_ctx
+    async def compile(self, ctx: 'CompileContext') -> StmtCompileType:
         ctx.make_variable(self.name, self.type, self)
-        yield from super().compile(ctx)
+        await super().compile(ctx)
         ctx.emit(Return())
 
 
@@ -511,6 +456,7 @@ class Compiler:
                     print(err, f"This object is waiting on an object of name: '{k}' which never compiled.", file=sys.stderr)
             raise CompileException(
                 "code remaining that was waiting on something that never appeared.")
+
 
 class CompileContext:
     """A compilation context. Once context exists for every file level code object."""
