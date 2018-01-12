@@ -1,5 +1,8 @@
-from compiler.objects import parse_source
 from compiler import objects
+from compiler.objects import parse_source
+
+from pytest import raises
+from tatsu.exceptions import FailedParse
 from tests.helpers import emptyfn
 
 
@@ -54,11 +57,18 @@ def test_return_parse():
     rtn_stmt = fn.body[0]
 
     assert isinstance(rtn_stmt, objects.statements.ReturnStmt)
-    
-   
+
+
 def test_if_stmt():
     """Test the if statement."""
     decl = emptyfn("if a != b {"
                    "    print(\"test\");"
                    "}")
     parse_source(decl)
+
+
+def test_fn_in_fn():
+    """Test function declarations being impossible inside a function body."""
+    decl = emptyfn(emptyfn(""))
+    with raises(FailedParse):
+        parse_source(decl)

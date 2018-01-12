@@ -104,7 +104,7 @@ class ArrayLiteral(ExpressionObject):
         #  this is only run if we're not in the form of a array initialisation.
         #  check that everything is a constant
         my_type = yield from self.type
-        if not all((yield from i.type) == my_type for i in self.exprs):
+        if not all((yield from i.type).implicitly_casts_to(my_type.to) for i in self.exprs):
             raise self.error(f"Conflicting array literal types.")
 
         if not all(map(is_constant_expression, self.exprs)):
@@ -112,7 +112,7 @@ class ArrayLiteral(ExpressionObject):
 
         if isinstance(my_type.to, types.Int):
             self.exprs: List[IntegerLiteral]
-            bytes_ = b''.join(i.lit.to_bytes((yield from i.size)) for i in self.exprs)
+            bytes_ = b''.join(i.lit.to_bytes(my_type.to.size) for i in self.exprs)
             var = ctx.compiler.add_bytes(bytes_)
         elif isinstance(my_type.to, types.string_lit):
             self.exprs: List[StringLiteral]

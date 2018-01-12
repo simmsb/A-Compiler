@@ -1,5 +1,6 @@
 from compiler.objects import compile_source
 from compiler.objects.base import CompileException
+
 from pytest import raises
 from tests.helpers import emptyfn
 
@@ -286,4 +287,10 @@ def test_while_loop():
                    "while a {"
                    "    a = a * 2;"
                    "}")
+    compile_source(decl)
+
+    
+def test_array_init():
+    """Tests array initialisation."""
+    decl = emptyfn("var a := {1, 2, 3};")
     compile_source(decl)

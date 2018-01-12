@@ -45,8 +45,7 @@ class VariableDecl(StatementObject):
                 ctx.emit(Binary.add(ptr, Immediate(
                     (yield from self.type).size,
                     Pointer(var.type).size)))
-
-        if isinstance(self.val, ExpressionObject):
+        elif isinstance(self.val, ExpressionObject):
             reg = yield from self.val.compile(ctx)
             ctx.emit(SaveVar(var, reg))
         # otherwise do nothing
