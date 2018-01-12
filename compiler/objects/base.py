@@ -317,7 +317,7 @@ class FunctionDecl(Scope):
         super().__init__(ast)
         self.name = ast.name
         self.params = {i[0]: Variable(i[0], i[2]) for i in ast.params}
-        for var, offset in zip(self.params.values(), accumulate(i.size for i in self.params)):
+        for var, offset in zip(self.params.values(), accumulate(i.size for i in self.params.values())):
             # pointer size is size of return address
             var.stack_offset = -(offset + types.Pointer.size)
         self._type = types.Function(ast.r, [i[2] for i in ast.params], const=True)
