@@ -266,3 +266,24 @@ def test_memory_reference_op():
                    "return &a;",
                    "*u1")
     compile_source(decl)
+
+
+def test_if_stmt():
+    """Test the functionality of an if statement."""
+    decl = emptyfn("var a := 1;"
+                   "var b := 2;"
+                   "if a < b {"
+                   "    return a;"
+                   "} else {"
+                   "    return b;"
+                   "}")
+    compile_source(decl)
+
+
+def test_while_loop():
+    """Test the functionality of a while loop."""
+    decl = emptyfn("var a := 2;"
+                   "while a {"
+                   "    a = a * 2;"
+                   "}")
+    compile_source(decl)
