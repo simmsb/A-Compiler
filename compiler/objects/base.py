@@ -471,7 +471,7 @@ class Compiler:
                 to_send = None
             except StopIteration:
                 return
-            
+
             assert isinstance(r, ObjectRequest)
             # look for either a global object or a scope variable.
             var = ctx.lookup_variable(r.name)
@@ -485,7 +485,7 @@ class Compiler:
                 continue
 
             # if nothing was found place coro on waiting list and start compiling something else.
-            
+
             self.add_waiting(r.name, obj, ctx.current_object)
             raise NotFinished
 
