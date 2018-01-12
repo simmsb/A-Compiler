@@ -17,7 +17,7 @@ def is_constant_expression(obj: ExpressionObject) -> bool:
 class IntegerLiteral(ExpressionObject):
     def __init__(self, ast: AST):
         super().__init__(ast)
-        self.lit: int = ast.val
+        self.lit: int = int(ast.val)
         self._type = ast.type or types.Int('s2')
 
     @property
@@ -28,8 +28,9 @@ class IntegerLiteral(ExpressionObject):
         """Get the byte representation of this integer literal.
 
         :param size: Size to output, if None use size of type"""
-        typ = (await self.type) if size is None else size
-        return self.lit.to_bytes(typ.size, "little", signed=typ.signed)
+        typ = await self.type
+        size = typ.size if size is None else size
+        return self.lit.to_bytes(size, "little", signed=typ.signed)
 
     @with_ctx
     async def compile(self, ctx: CompileContext) -> Register:
@@ -128,9 +129,9 @@ class ArrayLiteral(ExpressionObject):
 
         if isinstance(my_type, types.Int):
             self.exprs: List[IntegerLiteral]
-            bytes_ = b''.join((await i.bytes(my_type.size)) for i in self.exprs)
+            bytes_ = b''.join([(await i.bytes(my_type.size)) for i in self.exprs])
             var = ctx.compiler.add_bytes(bytes_)
-        elif isinstance(my_type, types.string_lit):
+        elif my_type == types.string_lit:
             self.exprs: List[StringLiteral]
             vars_ = [ctx.compiler.add_string(i.lit) for i in self.exprs]
             var = ctx.compiler.add_array(vars_)

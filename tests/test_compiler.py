@@ -290,9 +290,15 @@ def test_while_loop():
     compile_source(decl)
 
 
-def test_array_init():
+def test_array_init_num():
     """Tests array initialisation."""
     decl = emptyfn("var a := {1, 2, 3};")
+    compile_source(decl)
+
+
+def test_array_init_str():
+    """Tests array initialisation."""
+    decl = emptyfn("var a := {\"string\", \"morestring\", \"lessstring\"};")
     compile_source(decl)
 
 
@@ -309,9 +315,21 @@ def test_array_vars_second():
                    "var a := {1, b, 3};")
     compile_source(decl)
 
-    
+
 def test_array_init_invalid():
     """Tests array initialisation with invalid types."""
     decl = emptyfn("var a := {1, 2::*u2};")
     with raises(CompileException):
         compile_source(decl)
+
+
+def test_array_lit_num():
+    """Tests array initialisation."""
+    decl = emptyfn("{1, 2, 3};")
+    compile_source(decl)
+
+
+def test_array_lit_str():
+    """Tests array initialisation."""
+    decl = emptyfn("{\"string\", \"morestring\", \"lessstring\"};")
+    compile_source(decl)
