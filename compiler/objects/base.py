@@ -6,7 +6,7 @@ from compiler.objects.ir_object import (Epilog, IRObject, Prelude, Register,
                                         Return)
 from contextlib import contextmanager
 from functools import wraps
-from itertools import chain
+from itertools import chain, accumulate
 from typing import Any, Dict, Generator, List, Optional, Tuple, Union
 
 from tatsu.ast import AST
@@ -317,11 +317,10 @@ class FunctionDecl(Scope):
         super().__init__(ast)
         self.name = ast.name
         self.params = {i[0]: Variable(i[0], i[2]) for i in ast.params}
-        for var, offset in zip(self.params.values(), range(len(self.params), 0, -1)):
-            # TODO: Factor in the size of parameters
-            var.stack_offset = -offset
-        self._type = types.Function(ast.r, [i[2] for i in ast.params], True)
-        # TODO: should functions be naturally const?
+        for var, offset in zip(self.params.values(), accumulate(i.size for i in self.params)):
+            # pointer size is size of return address
+            var.stack_offset = -(offset + types.Pointer.size)
+        self._type = types.Function(ast.r, [i[2] for i in ast.params], const=True)
 
     @property
     def type(self) -> types.Type:
