@@ -261,6 +261,7 @@ def test_function_call_fail_type():
 
 
 def test_memory_reference_op():
+    """Test the memory-location-of operator."""
     decl = emptyfn("var a: u1;"
                    "return &a;",
                    "*u1")
