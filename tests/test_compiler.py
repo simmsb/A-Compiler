@@ -291,45 +291,60 @@ def test_while_loop():
 
 
 def test_array_init_num():
-    """Tests array initialisation."""
+    """Test array initialisation."""
     decl = emptyfn("var a := {1, 2, 3};")
     compile_source(decl)
 
 
 def test_array_init_str():
-    """Tests array initialisation."""
+    """Test array initialisation."""
     decl = emptyfn("var a := {\"string\", \"morestring\", \"lessstring\"};")
     compile_source(decl)
 
 
 def test_array_vars_first():
-    """Tests array initialisation where a variable is the inspected type."""
+    """Test array initialisation where a variable is the inspected type."""
     decl = emptyfn("var b := 1;"
                    "var a := {b, 2, 3};")
     compile_source(decl)
 
 
 def test_array_vars_second():
-    """Tests array initialisation where a variable isn't the inspected type."""
+    """Test array initialisation where a variable isn't the inspected type."""
     decl = emptyfn("var b := 2;"
                    "var a := {1, b, 3};")
     compile_source(decl)
 
 
 def test_array_init_invalid():
-    """Tests array initialisation with invalid types."""
+    """Test array initialisation with conflicting types."""
     decl = emptyfn("var a := {1, 2::*u2};")
     with raises(CompileException):
         compile_source(decl)
 
 
+def test_array_init_expr():
+    """Test that expressions in an array initialisation are valid."""
+    decl = emptyfn("var b := 4;"
+                   "var a := {b, b * 2};")
+    compile_source(decl)
+
+
 def test_array_lit_num():
-    """Tests array initialisation."""
+    """Test array literals with numbers."""
     decl = emptyfn("{1, 2, 3};")
     compile_source(decl)
 
 
 def test_array_lit_str():
-    """Tests array initialisation."""
+    """Test array literals with strings."""
     decl = emptyfn("{\"string\", \"morestring\", \"lessstring\"};")
     compile_source(decl)
+
+
+def test_array_lit_no_const():
+    """Test that non-constant expressions are illegal in array lits."""
+    decl = emptyfn("var a := 3;"
+                   "{a, a * 2};")
+    with raises(CompileException):
+        compile_source(decl)
