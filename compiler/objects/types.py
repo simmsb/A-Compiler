@@ -113,7 +113,7 @@ class Array(Type):
 
     @property
     def can_cast_to(self) -> Tuple[Type]:
-        return Pointer, Function, Array
+        return Pointer, Array
 
     @property
     def size(self) -> int:
@@ -129,6 +129,11 @@ class Array(Type):
     @property
     def cellsize(self) -> int:
         return self.to.size
+
+    def implicitly_casts_to(self, other: Type) -> bool:
+        if isinstance(other, (Array, Pointer)):
+            return self.to.implicitly_casts_to(other.to)
+        return False
 
 
 class Function(Type):

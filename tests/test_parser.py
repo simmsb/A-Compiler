@@ -3,15 +3,17 @@ from compiler.objects import parse_source
 
 from pytest import raises
 from tatsu.exceptions import FailedParse
-from tests.helpers import emptyfn
+from tests.helpers import emptyfn, for_feature
 
 
+@for_feature(variables="Variables")
 def test_var_declaration():
     """Test variable declarations."""
     decl = "var a : (u2, *u4, [s2], *[s4]) -> *(s2)"
     parse_source(decl)
 
 
+@for_feature(functions="Functions")
 def test_fn_declaration():
     """Test function definitions."""
     decl = """fn b(a:[[*s4@3]@5], b:u2) -> u4 {
@@ -34,6 +36,7 @@ def test_multiple_advanced():
     parse_source(decl)
 
 
+@for_feature(functions="Functions")
 def test_function_decl():
     """Test function declarations and check the type of the parsed fn."""
     decl = "fn func(a: u1, b: *u2) -> u4 {};"
@@ -49,6 +52,7 @@ def test_function_decl():
         True)
 
 
+@for_feature(functions="Functions")
 def test_return_parse():
     """Test that the return statement is parsed correctly."""
     decl = emptyfn("return 1;")
@@ -59,6 +63,7 @@ def test_return_parse():
     assert isinstance(rtn_stmt, objects.statements.ReturnStmt)
 
 
+@for_feature(if_stmt="IF Statements")
 def test_if_stmt():
     """Test the if statement."""
     decl = emptyfn("if a != b {"
