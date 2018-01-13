@@ -1,5 +1,7 @@
 from typing import List, Tuple
 
+from compiler.objects.errors import CompileException
+
 
 class Type:
     size = 0
@@ -92,12 +94,16 @@ class Array(Type):
     def __eq__(self, other: Type):
         if not isinstance(other, Array):
             return False
-        return (self.to == other.to and
-                self.length == other.length and
-                self.const == other.const)
+        return (self.to == other.to
+                # if we dont know our length dont check the other's length
+                and ((self.length is None) or (self.length == other.length))
+                and self.const == other.const)
 
     def __str__(self):
-        tp = f"[{self.to}@{self.length}]"
+        if self.length is not None:
+            tp = f"[{self.to}@{self.length}]"
+        else:
+            tp = f"[{self.to}]"
         if self.const:
             tp = f"|{tp}|"
         return tp
@@ -112,6 +118,12 @@ class Array(Type):
     @property
     def size(self) -> int:
         # return length of array in memory
+        if self.length is None:
+            raise CompileException(f"Array {self} has no size information.")
+
+        if self.length < 0:
+            raise CompileException(f"Array {self} has negative size.")
+
         return self.to.size * self.length
 
     @property

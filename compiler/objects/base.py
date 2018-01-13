@@ -13,21 +13,11 @@ from tatsu.infos import ParseInfo
 from compiler.objects import types
 from compiler.objects.ir_object import (Epilog, IRObject, Prelude, Register,
                                         Return)
+from compiler.objects.errors import CompileException
 
 class NotFinished(Exception):
     """Raised when a compilation is waiting on another object."""
     pass
-
-
-class CompileException(Exception):
-
-    def __init__(self, reason: str, trace: Optional[str] = None):
-        super().__init__(reason, trace)
-        self.reason = reason
-        self.trace = trace
-
-    def __str__(self):
-        return f"{self.reason}\n{self.trace}"
 
 
 StmtCompileType = Coroutine['ObjectRequest', 'Variable', None]  # pylint: disable=invalid-name

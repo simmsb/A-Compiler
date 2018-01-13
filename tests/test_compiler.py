@@ -1,5 +1,5 @@
 from compiler.objects import compile_source
-from compiler.objects.base import CompileException
+from compiler.objects.errors import CompileException
 
 from pytest import raises
 from tests.helpers import emptyfn
@@ -302,6 +302,20 @@ def test_array_init_str():
     compile_source(decl)
 
 
+def test_array_decl():
+    """Tests array declaration."""
+    decl = emptyfn("var a: [u1];")  # this should error, no size information
+    with raises(CompileException):
+        compile_source(decl)
+
+    decl = emptyfn("var a: [u1@5];")
+    compile_source(decl)
+
+    decl = emptyfn("var a: [u1@-4]")
+    with raises(CompileException):
+        compile_source(decl)
+
+
 def test_array_vars_first():
     """Test array initialisation where a variable is the inspected type."""
     decl = emptyfn("var b := 1;"
@@ -348,3 +362,33 @@ def test_array_lit_no_const():
                    "{a, a * 2};")
     with raises(CompileException):
         compile_source(decl)
+
+
+def test_var_decl():
+    """Test variable declarations."""
+    decl = emptyfn("var a: u1;")
+    compile_source(decl)
+
+    decl = emptyfn("var a: u1 = 3;")
+    compile_source(decl)
+
+    decl = emptyfn("var a: [u1] = {1, 2, 3};")
+    compile_source(decl)
+
+    decl = emptyfn("var a: [u1@4] = {1, 2, 3, 4};")
+    compile_source(decl)
+
+    # we dont have string literal -> string array yet.
+    # TODO: string lit -> string arr
+    decl = emptyfn("var a: [*u1] = \"test\";")
+    with raises(CompileException):
+        compile_source(decl)
+
+    decl = emptyfn("var a: [u1@4] = {1, 2, 3};")
+    with raises(CompileException):
+        compile_source(decl)
+
+    decl = emptyfn("var a: [u1] = 3;")
+    with raises(CompileException):
+        compile_source(decl)
+

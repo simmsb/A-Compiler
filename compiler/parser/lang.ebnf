@@ -234,7 +234,7 @@ arr_lit
   '{' obj:','.{expr} '}'
   ;
 
-int = /\d+/ ;
+int = /-?\d+/ ;
 int_lit = val:(>int) ['/' type:base_type] ;
 str = str:/".+"/ ;
 chr = chr:/'.'/ ;

@@ -35,22 +35,49 @@ class VariableDecl(StatementObject):
     async def compile(self, ctx: CompileContext) -> StmtCompileType:
         if isinstance(self.val, ArrayLiteral):
             await self.val.to_array()
-        var = ctx.declare_variable(self.name, (await self.type))
+
+        my_type = await self.type
+        if self.val is None:
+            val_type = my_type
+        else:
+            val_type = await self.val.type
+
+        if not val_type.implicitly_casts_to(my_type):
+            raise self.error(f"Specified type {my_type} does not match value type {val_type}")
+
         # TODO: but what about M u l t i - d i m e n s i o n a l arrays?
         if isinstance(self.val, ArrayLiteral):
+
+            # if the declared type has no size info, copy it across
+            if my_type.length is None:
+                my_type.length = val_type.length
+
+            # now check that the sizes are correct
+            if my_type.length != val_type.length:
+                raise self.error(f"Array literal length {val_type.length} does not match specified type length {my_type.length}")
+
+            # hold off declaring the variable here until we get our length information
+            var = ctx.declare_variable(self.name, my_type)
+
             await self.val.check_types()
-            ptr = ctx.get_register(Pointer((await self.val.type).to).size)
+            ptr = ctx.get_register(Pointer(my_type.to).size)
             ctx.emit(LoadVar(var, ptr, lvalue=True))
             for i in self.val.exprs:
                 res = await i.compile(ctx)
                 ctx.emit(Mov(Dereference(ptr), res))
                 ctx.emit(Binary.add(ptr, Immediate(
-                    (await self.type).size,
-                    Pointer(var.type).size)))
+                    my_type.size,
+                    Pointer(my_type).size)))
+
         elif isinstance(self.val, ExpressionObject):
+            var = ctx.declare_variable(self.name, my_type)
             reg = await self.val.compile(ctx)
             ctx.emit(SaveVar(var, reg))
-        # otherwise do nothing
+
+        else:
+            ctx.declare_variable(self.name, my_type)
+
+        # otherwise just create the variable and do nothing
 
 
 class ReturnStmt(StatementObject):
