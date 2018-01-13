@@ -345,8 +345,6 @@ class Compiler:
     def add_bytes(self, data: bytes) -> Variable:
         """Add bytes to the object table.
 
-        Unlike :func:`add_string` always creates a new object.
-
         :param data: The bytes to insert.
         :returns: The variable reference created.
         """
@@ -359,8 +357,6 @@ class Compiler:
 
     def add_array(self, vars: List[Variable]) -> Variable:
         """Add a list of vars to the object table.
-
-        Unlike :func:`add_string` always creates a new object.
 
         :param vars: The variables to insert.
         :returns: The variable reference created.
@@ -440,11 +436,14 @@ class Compiler:
                     objects.extend((o, var) for (o, _) in to_wake)
                 self.compiled_objects.append(i)
         if self.waiting_coros:
+            errs = []
             for k, l in self.waiting_coros.items():
                 for (waiting_obj, err_obj) in l:
                     err = (waiting_obj if err_obj is None else err_obj).make_error()
-                    print(err, f"This object is waiting on an object of name: '{k}' which never compiled.", file=sys.stderr)
+                    err = f"{err}\nThis object is waiting on an object of name: '{k}' which never compiled."
+                    errs.append(err)
             raise CompileException(
+                "\n".join(errs),
                 "code remaining that was waiting on something that never appeared.")
 
 

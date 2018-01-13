@@ -3,9 +3,9 @@ from typing import Optional
 
 class CompileException(Exception):
 
-    def __init__(self, reason: str, trace: Optional[str] = None):
-        super().__init__(reason, trace)
-        self.reason = reason
+    def __init__(self, *reasons: str, trace: Optional[str] = None):
+        super().__init__(*reasons, trace)
+        self.reason = "\n".join(reasons)
         self.trace = trace
 
     def __str__(self):
