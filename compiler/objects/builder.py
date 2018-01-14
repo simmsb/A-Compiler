@@ -17,10 +17,10 @@ class WewSemantics(object):
         return ast
 
     def base_type(self, ast):
-        return Int(ast)
+        return Int(ast.t, ast=ast)
 
     def ptr_type(self, ast):
-        return Pointer(ast.t)
+        return Pointer(ast.t, ast=ast)
 
     def const_type(self, typ):
         assert isinstance(typ.t, Type)
@@ -29,10 +29,10 @@ class WewSemantics(object):
         return typ.t
 
     def array_type(self, ast):
-        return Array(ast.t, ast.s)
+        return Array(ast.t, ast.s, ast=ast)
 
     def fun_type(self, ast):
-        return Function(ast.r, ast.t)
+        return Function(ast.r, ast.t, ast=ast)
 
     def type(self, ast):
         return ast

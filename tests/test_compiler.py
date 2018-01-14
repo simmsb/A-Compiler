@@ -444,3 +444,14 @@ def test_var_decl():
     with raises(CompileException):
         compile_source(decl)
 
+
+@for_feature(number_literals="Numeric literals")
+def test_numeric_literals():
+    decl = emptyfn("var a := 1;")
+    compile_source(decl)
+    decl = emptyfn("var a := 1/u1;")
+    compile_source(decl)
+    decl = emptyfn("var a := 1/s1;")
+    compile_source(decl)
+    decl = emptyfn("var a := 1/u8;")
+    compile_source(decl)

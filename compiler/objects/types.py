@@ -1,9 +1,10 @@
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 
-from compiler.objects.errors import CompileException
+from compiler.objects.astnode import BaseObject
 
+from tatsu.ast import AST
 
-class Type:
+class Type(BaseObject):
     size = 0
     const = False
     signed = False
@@ -19,13 +20,10 @@ class Type:
 
 class Int(Type):
 
-    def __init__(self, t: str, const: bool=False):
+    def __init__(self, t: str, const: bool=False, ast: Optional[AST]=None):
+        super().__init__(ast)
         self.t = t
         self.const = const
-
-    @classmethod
-    def fromsize(cls, size: int, sign: bool=False):
-        return cls(f"{'s' if sign else 'u'}{size}")
 
     def __eq__(self, other: Type):
         if not isinstance(other, Int):
@@ -54,12 +52,17 @@ class Int(Type):
     def signed(self):
         return self.t[0] == 's'
 
+    @classmethod
+    def fromsize(cls, size: int, sign: bool=False, ast: Optional[AST]=None):
+        return cls(f"{'s' if sign else 'u'}{size}", ast=ast)
+
 
 class Pointer(Type):
 
     size = 2  # 16 bit pointers ?
 
-    def __init__(self, to: Type, const: bool=False):
+    def __init__(self, to: Type, const: bool=False, ast: Optional[AST]=None):
+        super().__init__(ast)
         self.to = to
         self.const = const
 
@@ -86,7 +89,8 @@ class Pointer(Type):
 
 class Array(Type):
 
-    def __init__(self, to: Type, l: int=None, const: bool=False):
+    def __init__(self, to: Type, l: int=None, const: bool=False, ast: Optional[AST]=None):
+        super().__init__(ast)
         self.to = to
         self.length = l
         self.const = const
@@ -119,10 +123,10 @@ class Array(Type):
     def size(self) -> int:
         # return length of array in memory
         if self.length is None:
-            raise CompileException(f"Array {self} has no size information.")
+            raise self.error(f"Array {self} has no size information.")
 
         if self.length < 0:
-            raise CompileException(f"Array {self} has negative size.")
+            raise self.error(f"Array {self} has negative size.")
 
         return self.to.size * self.length
 
@@ -138,7 +142,8 @@ class Array(Type):
 
 class Function(Type):
 
-    def __init__(self, returns: Type, args: List[Type], const: bool=False):
+    def __init__(self, returns: Type, args: List[Type], const: bool=False, ast: Optional[AST]=None):
+        super().__init__(ast)
         self.returns = returns
         self.args = args
         self.const = const
