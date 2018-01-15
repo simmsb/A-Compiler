@@ -1,242 +1,144 @@
 @@grammar :: Wew
-
 @@comments :: /{~(\n|.)*~}/
 @@eol_comments :: /~~.*?$/
-
 @@left_recursion :: False
-
 @@parseinfo :: True
 
 start = {decl}+ $ ;
 
-base_type
-  =
-  t: ('u1'
-     | 'u2'
-     | 'u4'
-     | 'u8'
-     | 's1'
-     | 's2'
-     | 's4'
-     | 's8')
-  ;
 
-ptr_type = "*" t:type ;
+base_type = t:('u1' | 'u2' | 'u4' | 'u8' | 's1' | 's2' | 's4' | 's8') ;
 
-const_type = "|" t:type "|" ;
 
-array_type = "[" t:type ["@" s:int] "]"  ;
+ptr_type = '*' t:type ;
 
-fun_type = "(" t:','.{type} ')' '->' r:type ;
 
-type
-  =
-  | base_type
-  | ptr_type
-  | array_type
-  | const_type
-  | fun_type
-  | "(" type ")"
-  ;
+const_type = '|' t:type '|' ;
 
-statement
-  =
-  | ( var_decl
-    | scope
-    | if_stmt
-    | loop_stmt
-    | return_stmt
-    ) [';']  # semicolon is optional for non expr-stmts
-  | expr ';'
-  ;
 
-scope
-  = '{' body:{statement}* '}'
-  ;
+array_type = '[' t:type ['@' s:int] ']' ;
 
-if_stmt
-  = "if" ~ e:expr t:scope ['else' f:scope]
-  ;
 
-loop_stmt
-  =
-  "while" ~ e:expr t:scope
-  ;
+fun_type = '(' t:','.{type} ')' '->' r:type ;
 
-return_stmt = "return" ~ e:expr ;
 
-expr
-  =
-  | assign_expr
-  | logical
-  ;
+type = base_type | ptr_type | array_type | const_type | fun_type | '(' type ')' ;
 
-fun_decl
-  = "fn" ~ name:name '(' params:','.{name ':' type} ')' '->' r:type >scope
-  ;
 
-optional_def
-  =
-  | ":=" ~ val:expr typ:`infer`  # inferred
-  | ":" typ:type ["=" val:expr]  # static
-  ;
+statement = (var_decl | scope | if_stmt | loop_stmt | return_stmt) [';'] | expr ';' ;
 
-var_decl
-  = "var" ~ name:name >optional_def
-  ;
 
-decl
-  =
-  ( fun_decl
-  | var_decl
-  ) [';']
-  ;
+scope = '{' body:{statement} '}' ;
 
-assign_expr
-  = left:logical op:'=' right:expr
-  ;
 
-logical
-  =
-  | bitwise
-  | boolean
-  | comparison
-  ;
+if_stmt = 'if' ~ e:expr t:scope ['else' f:scope] ;
 
-bitwise
-  =
-  left:comparison op:('|' |
-                      '^' |
-                      '&' ) right:logical
-  ;
 
-boolean
-  =
-  left:comparison op:('||' | '&&') ~ right:logical
-  ;
+loop_stmt = 'while' ~ e:expr t:scope ;
 
-comparison
-  =
-  | equality
-  | relation
-  | shift
-  ;
 
-equality
-  =
-  left:shift op:('!=' |
-                 '==' ) ~ right:comparison
-  ;
+return_stmt = 'return' ~ e:expr ;
 
-relation
-  =
-  left:shift op:('<=' |
-                 '>=' |
-                 '<'  |
-                 '>'  ) ~ right:comparison
-  ;
 
-shift
-  =
-  | bitshift
-  | binop
-  ;
+expr = assign_expr | logical ;
 
-bitshift
-  =
-  left:binop op:('>>' | '<<') ~ right:shift
-  ;
 
-binop
-  =
-  | additive
-  | multiplicative
-  ;
+fun_decl = 'fn' ~ name:name '(' params:','.{name ':' type} ')' '->' r:type >scope ;
 
-additive
-  =
-  left:multiplicative op:('+' | '-') ~ right:binop
-  ;
 
-multiplicative
-  =
-  | multiply
-  | unop
-  ;
+optional_def = ':=' ~ val:expr typ:`'infer'` | ':' typ:type ['=' val:expr] ;
 
-multiply
-  =
-  left:unop op:('*' | '/') right:multiplicative
-  ;
 
-unop
-  =
-  | prefix
-  | postop
-  ;
+var_decl = 'var' ~ name:name >optional_def ;
 
-prefix
-  =
-  op:('*'  |
-      '--' |
-      '++' |
-      '~'  |
-      '!'  |
-      '-'  |
-      '&'  |
-      '+'  ) right:unop
-  ;
 
-postop
-  =
-  | postfix
-  | singular
-  ;
+decl = (fun_decl | var_decl) [';'] ;
 
-postfixexpr
-  =
-  | '(' args:','.{expr} ')' type:`f`
-  | '[' ~ args:expr ']' type:`b`
-  | op:'++' type:`d`
-  | op:'--' type:`d`
-  | op:':::' ~ t:type type:`c`  # reinterpret expr
-  | op:'::' ~ t:type type:`c`  # cast expr
-  ; 
 
-postfix
-  =
-  left:singular exprs:{postfixexpr}
-  ;
+assign_expr = left:logical op:'=' right:expr ;
 
-singular
-  =
-  | literal
-  | identifier
-  | subexpr
-  ;
 
-subexpr
-  =
-  '(' @:expr ')'
-  ;
+logical = bitwise | boolean | comparison ;
 
-literal
- =
- | int_lit
- | str
- | chr
- | arr_lit
- ;
 
-# array literals will be pointers if in an expression, otherwise expand into index setting if on rhs of an initialisation
-arr_lit
-  =
-  '{' obj:','.{expr} '}'
-  ;
+bitwise = left:comparison op:('|' | '^' | '&') right:logical ;
+
+
+boolean = left:comparison op:('||' | '&&') ~ right:logical ;
+
+
+comparison = equality | relation | shift ;
+
+
+equality = left:shift op:('!=' | '==') ~ right:comparison ;
+
+
+relation = left:shift op:('<=' | '>=' | '<' | '>') ~ right:comparison ;
+
+
+shift = bitshift | binop ;
+
+
+bitshift = left:binop op:('>>' | '<<') ~ right:shift ;
+
+
+binop = additive | multiplicative ;
+
+
+additive = left:multiplicative op:('+' | '-') ~ right:binop ;
+
+
+multiplicative = multiply | unop ;
+
+
+multiply = left:unop op:('*' | '/') right:multiplicative ;
+
+
+unop = prefix | postop ;
+
+
+prefix = op:('*' | '--' | '++' | '~' | '!' | '-' | '&' | '+') right:unop ;
+
+
+postop = postfix | singular ;
+
+
+postfixexpr = | '(' args:','.{expr} ')' type:`'f'`
+    | '[' ~ args:expr ']' type:`'b'`
+    | op:'++' type:`'d'`
+    | op:'--' type:`'d'`
+    | op:':::' ~ t:type type:`'c'`
+    | op:'::' ~ t:type type:`'c'` ;
+
+
+postfix = left:singular exprs:{postfixexpr} ;
+
+
+singular = literal | identifier | subexpr ;
+
+
+subexpr = '(' @:expr ')' ;
+
+
+literal = int_lit | str | chr | arr_lit ;
+
+
+arr_lit = '{' obj:','.{expr} '}' ;
+
 
 int = /-?\d+/ ;
+
+
 int_lit = val:(>int) ['/' type:base_type] ;
+
+
 str = str:/".+"/ ;
+
+
 chr = chr:/'.'/ ;
+
+
 name = /[A-Za-z]\w*/ ;
+
+
 identifier = identifier:name ;
