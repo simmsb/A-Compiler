@@ -97,8 +97,8 @@ class ReturnStmt(StatementObject):
         reg = await self.expr.compile(ctx)
         for i in reversed(ctx.scope_stack):
             ctx.emit(i.make_epilog())
-        if reg.size != fn_type.size:
-            reg0 = reg.resize(fn_type.size)
+        if reg.size != fn_type.returns.size:
+            reg0 = reg.resize(fn_type.returns.size)
             ctx.emit(Resize(reg, reg0))
             reg = reg0
         ctx.emit(Return(reg))

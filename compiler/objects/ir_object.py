@@ -25,10 +25,9 @@ class Register:
 
     def resize(self, new_size: int=None, new_sign: bool=None) -> 'Register':
         """Get a resized copy of this register."""
-        self.size = new_size or self.size
-        self.sign = new_sign or self.sign
-        return Register(self.reg, new_size or self.size,
-                        new_sign or self.sign)
+        size = new_size or self.size
+        sign = new_sign or self.sign
+        return Register(self.reg, size, sign)
 
     def __str__(self):
         return f"%{self.reg}{'s' if self.sign else 'u'}{self.size}"
@@ -54,6 +53,9 @@ class Dereference:
     @property
     def size(self):
         return pullsize(self.to)
+
+    def __str__(self):
+        return f"Dereference({self.to})"
 
 
 class IRObject:

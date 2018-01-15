@@ -142,6 +142,8 @@ class Array(Type):
 
 class Function(Type):
 
+    size = 2  # we are pointers aswell
+
     def __init__(self, returns: Type, args: List[Type], const: bool=False, ast: Optional[AST]=None):
         super().__init__(ast)
         self.returns = returns

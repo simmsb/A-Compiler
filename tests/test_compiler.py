@@ -455,3 +455,18 @@ def test_numeric_literals():
     compile_source(decl)
     decl = emptyfn("var a := 1/u8;")
     compile_source(decl)
+
+
+@for_feature(pointers="Pointers", functions="Functions")
+def test_dereference_operation():
+    """Test pointer dereference operations."""
+    decl = ("fn deref(ptr: *u4, offset: u2) -> u4 {"
+            "    return *(ptr + offset);"
+            "}"
+    )
+    compile_source(decl)
+    decl = ("fn deref(ptr: *u4, offset: u2) -> u4 {"
+            "    return ptr[offset];"
+            "}"
+    )
+    compile_source(decl)

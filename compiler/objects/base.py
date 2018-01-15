@@ -102,6 +102,9 @@ class Variable:
     def identifier(self):
         return self.name
 
+    def __str__(self):
+        return f"Variable({self.name}, {self.type})"
+
 
 class Scope(StatementObject):
     """A object that contains variables that can be looked up."""

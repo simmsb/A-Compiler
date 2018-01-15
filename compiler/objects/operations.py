@@ -5,7 +5,7 @@ from compiler.objects.ir_object import (Binary, Call, Compare, CompType,
                                         Dereference, Immediate, Jump,
                                         JumpTarget, Mov, Push, Register,
                                         Resize, SetCmp, Unary)
-from typing import Generator, Iterable, Tuple, Union
+from typing import Coroutine, Iterable, Tuple, Union
 
 from tatsu.ast import AST
 
@@ -100,15 +100,16 @@ class DereferenceOP(ExpressionObject):
     async def type(self):
         ptr: Union[types.Pointer, types.Array] = (await self.expr.type)
         if not isinstance(ptr, (types.Pointer, types.Array)):
-            raise self.error("Operand to dereference is not of pointer or array type.")
+            raise self.error(f"Operand to dereference is of type {ptr}, not of pointer or array type.")
         return ptr.to
 
     async def load_lvalue(self, ctx: CompileContext) -> ExprCompileType:
-        return self.expr.compile(ctx)
+        return await self.expr.compile(ctx)
 
     @with_ctx
     async def compile(self, ctx: CompileContext) -> ExprCompileType:
         ptr: Register = (await self.load_lvalue(ctx))
+        assert isinstance(ptr, Register)
         reg = ctx.get_register((await self.size))
         ctx.emit(Mov(reg, Dereference(ptr)))
         return reg
@@ -257,40 +258,38 @@ class BinaryExpression(ExpressionObject):
                          Tuple[types.Type, types.Type], types.Type] = ()
 
     @property
-    async def size(self) -> Generator[ObjectRequest, Variable, int]:
+    async def size(self) -> Coroutine[ObjectRequest, Variable, int]:
         return max((await self.left.size),
                    (await self.right.size))
-
-    @property
-    async def type(self):
-        return self._type
 
     def __init__(self, ast: AST):
         super().__init__(ast)
         self.left: ExpressionObject = ast.left
         self.op: str = ast.op
         self.right: ExpressionObject = ast.right
-        self._type = None
+        self.ret_type = None
+        self.left_type = None
+        self.right_type = None
 
     @with_ctx
     async def compile(self, ctx: 'CompileContext') -> ExprCompileType:
         raise NotImplementedError
 
-    @with_ctx
-    async def compile_meta(self, ctx: CompileContext) -> Generator[ObjectRequest, Variable, Tuple[Register, Register]]:
-        """Binary expression meta compile, returns registers of both side
-        Both registers returned have equal size."""
+    async def resolve_types(self) -> Coroutine[ObjectRequest, Variable, None]:
+        if self.ret_type is not None:
+            return
+
         op = self.op
-        left = await self.left.type
-        right = await self.right.type
+        left = self.left_type = await self.left.type
+        right = self.right_type = await self.right.type
         # typecheck operands here
 
         for check_ops, (lhs_typ, rhs_type), result_type in self._compat_types:  # wew lad
-            if not isinstance(check_ops, (list, tuple)):
+            if not isinstance(check_ops, (list, tuple)):  # always an iterable
                 check_ops = (check_ops,)
             for check_op in check_ops:
                 if isinstance(left, lhs_typ) and isinstance(right, rhs_type) and check_op == op:
-                    self._type = result_type
+                    self.ret_type = result_type
                     break
             else:
                 continue
@@ -298,6 +297,12 @@ class BinaryExpression(ExpressionObject):
         else:
             raise self.error(
                 f"Incompatible types for binary {op}: {left} and {right}")
+
+    @with_ctx
+    async def compile_meta(self, ctx: CompileContext) -> Coroutine[ObjectRequest, Variable, Tuple[Register, Register]]:
+        """Binary expression meta compile, returns registers of both side
+        Both registers returned have equal size."""
+        await self.resolve_types()  # force type resolution to typecheck
 
         lhs: Register = (await self.left.compile(ctx))
         rhs: Register = (await self.right.compile(ctx))
@@ -325,8 +330,11 @@ class BinAddOp(BinaryExpression):
 
     @property
     async def type(self):
-        if isinstance(self._type, types.Pointer):
-            return types.Pointer(types.Int.fromsize((await self.size)))
+        await self.resolve_types()
+
+        if self.ret_type is types.Pointer:
+            ptr_side = self.left_type if isinstance(self.left_type, types.Pointer) else self.right_type
+            return ptr_side
         return types.Int.fromsize((await self.size))
 
     @with_ctx
@@ -353,9 +361,8 @@ class BinMulOp(BinaryExpression):
 
     @property
     async def type(self):
-        lhs = await self.left.type
-        rhs = await self.right.type
-        signed = (lhs.signed and rhs.signed) if self.op == "/" else False
+        await self.resolve_types()
+        signed = (self.left_type.signed and self.right_type.signed) if self.op == "/" else False
         return types.Int.fromsize((await self.size), signed)
 
     @with_ctx
@@ -386,8 +393,9 @@ class BinShiftOp(BinaryExpression):
 
     @property
     async def type(self):
+        await self.resolve_types()
         if self.op == '>>':
-            lhs = await self.left.type
+            lhs = self.left_type
             signed = lhs.signed
         else:
             signed = False
@@ -423,10 +431,6 @@ class BinRelOp(BinaryExpression):
         # always results in 0 or 1 (unsigned 1 byte int)
         return types.Int('u1')
 
-    @property
-    async def size(self):
-        return (await self.type).size
-
     @with_ctx
     async def compile(self, ctx: CompileContext) -> ExprCompileType:
         op = {
@@ -451,6 +455,12 @@ class BitwiseOp(BinaryExpression):
     _compat_types = (
         (("|", "^", "&"), (types.Int, types.Int), types.Int),
     )
+
+    @property
+    async def type(self):
+        await self.resolve_types()
+        assert self.ret_type is types.Int
+        return self.ret_type((await self.size))
 
     @with_ctx
     async def compile(self, ctx: CompileContext) -> ExprCompileType:
