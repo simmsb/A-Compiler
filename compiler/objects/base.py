@@ -211,7 +211,6 @@ class FunctionDecl(Scope):
     async def compile(self, ctx: 'CompileContext') -> StmtCompileType:
         ctx.make_variable(self.name, self.type, self)
         await super().compile(ctx)
-        ctx.emit(Return())
 
 
 class Compiler:
