@@ -41,10 +41,13 @@ class BaseObject:
         def fmtr():
             if startl == endl:
                 # start and end on same line, only need simple fmt
-                width = (endp - startp) - 2  # leave space for carats + off by one
-                separator = '-' * width
                 yield source[startl]
-                yield f"{'^':>{startp}}{separator}^"
+                if startp == endp:  # only emit single carat when the error is a single character
+                    yield f"'^':>{startp}"
+                else:
+                    width = (endp - startp) - 1  # leave space for carats + off by one
+                    separator = '-' * width
+                    yield f"{'^':>{startp}}{separator}^"
             else:
                 width = (len(source[startl]) - startp)
                 separator = '-' * width

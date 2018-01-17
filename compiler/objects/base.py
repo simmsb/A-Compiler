@@ -1,22 +1,17 @@
-# pylint: disable=inconsistent-return-statements
+"""Core compilation objects."""
 
+from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from functools import wraps
 from itertools import accumulate
-from typing import Any, Dict, Coroutine, List, Optional, Tuple, Union
+from typing import Any, Dict, Coroutine, List, Optional, Tuple, Union, Iterable
 
 from tatsu.ast import AST
-from tatsu.infos import ParseInfo
 
 from compiler.objects import types
-from compiler.objects.ir_object import (Epilog, IRObject, Prelude, Register,
-                                        Return)
+from compiler.objects.ir_object import Epilog, IRObject, Prelude, Register
 from compiler.objects.errors import CompileException
 from compiler.objects.astnode import BaseObject
-
-class NotFinished(Exception):
-    """Raised when a compilation is waiting on another object."""
-    pass
 
 
 StmtCompileType = Coroutine['ObjectRequest', 'Variable', None]  # pylint: disable=invalid-name
@@ -29,16 +24,18 @@ ExprCompileType = Coroutine['ObjectRequest', 'Variable', Register]  # pylint: di
 class ObjectRequest:
     """Request an object that might not be compiled yet."""
 
+    __slots__ = ("name",)
+
     def __init__(self, name: str):
         self.name = name
 
 
 def with_ctx(f):
+    """Wraps a function to enter the :class:`CompileContext.context` context manager when called"""
     @wraps(f)
     async def internal(self, ctx: 'CompileContext', *args, **kwargs):
         with ctx.context(self):
             return await f(self, ctx, *args, **kwargs)
-
     return internal
 
 
@@ -106,17 +103,56 @@ class Variable:
         return f"Variable({self.name}, {self.type})"
 
 
-class Scope(StatementObject):
+class IdentifierScope(ABC):
+
+    @property
+    @abstractmethod
+    def vars(self) -> Dict[str, Variable]:
+        pass
+
+    def lookup_variable(self, name: str) -> Variable:
+        return self.vars.get(name)
+
+    def make_variable(self, name: str, typ: types.Type, obj: Optional[BaseObject] = None) -> Variable:
+        """Create variable pointing to another object."""
+        existing = self.lookup_variable(name)
+        if existing is not None:
+            if existing.type != typ:
+                raise CompileException(
+                    f"Variable {name} of type '{typ}' is already declared as type '{existing.type}'"
+                )
+            return existing  # variable already declared but is of the same type, ignore it
+
+        var = Variable(name, typ, obj)
+        self.vars[name] = var
+
+        # TODO: something to determine if a variable is lvar'd or not and what to load
+        # functions, etc should have no lvar and their value should be their code position
+        # but variables should have a lvalue, etc
+
+        return var
+
+    @abstractmethod
+    def declare_variable(self, name: str, typ: types.Type) -> Variable:
+        """Add a variable to this scope.
+
+        raises if variable is redeclared to a different type than the already existing var.
+        """
+        pass
+
+
+class Scope(StatementObject, IdentifierScope):
     """A object that contains variables that can be looked up."""
 
     def __init__(self, ast):
         super().__init__(ast)
-        self.vars: Dict[str, Variable] = {}
+        self._vars: Dict[str, Variable] = {}
         self.size = 0
         self.body = ast.body
 
-    def lookup_variable(self, name: str) -> Variable:
-        return self.vars.get(name)
+    @property
+    def vars(self) -> Dict[str, Variable]:
+        return self._vars
 
     @with_ctx
     async def compile(self, ctx: 'CompileContext') -> StmtCompileType:
@@ -129,43 +165,8 @@ class Scope(StatementObject):
     def make_epilog(self) -> IRObject:
         return Epilog(self)
 
-    def make_variable(self, name: str, typ: types.Type, obj: BaseObject) -> Variable:
-        """Create variable pointing to another object.
-        unlike :method:`Scope.declare_variable` does not create space.
-        """
-        ax = self.vars.get(name)
-        if ax is not None:
-            if ax.type != typ:
-                raise CompileException(
-                    f"Variable {name} of type '{typ}' is already declared as type '{ax.type}'"
-                )
-            return ax  # variable already declared but is of the same type, ignore it
-
-        # TODO: factor into a 'has_vars' class or something
-
-        var = Variable(name, typ, obj)
-        self.vars[name] = var
-
-        # TODO (copied in compiler version): something to determine if a variable is lvar'd or not and what to load
-        # functions, etc should have no lvar and their value should be their code position
-        # but variables should have a lvalue, etc
-
-        return var
-
     def declare_variable(self, name: str, typ: types.Type) -> Variable:
-        """Add a variable to this scope.
-
-        raises if variable is redeclared to a different type than the already existing var.
-        """
-        ax = self.vars.get(name)
-        if ax is not None:
-            if ax.type != typ:
-                raise CompileException(
-                    f"Variable {name} of type {typ} is already declared as type {ax.type}"
-                )
-            return ax  # variable already declared but is of the same type, ignore it
-
-        var = Variable(name, typ, self)
+        var = self.make_variable(name, typ)
         self.vars[name] = var
         var.stack_offset = self.size
         self.size += var.size
@@ -202,10 +203,10 @@ class FunctionDecl(Scope):
         return self.name
 
     def lookup_variable(self, name: str) -> Optional[Variable]:
-        v = super().lookup_variable(name)
-        if v is None:
+        var = super().lookup_variable(name)
+        if var is None:
             return self.params.get(name)
-        return v
+        return var
 
     @with_ctx
     async def compile(self, ctx: 'CompileContext') -> StmtCompileType:
@@ -213,49 +214,24 @@ class FunctionDecl(Scope):
         await super().compile(ctx)
 
 
-class Compiler:
+class Compiler(IdentifierScope):
     def __init__(self):
-        self.identifiers: Dict[str, Variable] = {}
+        self._vars: Dict[str, Variable] = {}
         self.compiled_objects: List[BaseObject] = []
         self.waiting_coros: Dict[str, List[Tuple[BaseObject, BaseObject]]] = {}
         self.data: List[Union[str, bytes, List[Variable]]] = []
 
-    def make_variable(self, name: str, typ: types.Type, obj: BaseObject) -> Variable:
-        """Create variable pointing to another object.
-        unlike :method:`Compiler.declare_variable` does not create space.
-        """
-        ax = self.identifiers.get(name)
-        if ax is not None:
-            if ax.type != typ:
-                raise CompileException(
-                        f"Variable {name} of type '{typ}' is already declared as type '{ax.type}'"
-                )
-            return ax  # variable already declared but is of the same type, ignore it
-
-        var = Variable(name, typ, obj)
-        self.identifiers[name] = var
-
-        # TODO: something to determine if a variable is lvar'd or not and what to load
-        # functions, etc should have no lvar and their value should be their code position
-        # but variables should have a lvalue, etc
-
-        return var
+    @property
+    def vars(self) -> Dict[str, Variable]:
+        return self._vars
 
     def declare_variable(self, name: str, typ: types.Type) -> Variable:
         """Add a variable to global scope.
         creates space for variable
         raises if variable is redeclared to a different type than the already existing var.
         """
-        ax = self.identifiers.get(name)
-        if ax is not None:
-            if ax.type != typ:
-                raise CompileException(
-                        f"Variable {name} of type '{typ}' is already declared as type '{ax.type}'"
-                )
-            return ax  # variable already declared but is of the same type, ignore it
-
-        var = Variable(name, typ)
-        self.identifiers[name] = var
+        var = self.make_variable(name, typ)
+        self.vars[name] = var
         var.global_offset = len(self.data)
         self.data.append(bytes((0,) * typ.size))
         return var
@@ -290,18 +266,18 @@ class Compiler:
         self.data.append(data)
         return val
 
-    def add_array(self, vars: List[Variable]) -> Variable:
-        """Add a list of vars to the object table.
+    def add_array(self, elems: Iterable[Variable]) -> Variable:
+        """Add an array of vars to the object table.
 
-        :param vars: The variables to insert.
+        :param elems: The variables to insert.
         :returns: The variable reference created.
         """
-        assert vars
+        assert elems  # we shouldn't be adding empty arrays
         index = len(self.data)
         key = f"var-array-{index}"
-        val = Variable(key, types.Pointer(vars[0].type))
+        val = Variable(key, types.Pointer(elems[0].type))
         val.global_offset = index
-        self.data.append(vars)
+        self.data.append(elems)
         return val
 
     def add_waiting(self, name: str, obj: BaseObject, from_: Optional[BaseObject]=None):
@@ -314,8 +290,8 @@ class Compiler:
         coros = self.waiting_coros.setdefault(name, [])
         coros.append((obj, from_))
 
-    def run_over(self, obj: StatementObject, to_send: Variable = None):
-        """Run over a compile coro. If we dont finish raise :class:`NotFinished`
+    def run_over(self, obj: StatementObject, to_send: Variable = None) -> bool:
+        """Run over a compile coro. Returns true if finished, false if not.
 
         :param obj: The object to start compiling. May or may not have already been visited.
         :param to_send: Initial value to send to generator.
@@ -336,7 +312,7 @@ class Compiler:
                 r = coro.send(to_send)
                 to_send = None
             except StopIteration:
-                return
+                return True
 
             assert isinstance(r, ObjectRequest)
             # look for either a global object or a scope variable.
@@ -345,7 +321,7 @@ class Compiler:
                 to_send = var
                 continue
 
-            var = self.identifiers.get(r.name)
+            var = self.lookup_variable(r.name)
             if var is not None:
                 to_send = var
                 continue
@@ -353,29 +329,30 @@ class Compiler:
             # if nothing was found place coro on waiting list and start compiling something else.
 
             self.add_waiting(r.name, obj, ctx.current_object)
-            raise NotFinished
+            return False
 
     def compile(self, objects: List[StatementObject]):
         """Compile a list of objects."""
+        # list of objects to compile and any objects to be sent to them.
         objects: List[Tuple[StatementObject, Any]] = [(o, None) for o in objects]
         while objects:
-            i, t = objects.pop()
-            try:
-                self.run_over(i, t)
-            except NotFinished:
-                pass
-            else:  # TODO: scrap identifier things and just rescan waiting objects every finish
-                var = self.identifiers.get(i.identifier)
-                if var is not None:
-                    to_wake = self.waiting_coros.pop(i.identifier, ())
+            obj, to_send = objects.pop()
+            if self.run_over(obj, to_send):
+                # after completing a compilation, run over the waiting list,
+                # adding any objects that are satisfied back on to the compilation list
+                for name in tuple(self.waiting_coros.keys()):
+                    var = self.lookup_variable(name)
+                    if var is None:
+                        continue
+                    to_wake = self.waiting_coros.pop(name)
                     objects.extend((o, var) for (o, _) in to_wake)
-                self.compiled_objects.append(i)
+                self.compiled_objects.append(obj)
         if self.waiting_coros:
             errs = []
-            for k, l in self.waiting_coros.items():
-                for (waiting_obj, err_obj) in l:
+            for name, sleeping in self.waiting_coros.items():
+                for (waiting_obj, err_obj) in sleeping:
                     err = (waiting_obj if err_obj is None else err_obj).make_error()
-                    err = f"{err}\nThis object is waiting on an object of name: '{k}' which never compiled."
+                    err = f"{err}\nThis object is waiting on an object of name: '{name}' which never compiled."
                     errs.append(err)
             raise CompileException(
                 "\n".join(errs),
@@ -406,6 +383,7 @@ class CompileContext:
         """Get the current object being compiled."""
         if self.object_stack:
             return self.object_stack[-1]
+        return None
 
     @property
     def top_function(self) -> Optional[FunctionDecl]:
@@ -436,10 +414,10 @@ class CompileContext:
         self.object_stack.append(obj)
         try:
             yield
-        except CompileException as e:
-            if e.trace is None and self.current_object:  # add in the trace
-                raise self.current_object.error(e.reason) from None
-            raise e from None
+        except CompileException as exc:
+            if exc.trace is None and self.current_object:  # if the exception doesn't contain a trace, add it for them.
+                raise self.current_object.error(exc.reason) from None
+            raise exc from None
         self.object_stack.pop()
 
     def get_register(self, size: int, sign: bool = False):
