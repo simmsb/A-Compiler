@@ -1,5 +1,5 @@
 from enum import IntEnum
-from typing import Optional
+from typing import Optional, Union
 
 
 def pullsize(arg):
@@ -58,29 +58,35 @@ class Dereference:
         return f"Dereference({self.to})"
 
 
+def filter_reg(reg: Union[Dereference, Register, any]) -> Optional[Register]:
+    """Filters a possible register object. returns None if not a register."""
+    if isinstance(reg, Dereference):
+        return reg.to
+    if isinstance(reg, Register):
+        return reg
+    return None
+
+
 class IRObject:
     """An instruction in internal representation."""
 
     def __init__(self):
-        self.jumps_from = []
-        self.jumps_to = []
         self.parent = None
 
-    def add_jump_to(self, from_: 'IRObject'):
-        self.jumps_from.append(from_)
-        from_.jumps_to.append(self)
-
-    def take_jumps_from(self, other: 'IRObject'):
-        """Take all the jumps from another objects and make them owned by this."""
-        for i in other.jumps_from:
-            i.jumps_to.remove(self)
-            i.jumps_to.append(self)
-        self.jumps_from.extend(other.jumps_from)
-        other.jumps_from = []
-
     def __str__(self):
-        attrs = " ".join(f"<{k}: {v}>" for k, v in self.__dict__.items() if not k.startswith("_"))
+        print_ignore = ("parent", )
+
+        attrs = " ".join(f"<{k}: {v}>" for k, v in self.__dict__.items() if (not k.startswith("_")) and k not in print_ignore)
         return f"<{self.__class__.__name__} {attrs}>"
+
+    @property
+    def touched_registers(self):
+        """Get the registers that this instruction reads from and writes to."""
+        regs = self._touched_regs()
+        return set(filter(None, map(filter_reg, regs)))
+
+    def _touched_regs(self):
+        return ()
 
 
 class MakeVar(IRObject):
@@ -102,12 +108,18 @@ class LoadVar(IRObject):
         self.to = to
         self.lvalue = lvalue
 
+    def _touched_regs(self):
+        return self.to,
+
 
 class SaveVar(IRObject):
     def __init__(self, variable, from_):
         super().__init__()
         self.variable = variable
         self.from_ = from_
+
+    def _touched_regs(self):
+        return self.from_,
 
 
 class Mov(IRObject):
@@ -118,7 +130,8 @@ class Mov(IRObject):
         self.to = to
         self.from_ = from_
 
-        # TODO: if sizes are different, emit extend operations
+    def _touched_regs(self):
+        return self.to, self.from_
 
 
 class Unary(IRObject):
@@ -130,6 +143,9 @@ class Unary(IRObject):
     @classmethod
     def __getattr__(cls, attr):
         return lambda arg: cls(arg, attr)
+
+    def _touched_regs(self):
+        return self.op,
 
 
 class BinaryMeta(type):
@@ -154,6 +170,9 @@ class Binary(IRObject, metaclass=BinaryMeta):
         self.op = op
         self.to = to or left
 
+    def _touched_regs(self):
+        return self.left, self.right, self.to
+
 
 class Compare(IRObject):
     """Comparison operation.
@@ -166,6 +185,9 @@ class Compare(IRObject):
         self.left = left
         self.right = right
 
+    def _touched_regs(self):
+        return self.left, self.right
+
 
 class SetCmp(IRObject):
     """Set register from last comparison."""
@@ -175,17 +197,26 @@ class SetCmp(IRObject):
         self.reg = reg
         self.op = op
 
+    def _touched_regs(self):
+        return self.reg,
+
 
 class Push(IRObject):
     def __init__(self, arg):
         super().__init__()
         self.arg = arg
 
+    def _touched_regs(self):
+        return self.arg,
+
 
 class Pop(IRObject):
     def __init__(self, arg):
         super().__init__()
         self.arg = arg
+
+    def _touched_regs(self):
+        return self.arg,
 
 
 class Prelude(IRObject):
@@ -219,6 +250,9 @@ class Return(IRObject):
         super().__init__()
         self.reg = reg
 
+    def _touched_regs(self):
+        return self.reg,
+
 
 class Call(IRObject):
     """Jump to location, push return address."""
@@ -229,17 +263,44 @@ class Call(IRObject):
         self.jump = jump
         self.result = result
 
+    def _touched_regs(self):
+        return self.jump, self.result
 
-class Jump(IRObject):
+
+class Jumpable(IRObject):
+
+    def __init__(self):
+        super().__init__()
+        self.jumps_from = []
+        self.jumps_to = []
+
+    def add_jump_to(self, from_: 'IRObject'):
+        self.jumps_from.append(from_)
+        from_.jumps_to.append(self)
+
+    def take_jumps_from(self, other: 'IRObject'):
+        """Take all the jumps from another objects and make them owned by this."""
+        for i in other.jumps_from:
+            i.jumps_to.remove(self)
+            i.jumps_to.append(self)
+        self.jumps_from.extend(other.jumps_from)
+        other.jumps_from = []
+
+
+class Jump(Jumpable):
     """Conditional jump."""
 
     def __init__(self, location, comparison):
         super().__init__()
         self.location = location
+        self.add_jump_to(location)
         self.comparison = comparison
 
+    def _touched_regs(self):
+        return self.location,
 
-class JumpTarget(IRObject):
+
+class JumpTarget(Jumpable):
     """Jump target."""
     pass
 
@@ -251,3 +312,6 @@ class Resize(IRObject):
         super().__init__()
         self.from_ = from_
         self.to = to
+
+    def _touched_regs(self):
+        return self.from_, self.to

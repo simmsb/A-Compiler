@@ -221,7 +221,7 @@ class ArrayIndexOp(ExpressionObject):
         offres = offres0
 
         res = ctx.get_register(size)
-        ctx.emit(Binary.mul(offres, size))
+        ctx.emit(Binary.mul(offres, Immediate(size, offres.size)))
         ctx.emit(Binary.add(argres, offres, res))
         return res
 
@@ -243,7 +243,7 @@ class PostIncrementOp(ExpressionObject):
 
     @property
     async def type(self):
-        return self.arg.type
+        return await self.arg.type
 
     @with_ctx
     async def compile(self, ctx: CompileContext) -> ExprCompileType:
