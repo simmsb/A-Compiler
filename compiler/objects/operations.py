@@ -47,12 +47,20 @@ class UnaryOP(ExpressionObject):
         self.expr: ExpressionObject = ast.right
 
     @property
-    async def type(self):
+    async def type(self) -> types.Type:
         return self.expr.type
 
     @with_ctx
     async def compile(self, ctx: CompileContext) -> ExprCompileType:
         reg: Register = (await self.expr.compile(ctx))
+
+        optype: types.Type = await self.type
+        if not optype.signed:
+            if self.op == "+":
+                return reg  # '+' is a noop on unsigned types
+            if self.op == "-":
+                raise self.error("Unary negate has no meaning on unsigned types.")
+
         ctx.emit(Unary(reg, self.op))
         return reg
 
