@@ -289,13 +289,15 @@ class Jumpable(IRObject):
 
 
 class Jump(Jumpable):
-    """Conditional jump."""
+    """Conditional jump.
 
-    def __init__(self, location, comparison):
+    If condition is not provided this is a unconditional jump."""
+
+    def __init__(self, location, condition = None):
         super().__init__()
         self.location = location
         self.add_jump_to(location)
-        self.comparison = comparison
+        self.condition = condition
 
     def _touched_regs(self):
         return self.location,

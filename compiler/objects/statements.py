@@ -1,7 +1,7 @@
 from compiler.objects.base import (CompileContext, ExpressionObject,
                                    ObjectRequest, Scope, StatementObject,
                                    StmtCompileType, Variable, with_ctx)
-from compiler.objects.ir_object import (Binary, Compare, CompType, Dereference,
+from compiler.objects.ir_object import (Binary, SetCmp, Compare, CompType, Dereference,
                                         Immediate, Jump, JumpTarget, LoadVar,
                                         Mov, Register, Resize, Return, SaveVar)
 from compiler.objects.literals import ArrayLiteral
@@ -115,13 +115,12 @@ class IFStmt(StatementObject):
     @with_ctx
     async def compile(self, ctx: CompileContext) -> StmtCompileType:
         cond: Register = await self.cond.compile(ctx)
-        ctx.emit(Compare(cond, Immediate(0, cond.size)))
         end_jmp = JumpTarget()
         else_jmp = end_jmp if self.else_ is None else JumpTarget()
-        ctx.emit(Jump(else_jmp, CompType.eq))
+        ctx.emit(Jump(else_jmp, cond))
         await self.body.compile(ctx)
         if self.else_:  # if there is no else body, else_jmp = end_jmp so no need to emit anything but the end marker.
-            ctx.emit(Jump(end_jmp, CompType.uncond))
+            ctx.emit(Jump(end_jmp))
             ctx.emit(else_jmp)
             await self.else_.compile(ctx)
         ctx.emit(end_jmp)
@@ -140,8 +139,7 @@ class LoopStmt(StatementObject):
         end = JumpTarget()
         ctx.emit(test)
         cond: Register = await self.cond.compile(ctx)
-        ctx.emit(Compare(cond, Immediate(0, cond.size)))
-        ctx.emit(Jump(end, CompType.eq))
+        ctx.emit(Jump(end, cond))
         await self.body.compile(ctx)
-        ctx.emit(Jump(test, CompType.uncond))
+        ctx.emit(Jump(test))
         ctx.emit(end)

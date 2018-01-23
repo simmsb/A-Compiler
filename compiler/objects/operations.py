@@ -542,7 +542,7 @@ class BoolCompOp(ExpressionObject):
 
     @with_ctx
     async def compile(self, ctx: CompileContext) -> ExprCompileType:
-        r1: Register = (await self.left.compile(ctx))
+        r1: Register = await self.left.compile(ctx)
         ctx.emit(Compare(r1, Immediate(0, r1.size)))
         target = JumpTarget()
         op = {
@@ -550,7 +550,10 @@ class BoolCompOp(ExpressionObject):
             '&&': CompType.eq
         }[self.op]
 
-        jump = ctx.emit(Jump(target, op))
+        cond = ctx.get_register(1)
+        ctx.emit(SetCmp(cond, op))
+
+        jump = ctx.emit(Jump(target, cond))
         r2: Register = (await self.right.compile(ctx))
         if r2.size != r1.size:
             r2_ = r2.resize(r1.size)
