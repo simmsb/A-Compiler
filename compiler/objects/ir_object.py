@@ -47,8 +47,9 @@ class Immediate:
 
 
 class Dereference:
-    def __init__(self, loc):
+    def __init__(self, loc: Register):
         self.to = loc
+        assert loc.size == 2
 
     @property
     def size(self):

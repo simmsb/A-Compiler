@@ -18,7 +18,20 @@ class IntegerLiteral(ExpressionObject):
     def __init__(self, ast: AST):
         super().__init__(ast)
         self.lit: int = int(ast.val)
-        self._type = ast.type or types.Int('s2')
+        if ast.type:
+            self._type = ast.type
+        else:
+            bitlen = self.lit.bit_length()
+            for (bitrange, s) in ((range(0,  8 ), 1),
+                                  (range(8,  16), 2),
+                                  (range(16, 32), 4)):
+                if bitlen in bitrange:
+                    size = s
+                    break
+            else:
+                size = 8
+            sign = self.lit < 0
+            self._type = types.Int.fromsize(size, sign)
 
     @property
     async def type(self):

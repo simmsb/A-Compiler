@@ -112,7 +112,12 @@ class DereferenceOP(ExpressionObject):
         return ptr.to
 
     async def load_lvalue(self, ctx: CompileContext) -> ExprCompileType:
-        return await self.expr.compile(ctx)
+        reg: Register = await self.expr.compile(ctx)
+        if reg.size != types.Pointer.size:
+            reg0 = reg.resize(types.Pointer.size)
+            ctx.emit(Resize(reg, reg0))
+            reg = reg0
+        return reg
 
     @with_ctx
     async def compile(self, ctx: CompileContext) -> ExprCompileType:
@@ -227,7 +232,12 @@ class ArrayIndexOp(ExpressionObject):
 
     @with_ctx
     async def compile(self, ctx: CompileContext) -> ExprCompileType:
-        ptr: Register = (await self.load_lvalue(ctx))
+        ptr: Register = await self.load_lvalue(ctx)
+        if ptr.size != types.Pointer.size:
+            ptr0 = ptr.resize(types.Pointer.size)
+            ctx.emit(Resize(ptr, ptr0))
+            ptr = ptr0
+
         res = ctx.get_register((await self.size))
         ctx.emit(Mov(res, Dereference(ptr)))
         return res
@@ -412,12 +422,14 @@ class BinShiftOp(BinaryExpression):
     @with_ctx
     async def compile(self, ctx: CompileContext) -> ExprCompileType:
         lhs, rhs = await self.compile_meta(ctx)
+        if rhs.sign:
+            raise self.right.error("RHS operand to a binary shift op must be unsigned.")
 
         res = ctx.get_register(lhs.size)
 
         if self.op == "<<":
             op = "shl"
-        elif self.op == ">>" and (lhs.sign or rhs.sign):
+        elif self.op == ">>" and lhs.sign:
             op = "sar"
         else:
             op = "shr"
