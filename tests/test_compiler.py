@@ -311,8 +311,10 @@ def test_if_stmt():
                    "var b := 2;"
                    "if a < b {"
                    "    return a;"
-                   "} else {"
+                   "} elif a > b {"
                    "    return b;"
+                   "} else {"
+                   "    return (a + b) / 2;"
                    "}")
     compile_source(decl)
 

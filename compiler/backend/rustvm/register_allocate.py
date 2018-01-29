@@ -18,14 +18,28 @@ class RegisterState(Enum):
     Spilled = auto()
 
 
+class AllocationState:
+    def __init__(self, register_count: int):
+        self.register_count = register_count
+
+        #: the states of virtual registers, dict of Registers to Tuples of state and data
+        self.register_states: Dict[Register, Tuple[RegisterState, Any]] = {}
+
+        #: [x for x in list]st of extra memory places that are used to hold spilled registers
+        self.spilled_registers: List[Optional[Register]] = []
+
+        #: the stack of allocated registers, contains tuples of (real register, virtual register)
+        self.allocated_registers: List[Tuple[int, Register]] = {}
+
+    def allocate_register(self, reg: Register):
+        ...
+
+def find_usable_register(virtual_register: Register, spilled_registers, )
+
+
 def allocate(reg_count: int, code: Iterable[ir_object.IRObject]):
     """Allocate registers for an ∞ register IR."""
 
-    #: the states of virtual registers, dict of Registers to Tuples of state and data
-    register_states: Dict[Register, Tuple[RegisterState, Any]] = {}
+    state = AllocationState(reg_count)
 
-    #: list of extra memory places that are used to hold spilled registers
-    spilled_registers: List[Optional[Register]] = []
 
-    #: the stack of allocated registers, contains tuples of (real register, virtual register)
-    allocated_registers: List[Tuple[int, Register]] = {}
