@@ -46,6 +46,14 @@ class WewSemantics(object):
         return Scope(ast)
 
     def if_stmt(self, ast):
+        # we build elif's recursively from the right
+        node = ast.f
+        for i in reversed(ast.elf):
+            i["f"] = node
+            node = IFStmt(i)
+        if ast.elf:
+            del ast["f"]
+            ast["f"] = node
         return IFStmt(ast)
 
     def loop_stmt(self, ast):

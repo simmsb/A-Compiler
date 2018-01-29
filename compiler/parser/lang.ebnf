@@ -31,7 +31,8 @@ statement = (var_decl | scope | if_stmt | loop_stmt | return_stmt) [';'] | expr 
 scope = '{' body:{statement} '}' ;
 
 
-if_stmt = 'if' ~ e:expr t:scope ['else' f:scope] ;
+elif = 'elif' e:expr t:scope ;
+if_stmt = 'if' ~ e:expr t:scope elf:{elif} ['else' f:scope] ;
 
 
 loop_stmt = 'while' ~ e:expr t:scope ;

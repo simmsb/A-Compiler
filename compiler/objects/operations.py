@@ -48,7 +48,7 @@ class UnaryOP(ExpressionObject):
 
     @property
     async def type(self) -> types.Type:
-        return self.expr.type
+        return await self.expr.type
 
     @with_ctx
     async def compile(self, ctx: CompileContext) -> ExprCompileType:
@@ -294,6 +294,7 @@ class BinaryExpression(ExpressionObject):
         raise NotImplementedError
 
     async def resolve_types(self) -> Coroutine[ObjectRequest, Variable, None]:
+        """Resolve types of a binary operation"""
         if self.ret_type is not None:
             return
 
