@@ -67,6 +67,8 @@ class IRObject:
     """An instruction in internal representation."""
 
     def __init__(self):
+        #: list of instructions to be run before this instruction
+        self.pre_instructions = []
         self.parent = None
 
     def __str__(self):
@@ -83,6 +85,9 @@ class IRObject:
 
     def _touched_regs(self):
         return ()
+
+    def insert_pre_instrs(self, *instrs):
+        self.pre_instructions.extend(instrs)
 
 
 class MakeVar(IRObject):
@@ -313,3 +318,20 @@ class Resize(IRObject):
 
     def _touched_regs(self):
         return self.from_, self.to
+
+class Spill(IRObject):
+    """Spill a register to a location."""
+
+    def __init__(self, reg: int, index: int):
+        super().__init__()
+        self.reg = reg
+        self.index = index
+
+
+class Load(IRObject):
+    """Recover a spilled register."""
+
+    def __init__(self, reg: int, index: int):
+        super().__init__()
+        self.reg = reg
+        self.index = index
