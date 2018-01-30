@@ -34,7 +34,7 @@ class Register:
         return hash(self.reg)
 
     def __str__(self):
-        return f"%{self.reg}{'s' if self.sign else 'u'}{self.size}"
+        return f"%{self.reg}@{self.physical_register or ''}({'s' if self.sign else 'u'}{self.size})"
 
     __repr__ = __str__
 
@@ -78,6 +78,9 @@ class IRObject:
     def __init__(self):
         #: list of instructions to be run before this instruction
         self.pre_instructions = []
+
+        #: regisers that are dead after this instruction
+        self.closing_registers = {}
         self.parent = None
 
     def __str__(self):
@@ -302,7 +305,7 @@ class Jump(Jumpable):
 
     If condition is not provided this is a unconditional jump."""
 
-    def __init__(self, location, condition = None):
+    def __init__(self, location, condition=None):
         super().__init__()
         self.location = location
         self.add_jump_to(location)
@@ -327,6 +330,7 @@ class Resize(IRObject):
 
     def _touched_regs(self):
         return self.from_, self.to
+
 
 class Spill(IRObject):
     """Spill a register to a location."""

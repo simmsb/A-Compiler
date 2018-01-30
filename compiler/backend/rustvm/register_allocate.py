@@ -112,6 +112,16 @@ class AllocationState:
         return register
 
 
+def mark_last_usages(code: Iterable[ir_object.IRObject]):
+    """Scans backwards over instructions, marking registers when they are last used."""
+    spotted_registers = {}
+    for instr in reversed(code):
+        for v_reg in instr.touched_registers:
+            if v_reg not in spotted_registers:
+                instr.closing_registers.add(v_reg)
+                spotted_registers.add(v_reg)
+
+
 def allocate(reg_count: int, code: Iterable[ir_object.IRObject]):
     """Allocate registers for an ∞ register IR."""
 
@@ -123,5 +133,5 @@ def allocate(reg_count: int, code: Iterable[ir_object.IRObject]):
             reg = state.allocate_register(v_reg, i, regs_for_instruction)
             regs_for_instruction.append(reg)
             v_reg.physical_register = reg
-
-
+        for v_reg in i.closing_registers:
+            state.free_register(v_reg)

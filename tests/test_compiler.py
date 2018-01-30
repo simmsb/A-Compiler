@@ -464,11 +464,9 @@ def test_dereference_operation():
     """Test pointer dereference operations."""
     decl = ("fn deref(ptr: *u4, offset: u2) -> u4 {"
             "    return *(ptr + offset);"
-            "}"
-    )
+            "}")
     compile_source(decl)
     decl = ("fn deref(ptr: *u4, offset: u2) -> u4 {"
             "    return ptr[offset];"
-            "}"
-    )
+            "}")
     compile_source(decl)
