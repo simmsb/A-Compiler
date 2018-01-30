@@ -1,5 +1,5 @@
 from enum import IntEnum
-from typing import Optional, Union
+from typing import Optional, Union, Iterable
 
 
 def pullsize(arg):
@@ -13,8 +13,14 @@ class CompType(IntEnum):
 
 
 class Register:
+    __slots__ = ("reg",
+                 "physical_register",
+                 "size",
+                 "sign")
+
     def __init__(self, reg: int, size: int, sign: bool=False):
         self.reg = reg
+        self.physical_register = None
         self.size = size
         self.sign = sign
 
@@ -24,8 +30,11 @@ class Register:
         sign = new_sign or self.sign
         return Register(self.reg, size, sign)
 
+    def __hash__(self):
+        return hash(self.reg)
+
     def __str__(self):
-        return f"%{self.reg}{'s' if self.sign else 'u'}{self.size}"
+        return f"%{self.reg}@{self.physical_register or ''}({'s' if self.sign else 'u'}{self.size})"
 
     __repr__ = __str__
 
@@ -67,6 +76,11 @@ class IRObject:
     """An instruction in internal representation."""
 
     def __init__(self):
+        #: list of instructions to be run before this instruction
+        self.pre_instructions = []
+
+        #: regisers that are dead after this instruction
+        self.closing_registers = {}
         self.parent = None
 
     def __str__(self):
@@ -76,13 +90,16 @@ class IRObject:
         return f"<{self.__class__.__name__} {attrs}>"
 
     @property
-    def touched_registers(self):
+    def touched_registers(self) -> Iterable[Register]:
         """Get the registers that this instruction reads from and writes to."""
         regs = self._touched_regs()
         return set(filter(None, map(filter_reg, regs)))
 
     def _touched_regs(self):
         return ()
+
+    def insert_pre_instrs(self, *instrs):
+        self.pre_instructions.extend(instrs)
 
 
 class MakeVar(IRObject):
@@ -288,7 +305,7 @@ class Jump(Jumpable):
 
     If condition is not provided this is a unconditional jump."""
 
-    def __init__(self, location, condition = None):
+    def __init__(self, location, condition=None):
         super().__init__()
         self.location = location
         self.add_jump_to(location)
@@ -313,3 +330,21 @@ class Resize(IRObject):
 
     def _touched_regs(self):
         return self.from_, self.to
+
+
+class Spill(IRObject):
+    """Spill a register to a location."""
+
+    def __init__(self, reg: int, index: int):
+        super().__init__()
+        self.reg = reg
+        self.index = index
+
+
+class Load(IRObject):
+    """Recover a spilled register."""
+
+    def __init__(self, reg: int, index: int):
+        super().__init__()
+        self.reg = reg
+        self.index = index

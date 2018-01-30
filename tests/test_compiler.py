@@ -311,8 +311,10 @@ def test_if_stmt():
                    "var b := 2;"
                    "if a < b {"
                    "    return a;"
-                   "} else {"
+                   "} elif a > b {"
                    "    return b;"
+                   "} else {"
+                   "    return (a + b) / 2;"
                    "}")
     compile_source(decl)
 
@@ -462,11 +464,9 @@ def test_dereference_operation():
     """Test pointer dereference operations."""
     decl = ("fn deref(ptr: *u4, offset: u2) -> u4 {"
             "    return *(ptr + offset);"
-            "}"
-    )
+            "}")
     compile_source(decl)
     decl = ("fn deref(ptr: *u4, offset: u2) -> u4 {"
             "    return ptr[offset];"
-            "}"
-    )
+            "}")
     compile_source(decl)

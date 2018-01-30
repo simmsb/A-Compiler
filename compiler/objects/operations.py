@@ -364,7 +364,7 @@ class BinAddOp(BinaryExpression):
 
         op = {"+": "add",
               "-": "sub"}[self.op]
-
+        # TODO: If adding to a pointer, multiply the non-pointer side by the size of the type
         ctx.emit(Binary(lhs, rhs, op, res))
         return res
 
