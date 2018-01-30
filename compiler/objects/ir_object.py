@@ -1,5 +1,5 @@
 from enum import IntEnum
-from typing import Optional, Union
+from typing import Optional, Union, Iterable
 
 
 def pullsize(arg):
@@ -13,8 +13,14 @@ class CompType(IntEnum):
 
 
 class Register:
+    __slots__ = ("reg",
+                 "physical_register",
+                 "size",
+                 "sign")
+
     def __init__(self, reg: int, size: int, sign: bool=False):
         self.reg = reg
+        self.physical_register = None
         self.size = size
         self.sign = sign
 
@@ -23,6 +29,9 @@ class Register:
         size = new_size or self.size
         sign = new_sign or self.sign
         return Register(self.reg, size, sign)
+
+    def __hash__(self):
+        return hash(self.reg)
 
     def __str__(self):
         return f"%{self.reg}{'s' if self.sign else 'u'}{self.size}"
@@ -78,7 +87,7 @@ class IRObject:
         return f"<{self.__class__.__name__} {attrs}>"
 
     @property
-    def touched_registers(self):
+    def touched_registers(self) -> Iterable[Register]:
         """Get the registers that this instruction reads from and writes to."""
         regs = self._touched_regs()
         return set(filter(None, map(filter_reg, regs)))
