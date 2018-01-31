@@ -1,4 +1,6 @@
 # pylint: disable=no-self-use
+import sys
+
 from compiler.objects.base import FunctionDecl, Scope
 from compiler.objects.literals import (ArrayLiteral, Identifier,
                                        IntegerLiteral, StringLiteral,
@@ -10,6 +12,9 @@ from compiler.objects.operations import (AssignOp, BinAddOp, BinMulOp,
 from compiler.objects.statements import (IFStmt, LoopStmt, ReturnStmt,
                                          VariableDecl)
 from compiler.objects.types import Array, Function, Int, Pointer, Type
+
+
+sys.setrecursionlimit(10000)  # this goes deep
 
 
 class WewSemantics(object):
@@ -124,6 +129,11 @@ class WewSemantics(object):
         return ast
 
     def prefix(self, ast):
+        # negation operator applied to an integer literal makes it negative and signed
+        if isinstance(ast.right, IntegerLiteral) and ast.op == "-":
+            ast.right.lit = -ast.right.lit
+            ast.right._type.sign = True
+            return ast.right
         return unary_prefix(ast)
 
     def postfixexpr(self, ast):

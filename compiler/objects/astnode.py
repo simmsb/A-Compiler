@@ -1,5 +1,6 @@
 from typing import Optional
 
+from compiler.utils.formatter import format_lines
 from compiler.objects.errors import CompileException
 
 from tatsu.ast import AST
@@ -81,3 +82,7 @@ class BaseObject:
 
     def error(self, reason: str):
         return CompileException(reason, self.make_error())
+
+    def pretty_print(self):
+        instrs = map(str, self.context.code)
+        return format_lines("\n".join(instrs))

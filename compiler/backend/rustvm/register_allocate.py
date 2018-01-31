@@ -80,7 +80,8 @@ class AllocationState:
             if state is RegisterState.Allocated:
                 return data
             if state is RegisterState.Spilled:
-                #  we need to recover the register, find a register to load, emit spill and load instructions onto the IR object
+                #  we need to recover the register, find a register to load,
+                #  If all registers are taken: emit spill before load instruction
                 if self.usable_registers:
                     register = self.usable_registers.pop()
                 else:
@@ -90,7 +91,7 @@ class AllocationState:
                         self.emit_spill(spilled_virtual, register))
                 self.allocated_registers[register] = v_reg
                 source.insert_pre_instrs(
-                    self.emit_load(v_reg, Register)
+                    self.emit_load(v_reg, register)
                 )
                 return register
             raise Exception(f"Register {v_reg} is marked dead but wants to be allocated.")
@@ -114,9 +115,9 @@ class AllocationState:
 
 def mark_last_usages(code: Iterable[ir_object.IRObject]):
     """Scans backwards over instructions, marking registers when they are last used."""
-    spotted_registers = {}
+    spotted_registers = set()
     for instr in reversed(code):
-        for v_reg in instr.touched_registers:
+        for attr, v_reg in instr.touched_registers:
             if v_reg not in spotted_registers:
                 instr.closing_registers.add(v_reg)
                 spotted_registers.add(v_reg)
@@ -127,11 +128,14 @@ def allocate(reg_count: int, code: Iterable[ir_object.IRObject]):
 
     state = AllocationState(reg_count)
 
+    mark_last_usages(code)
+
     for i in code:
         regs_for_instruction = []
-        for v_reg in i.touched_registers:
+        for attr, v_reg in i.touched_registers:
             reg = state.allocate_register(v_reg, i, regs_for_instruction)
+            assert reg is not None
             regs_for_instruction.append(reg)
-            v_reg.physical_register = reg
+            setattr(i, attr, v_reg.set_physical(reg))
         for v_reg in i.closing_registers:
             state.free_register(v_reg)
