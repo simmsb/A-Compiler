@@ -22,14 +22,16 @@ class Int(Type):
 
     def __init__(self, t: str, const: bool=False, ast: Optional[AST]=None):
         super().__init__(ast)
-        self.t = t
+        self.sign = t[0] == "s"
+        self.size = int(t[1])
         self.const = const
 
     def __eq__(self, other: Type):
         if not isinstance(other, Int):
             return False
         return (self.const == other.const and
-                self.t == other.t)
+                self.sign == other.sign and
+                self.size == other.size)
 
     def __str__(self):
         tp = self.t
@@ -41,16 +43,12 @@ class Int(Type):
         return f"Int({self.t!r}, {self.const!r})"
 
     @property
+    def t(self):
+        return f"{'s' if self.sign else 'u'}{self.size}"
+
+    @property
     def can_cast_to(self) -> Tuple[Type]:
         return Int,
-
-    @property
-    def size(self):
-        return int(self.t[1])
-
-    @property
-    def signed(self):
-        return self.t[0] == 's'
 
     @classmethod
     def fromsize(cls, size: int, sign: bool=False, ast: Optional[AST]=None):

@@ -30,6 +30,15 @@ class Register:
         sign = new_sign or self.sign
         return Register(self.reg, size, sign)
 
+    def copy(self) -> 'Register':
+        return Register(self.reg, self.size, self.sign)
+
+    def set_physical(self, physical: int) -> 'Register':
+        """Make a copy and set the physical register."""
+        cpy = self.copy()
+        cpy.physical_register = physical
+        return cpy
+
     def __hash__(self):
         return hash(self.reg)
 
@@ -80,20 +89,23 @@ class IRObject:
         self.pre_instructions = []
 
         #: regisers that are dead after this instruction
-        self.closing_registers = {}
+        self.closing_registers = set()
         self.parent = None
 
     def __str__(self):
-        print_ignore = ("parent", )
+        print_ignore = ("parent", "jumps_to", "jumps_from")
 
         attrs = " ".join(f"<{k}: {v}>" for k, v in self.__dict__.items() if (not k.startswith("_")) and k not in print_ignore)
         return f"<{self.__class__.__name__} {attrs}>"
 
+    __repr__ = __str__
+
     @property
     def touched_registers(self) -> Iterable[Register]:
         """Get the registers that this instruction reads from and writes to."""
-        regs = self._touched_regs()
-        return set(filter(None, map(filter_reg, regs)))
+        attrs = self._touched_regs()
+        regs = map(filter_reg, (getattr(self, i) for i in attrs))
+        return (k for k in zip(attrs, regs) if k[1] is not None)
 
     def _touched_regs(self):
         return ()
@@ -122,7 +134,7 @@ class LoadVar(IRObject):
         self.lvalue = lvalue
 
     def _touched_regs(self):
-        return self.to,
+        return "to",
 
 
 class SaveVar(IRObject):
@@ -132,7 +144,7 @@ class SaveVar(IRObject):
         self.from_ = from_
 
     def _touched_regs(self):
-        return self.from_,
+        return "from_",
 
 
 class Mov(IRObject):
@@ -144,7 +156,7 @@ class Mov(IRObject):
         self.from_ = from_
 
     def _touched_regs(self):
-        return self.to, self.from_
+        return "to", "from_"
 
 
 class Unary(IRObject):
@@ -158,7 +170,7 @@ class Unary(IRObject):
         return lambda arg: cls(arg, attr)
 
     def _touched_regs(self):
-        return self.op,
+        return "op",
 
 
 class BinaryMeta(type):
@@ -184,7 +196,7 @@ class Binary(IRObject, metaclass=BinaryMeta):
         self.to = to or left
 
     def _touched_regs(self):
-        return self.left, self.right, self.to
+        return "left", "right", "to"
 
 
 class Compare(IRObject):
@@ -199,7 +211,7 @@ class Compare(IRObject):
         self.right = right
 
     def _touched_regs(self):
-        return self.left, self.right
+        return "left", "right"
 
 
 class SetCmp(IRObject):
@@ -211,7 +223,7 @@ class SetCmp(IRObject):
         self.op = op
 
     def _touched_regs(self):
-        return self.reg,
+        return "reg",
 
 
 class Push(IRObject):
@@ -220,7 +232,7 @@ class Push(IRObject):
         self.arg = arg
 
     def _touched_regs(self):
-        return self.arg,
+        return "arg",
 
 
 class Pop(IRObject):
@@ -229,7 +241,7 @@ class Pop(IRObject):
         self.arg = arg
 
     def _touched_regs(self):
-        return self.arg,
+        return "arg",
 
 
 class Prelude(IRObject):
@@ -264,7 +276,7 @@ class Return(IRObject):
         self.reg = reg
 
     def _touched_regs(self):
-        return self.reg,
+        return "reg",
 
 
 class Call(IRObject):
@@ -277,7 +289,7 @@ class Call(IRObject):
         self.result = result
 
     def _touched_regs(self):
-        return self.jump, self.result
+        return "jump", "result"
 
 
 class Jumpable(IRObject):
@@ -312,7 +324,7 @@ class Jump(Jumpable):
         self.condition = condition
 
     def _touched_regs(self):
-        return self.location,
+        return "location",
 
 
 class JumpTarget(Jumpable):
@@ -329,7 +341,7 @@ class Resize(IRObject):
         self.to = to
 
     def _touched_regs(self):
-        return self.from_, self.to
+        return "from_", "to"
 
 
 class Spill(IRObject):
