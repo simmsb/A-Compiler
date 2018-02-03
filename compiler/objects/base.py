@@ -18,6 +18,10 @@ StmtCompileType = Coroutine['ObjectRequest', 'Variable', None]  # pylint: disabl
 ExprCompileType = Coroutine['ObjectRequest', 'Variable', Register]  # pylint: disable=invalid-name
 
 
+def log_compile(typ: str, obj: str, message: str):
+    print(f"{typ}:{obj}: {message}")
+
+
 # If we have many of these just use a tuple api instead
 # (req.object_request, "name") or something nice like that
 #
@@ -312,12 +316,19 @@ class Compiler(IdentifierScope):
             obj._coro = coro  # pylint: disable=protected-access
         while True:
             try:
+                if to_send:
+                    log_compile("coro-wake", obj.identifier, f"Sending {to_send} to coro")
+                else:
+                    log_compile("coro-start", obj.identifier, "Starting coro")
                 r = coro.send(to_send)
                 to_send = None
             except StopIteration:
                 return True
 
             assert isinstance(r, ObjectRequest)
+
+            log_compile("coro-request", obj.identifier, f"Request for identifier {r.name} from coro")
+
             # look for either a global object or a scope variable.
             var = ctx.lookup_variable(r.name)
             if var is not None:
@@ -332,6 +343,7 @@ class Compiler(IdentifierScope):
             # if nothing was found place coro on waiting list and start compiling something else.
 
             self.add_waiting(r.name, obj, ctx.current_object)
+            log_compile("coro-sleep", obj.identifier, "Coro sleeping")
             return False
 
     def compile(self, objects: List[StatementObject]):
@@ -341,6 +353,7 @@ class Compiler(IdentifierScope):
         while objects:
             obj, to_send = objects.pop()
             if self.run_over(obj, to_send):
+                log_compile("coro-stop", obj.identifier, "Finished compiling")
                 # after completing a compilation, run over the waiting list,
                 # adding any objects that are satisfied back on to the compilation list
                 for name in tuple(self.waiting_coros.keys()):
