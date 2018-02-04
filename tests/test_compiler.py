@@ -1,4 +1,4 @@
-from compiler.objects import compile_source
+from compiler.backend.rustvm import compile_and_allocate
 from compiler.objects.errors import CompileException
 
 from pytest import raises
@@ -9,14 +9,14 @@ from tests.helpers import emptyfn, for_feature
 def test_var_declaration_global():
     """Test variable declaration inside a global scope."""
     decl = "var a := 4;"
-    compile_source(decl)
+    compile_and_allocate(decl)
 
 
 @for_feature(variables="Local variables")
 def test_var_declaration_func():
     """Test variable declaration inside a function scope/."""
     decl = emptyfn("var a := 4;")
-    compile_source(decl)
+    compile_and_allocate(decl)
 
 
 @for_feature(variables="Variables")
@@ -24,7 +24,7 @@ def test_var_multiple_same():
     """Test that multiple declarations of a variable with the same type is valid."""
     decl = ("var a:u4;"
             "var a:u4;")
-    compile_source(decl)
+    compile_and_allocate(decl)
 
 
 @for_feature(variables="Variables")
@@ -33,7 +33,7 @@ def test_var_multiple_different():
     decl = ("var a:u4;"
             "var a:s1")
     with raises(CompileException):
-        compile_source(decl)
+        compile_and_allocate(decl)
 
 
 @for_feature(math="Maths")
@@ -50,7 +50,7 @@ def test_types_to_binary_add_op():
     )
 
     for i in tests:
-        compile_source(emptyfn(i + ";"))
+        compile_and_allocate(emptyfn(i + ";"))
 
 
 @for_feature(math="Maths")
@@ -62,7 +62,7 @@ def test_incompatible_types_to_binary_add_op():
 
     for i in tests:
         with raises(CompileException):
-            compile_source(emptyfn(i + ";"))
+            compile_and_allocate(emptyfn(i + ";"))
 
 
 @for_feature(math="Maths")
@@ -74,7 +74,7 @@ def test_types_to_binary_mul_op():
     )
 
     for i in tests:
-        compile_source(emptyfn(i + ";"))
+        compile_and_allocate(emptyfn(i + ";"))
 
 
 @for_feature(math="Maths")
@@ -87,7 +87,7 @@ def test_incompatible_types_to_mul_op():
 
     for i in tests:
         with raises(CompileException):
-            compile_source(emptyfn(i + ";"))
+            compile_and_allocate(emptyfn(i + ";"))
 
 
 @for_feature(bitwise="Bitwise")
@@ -99,7 +99,7 @@ def test_types_to_binary_shift_op():
     )
 
     for i in tests:
-        compile_source(emptyfn(i + ";"))
+        compile_and_allocate(emptyfn(i + ";"))
 
 
 @for_feature(bitwise="Bitwise")
@@ -112,7 +112,7 @@ def test_incompatible_types_to_shift_op():
 
     for i in tests:
         with raises(CompileException):
-            compile_source(emptyfn(i + ";"))
+            compile_and_allocate(emptyfn(i + ";"))
 
 
 @for_feature(comparison="Relational")
@@ -124,7 +124,7 @@ def test_types_to_binary_relation_op():
     )
 
     for i in tests:
-        compile_source(emptyfn(i + ";"))
+        compile_and_allocate(emptyfn(i + ";"))
 
 
 @for_feature(comparison="Relational")
@@ -137,7 +137,7 @@ def test_incompatible_types_to_relation_op():
 
     for i in tests:
         with raises(CompileException):
-            compile_source(emptyfn(i + ";"))
+            compile_and_allocate(emptyfn(i + ";"))
 
 
 @for_feature(bitwise="Bitwise")
@@ -148,7 +148,7 @@ def test_types_to_binary_bitwise_op():
     )
 
     for i in tests:
-        compile_source(emptyfn(i + ";"))
+        compile_and_allocate(emptyfn(i + ";"))
 
 
 @for_feature(bitwise="Bitwise")
@@ -161,7 +161,7 @@ def test_incompatible_types_to_bitwise_op():
 
     for i in tests:
         with raises(CompileException):
-            compile_source(emptyfn(i + ";"))
+            compile_and_allocate(emptyfn(i + ";"))
 
 
 @for_feature(ss_ops="Short-circuiting")
@@ -174,7 +174,7 @@ def test_types_to_binary_comparison_op():
     )
 
     for i in tests:
-        compile_source(emptyfn(i + ";"))
+        compile_and_allocate(emptyfn(i + ";"))
 
 
 @for_feature(variables="Variables")
@@ -186,7 +186,7 @@ def test_var_ref_subscope():
             "        var b := a * 2;"
             "    }"
             "}")
-    compile_source(decl)
+    compile_and_allocate(decl)
 
 
 @for_feature(globals="Globals")
@@ -196,7 +196,7 @@ def test_var_ref_global():
             "fn test() -> u1 {"
             "    var b := a * 3;"
             "}")
-    compile_source(decl)
+    compile_and_allocate(decl)
 
 
 @for_feature(variables="Variables")
@@ -204,7 +204,7 @@ def test_var_ref_fail():
     """Test that undeclared variables fail."""
     decl = emptyfn("a;")
     with raises(CompileException):
-        compile_source(decl)
+        compile_and_allocate(decl)
 
 
 @for_feature(assignment="Assignment", variables="Variables")
@@ -212,14 +212,14 @@ def test_var_assn():
     """Test variable initialisation and assignment."""
     decl = emptyfn("var a := 3;"
                    "a = 4;")
-    compile_source(decl)
+    compile_and_allocate(decl)
 
 
 @for_feature(assignment="Assignment", pointers="Pointers")
 def test_ptr_assn():
     """Test pointer assignment."""
     decl = emptyfn("*(0::*u1) = 3;")
-    compile_source(decl)
+    compile_and_allocate(decl)
 
 
 @for_feature(assignment="Assignment", variables="Variables")
@@ -228,14 +228,14 @@ def test_invalid_var_assn():
     decl = emptyfn("var a:|u4| = 3;"
                    "a = 4;")
     with raises(CompileException):
-        compile_source(decl)
+        compile_and_allocate(decl)
 
 
 @for_feature(functions="Functions")
 def test_return_stmt():
     """Test that the return statement functions correctly."""
     decl = emptyfn("return 1;")
-    compile_source(decl)
+    compile_and_allocate(decl)
 
 
 @for_feature(functions="Functions")
@@ -243,7 +243,7 @@ def test_incompatible_types_to_return():
     """Test that returning non-castable types is invalid."""
     decl = emptyfn("return 1::*u1;")
     with raises(CompileException):
-        compile_source(decl)
+        compile_and_allocate(decl)
 
 
 @for_feature(assignment="Assignment")
@@ -251,10 +251,10 @@ def test_no_lvalue():
     """Test that expressions that have no lvalue are invalid in assignment and increment expressions."""
     decl = emptyfn("1 = 2;")
     with raises(CompileException):
-        compile_source(decl)
+        compile_and_allocate(decl)
     decl = emptyfn("1++;")
     with raises(CompileException):
-        compile_source(decl)
+        compile_and_allocate(decl)
 
 
 @for_feature(functions="Functions")
@@ -266,7 +266,7 @@ def test_function_call():
             "fn main() -> u1 {"
             "    a(1, 2::*u2);"
             "}")
-    compile_source(decl)
+    compile_and_allocate(decl)
 
 
 @for_feature(functions="Functions")
@@ -279,7 +279,7 @@ def test_function_call_fail_count():
             "    a(1);"
             "}")
     with raises(CompileException):
-        compile_source(decl)
+        compile_and_allocate(decl)
 
 
 @for_feature(functions="Functions")
@@ -292,7 +292,7 @@ def test_function_call_fail_type():
             "    a(0::*u1, 1);"
             "}")
     with raises(CompileException):
-        compile_source(decl)
+        compile_and_allocate(decl)
 
 
 @for_feature(pointers="Pointers")
@@ -301,7 +301,7 @@ def test_memory_reference_op():
     decl = emptyfn("var a: u1;"
                    "return &a;",
                    "*u1")
-    compile_source(decl)
+    compile_and_allocate(decl)
 
 
 @for_feature(if_stmt="IF Statements")
@@ -316,7 +316,7 @@ def test_if_stmt():
                    "} else {"
                    "    return (a + b) / 2;"
                    "}")
-    compile_source(decl)
+    compile_and_allocate(decl)
 
 
 @for_feature(loop_stmt="While Loops")
@@ -326,21 +326,21 @@ def test_while_loop():
                    "while a {"
                    "    a = a * 2;"
                    "}")
-    compile_source(decl)
+    compile_and_allocate(decl)
 
 
 @for_feature(variables="Variables", arrays="Arrays", number_literals="Numeric literals")
 def test_array_init_num():
     """Test array initialisation."""
     decl = emptyfn("var a := {1, 2, 3};")
-    compile_source(decl)
+    compile_and_allocate(decl)
 
 
 @for_feature(variables="Variables", arrays="Arrays", string_literals="String literals")
 def test_array_init_str():
     """Test array initialisation."""
     decl = emptyfn("var a := {\"string\", \"morestring\", \"lessstring\"};")
-    compile_source(decl)
+    compile_and_allocate(decl)
 
 
 @for_feature(variables="Variables", arrays="Arrays")
@@ -348,14 +348,14 @@ def test_array_decl():
     """Tests array declaration."""
     decl = emptyfn("var a: [u1];")  # this should error, no size information
     with raises(CompileException):
-        compile_source(decl)
+        compile_and_allocate(decl)
 
     decl = emptyfn("var a: [u1@5];")
-    compile_source(decl)
+    compile_and_allocate(decl)
 
     decl = emptyfn("var a: [u1@-4]")
     with raises(CompileException):
-        compile_source(decl)
+        compile_and_allocate(decl)
 
 
 @for_feature(variables="Variables", arrays="Arrays")
@@ -363,7 +363,7 @@ def test_array_vars_first():
     """Test array initialisation where a variable is the inspected type."""
     decl = emptyfn("var b := 1;"
                    "var a := {b, 2, 3};")
-    compile_source(decl)
+    compile_and_allocate(decl)
 
 
 @for_feature(variables="Variables", arrays="Arrays")
@@ -371,7 +371,7 @@ def test_array_vars_second():
     """Test array initialisation where a variable isn't the inspected type."""
     decl = emptyfn("var b := 2;"
                    "var a := {1, b, 3};")
-    compile_source(decl)
+    compile_and_allocate(decl)
 
 
 @for_feature(variables="Variables", arrays="Arrays")
@@ -379,7 +379,7 @@ def test_array_init_invalid():
     """Test array initialisation with conflicting types."""
     decl = emptyfn("var a := {1, 2::*u2};")
     with raises(CompileException):
-        compile_source(decl)
+        compile_and_allocate(decl)
 
 
 @for_feature(variables="Variables", arrays="Arrays")
@@ -387,21 +387,21 @@ def test_array_init_expr():
     """Test that expressions in an array initialisation are valid."""
     decl = emptyfn("var b := 4;"
                    "var a := {b, b * 2};")
-    compile_source(decl)
+    compile_and_allocate(decl)
 
 
 @for_feature(arrays="Arrays", number_literals="Numeric literals")
 def test_array_lit_num():
     """Test array literals with numbers."""
     decl = emptyfn("{1, 2, 3};")
-    compile_source(decl)
+    compile_and_allocate(decl)
 
 
 @for_feature(variables="Variables", arrays="Arrays", string_literals="String literals")
 def test_array_lit_str():
     """Test array literals with strings."""
     decl = emptyfn("{\"string\", \"morestring\", \"lessstring\"};")
-    compile_source(decl)
+    compile_and_allocate(decl)
 
 
 @for_feature(arrays="Arrays")
@@ -410,53 +410,53 @@ def test_array_lit_no_const():
     decl = emptyfn("var a := 3;"
                    "{a, a * 2};")
     with raises(CompileException):
-        compile_source(decl)
+        compile_and_allocate(decl)
 
 
 @for_feature(variables="Variables")
 def test_var_decl():
     """Test various variable declarations."""
     decl = emptyfn("var a: u1;")
-    compile_source(decl)
+    compile_and_allocate(decl)
 
     decl = emptyfn("var a: u1 = 3;")
-    compile_source(decl)
+    compile_and_allocate(decl)
 
     decl = emptyfn("var a: [u1] = {1, 2, 3};")
-    compile_source(decl)
+    compile_and_allocate(decl)
 
     decl = emptyfn("var a: [u1@4] = {1, 2, 3, 4};")
-    compile_source(decl)
+    compile_and_allocate(decl)
 
     # we dont have string literal -> string array yet.
     # TODO: string lit -> string arr
     decl = emptyfn("var a: [*u1] = \"test\";")
     with raises(CompileException):
-        compile_source(decl)
+        compile_and_allocate(decl)
 
     decl = emptyfn("var a: [*u1] = {1, 2};")
     with raises(CompileException):
-        compile_source(decl)
+        compile_and_allocate(decl)
 
     decl = emptyfn("var a: [u1@4] = {1, 2, 3};")
     with raises(CompileException):
-        compile_source(decl)
+        compile_and_allocate(decl)
 
     decl = emptyfn("var a: [u1] = 3;")
     with raises(CompileException):
-        compile_source(decl)
+        compile_and_allocate(decl)
 
 
 @for_feature(number_literals="Numeric literals")
 def test_numeric_literals():
     decl = emptyfn("var a := 1;")
-    compile_source(decl)
+    compile_and_allocate(decl)
     decl = emptyfn("var a := 1/u1;")
-    compile_source(decl)
+    compile_and_allocate(decl)
     decl = emptyfn("var a := 1/s1;")
-    compile_source(decl)
+    compile_and_allocate(decl)
     decl = emptyfn("var a := 1/u8;")
-    compile_source(decl)
+    compile_and_allocate(decl)
 
 
 @for_feature(pointers="Pointers", functions="Functions")
@@ -465,8 +465,8 @@ def test_dereference_operation():
     decl = ("fn deref(ptr: *u4, offset: u2) -> u4 {"
             "    return *(ptr + offset);"
             "}")
-    compile_source(decl)
+    compile_and_allocate(decl)
     decl = ("fn deref(ptr: *u4, offset: u2) -> u4 {"
             "    return ptr[offset];"
             "}")
-    compile_source(decl)
+    compile_and_allocate(decl)

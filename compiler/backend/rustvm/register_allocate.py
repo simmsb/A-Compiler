@@ -117,7 +117,7 @@ def mark_last_usages(code: Iterable[ir_object.IRObject]):
     """Scans backwards over instructions, marking registers when they are last used."""
     spotted_registers = set()
     for instr in reversed(code):
-        for attr, v_reg in instr.touched_registers:
+        for v_reg in instr.touched_registers:
             if v_reg not in spotted_registers:
                 instr.closing_registers.add(v_reg)
                 spotted_registers.add(v_reg)
@@ -132,10 +132,14 @@ def allocate(reg_count: int, code: Iterable[ir_object.IRObject]):
 
     for i in code:
         regs_for_instruction = []
-        for attr, v_reg in i.touched_registers:
+        i.clone_regs()
+        for v_reg in i.touched_registers:
+            assert v_reg.physical_register is None
+
             reg = state.allocate_register(v_reg, i, regs_for_instruction)
             assert reg is not None
+
             regs_for_instruction.append(reg)
-            setattr(i, attr, v_reg.set_physical(reg))
+            v_reg.physical_register = reg
         for v_reg in i.closing_registers:
             state.free_register(v_reg)

@@ -33,17 +33,17 @@ class Register:
     def copy(self) -> 'Register':
         return Register(self.reg, self.size, self.sign)
 
-    def set_physical(self, physical: int) -> 'Register':
-        """Make a copy and set the physical register."""
-        cpy = self.copy()
-        cpy.physical_register = physical
-        return cpy
+    def __eq__(self, other):
+        if not isinstance(other, Register):
+            raise ValueError
+        return self.reg == other.reg
 
     def __hash__(self):
         return hash(self.reg)
 
     def __str__(self):
-        return f"%{self.reg}@{self.physical_register or ''}({'s' if self.sign else 'u'}{self.size})"
+        phys_reg = self.physical_register if self.physical_register is not None else ''
+        return f"%{self.reg}@{phys_reg}({'s' if self.sign else 'u'}{self.size})"
 
     __repr__ = __str__
 
@@ -61,7 +61,7 @@ class Immediate:
 
 class Dereference:
     def __init__(self, loc: Register):
-        self.to = loc
+        self.to = loc.copy()
         assert loc.size == 2
 
     @property
@@ -72,7 +72,10 @@ class Dereference:
         return f"Dereference({self.to})"
 
 
-def filter_reg(reg: Union[Dereference, Register, any]) -> Optional[Register]:
+IRParam = Union[Register, Dereference, Immediate]
+
+
+def filter_reg(reg: IRParam) -> Optional[Register]:
     """Filters a possible register object. returns None if not a register."""
     if isinstance(reg, Dereference):
         return reg.to
@@ -83,6 +86,24 @@ def filter_reg(reg: Union[Dereference, Register, any]) -> Optional[Register]:
 
 class IRObject:
     """An instruction in internal representation."""
+
+    def clone_regs(self):
+        """Clone the registers of this instruction so that they can be mutated without affecting other IR instructions."""
+        def copy_reg(arg):
+            if isinstance(arg, Register):
+                return arg.copy()
+            return arg
+
+        for attr in self._touched_regs:
+            # copy the instances of the registers we're using
+            setattr(self, attr, copy_reg(getattr(self, attr)))
+
+
+    def __new__(cls, *args, **kwargs):
+        self = super().__new__(cls)
+        cls.__init__(self, *args, **kwargs)
+
+        return self
 
     def __init__(self):
         #: list of instructions to be run before this instruction
@@ -103,25 +124,26 @@ class IRObject:
     @property
     def touched_registers(self) -> Iterable[Register]:
         """Get the registers that this instruction reads from and writes to."""
-        attrs = self._touched_regs()
-        regs = map(filter_reg, (getattr(self, i) for i in attrs))
-        return (k for k in zip(attrs, regs) if k[1] is not None)
+        attrs = self._touched_regs
+        regs = (filter_reg(getattr(self, i)) for i in attrs)
+        return list(filter(None, regs))
 
-    def _touched_regs(self):
-        return ()
+    _touched_regs = ()
 
     def insert_pre_instrs(self, *instrs):
         self.pre_instructions.extend(instrs)
 
 
 class MakeVar(IRObject):
-    def __init__(self, variable):
+    # TODO: why does this exist?
+
+    def __init__(self, variable: 'Variable'):
         super().__init__()
         self.var = variable
 
 
 class LoadVar(IRObject):
-    def __init__(self, variable, to, lvalue: bool=False):
+    def __init__(self, variable: 'Variable', to: IRParam, lvalue: bool=False):
         """Load a variable to a location.
 
         :param variable: Variable info object.
@@ -133,34 +155,31 @@ class LoadVar(IRObject):
         self.to = to
         self.lvalue = lvalue
 
-    def _touched_regs(self):
-        return "to",
+    _touched_regs = "to",
 
 
 class SaveVar(IRObject):
-    def __init__(self, variable, from_):
+    def __init__(self, variable: 'Variable', from_: IRParam):
         super().__init__()
         self.variable = variable
         self.from_ = from_
 
-    def _touched_regs(self):
-        return "from_",
+    _touched_regs = "from_",
 
 
 class Mov(IRObject):
     """More general than LoadVar/ SaveVar, for setting registers directly."""
 
-    def __init__(self, to, from_):
+    def __init__(self, to: IRParam, from_: IRParam):
         super().__init__()
         self.to = to
         self.from_ = from_
 
-    def _touched_regs(self):
-        return "to", "from_"
+    _touched_regs = "to", "from_"
 
 
 class Unary(IRObject):
-    def __init__(self, arg, op: str):
+    def __init__(self, arg: IRParam, op: str):
         super().__init__()
         self.arg = arg
         self.op = op
@@ -169,8 +188,7 @@ class Unary(IRObject):
     def __getattr__(cls, attr):
         return lambda arg: cls(arg, attr)
 
-    def _touched_regs(self):
-        return "op",
+    _touched_regs = "op",
 
 
 class BinaryMeta(type):
@@ -188,15 +206,14 @@ class Binary(IRObject, metaclass=BinaryMeta):
 
     valid_ops = ("add", "sub", "mul", "div")
 
-    def __init__(self, left, right, op: str, to=None):
+    def __init__(self, left: IRParam, right: IRParam, op: str, to: Optional[IRParam]=None):
         super().__init__()
         self.left = left
         self.right = right
         self.op = op
         self.to = to or left
 
-    def _touched_regs(self):
-        return "left", "right", "to"
+    _touched_regs = "left", "right", "to"
 
 
 class Compare(IRObject):
@@ -205,43 +222,39 @@ class Compare(IRObject):
     Compares two operands and sets resultant registers.
     """
 
-    def __init__(self, left, right):
+    def __init__(self, left: IRParam, right: IRParam):
         super().__init__()
         self.left = left
         self.right = right
 
-    def _touched_regs(self):
-        return "left", "right"
+    _touched_regs = "left", "right"
 
 
 class SetCmp(IRObject):
     """Set register from last comparison."""
 
-    def __init__(self, reg, op):
+    def __init__(self, reg: IRParam, op):
         super().__init__()
         self.reg = reg
         self.op = op
 
-    def _touched_regs(self):
-        return "reg",
+    _touched_regs = "reg",
 
 
 class Push(IRObject):
-    def __init__(self, arg):
+    def __init__(self, arg: IRParam):
         super().__init__()
         self.arg = arg
 
-    def _touched_regs(self):
-        return "arg",
+    _touched_regs = "arg",
 
 
 class Pop(IRObject):
-    def __init__(self, arg):
+    def __init__(self, arg: IRParam):
         super().__init__()
         self.arg = arg
 
-    def _touched_regs(self):
-        return "arg",
+    _touched_regs = "arg",
 
 
 class Prelude(IRObject):
@@ -267,7 +280,7 @@ class Epilog(IRObject):
 class Return(IRObject):
     """Function return"""
 
-    def __init__(self, reg: Optional[Register]=None):
+    def __init__(self, reg: Optional[IRParam]=None):
         """Return from a scope.
         This should be placed after preludes to all scopes beforehand.
         :param reg: register to return. If this is None, return void.
@@ -275,21 +288,19 @@ class Return(IRObject):
         super().__init__()
         self.reg = reg
 
-    def _touched_regs(self):
-        return "reg",
+    _touched_regs = "reg",
 
 
 class Call(IRObject):
     """Jump to location, push return address."""
 
-    def __init__(self, argsize: int, jump: Register, result: Register):
+    def __init__(self, argsize: int, jump: IRParam, result: IRParam):
         super().__init__()
         self.argsize = argsize
         self.jump = jump
         self.result = result
 
-    def _touched_regs(self):
-        return "jump", "result"
+    _touched_regs = "jump", "result"
 
 
 class Jumpable(IRObject):
@@ -323,8 +334,7 @@ class Jump(Jumpable):
         self.add_jump_to(location)
         self.condition = condition
 
-    def _touched_regs(self):
-        return "location",
+    _touched_regs = "location",
 
 
 class JumpTarget(Jumpable):
@@ -335,13 +345,12 @@ class JumpTarget(Jumpable):
 class Resize(IRObject):
     """Resize data."""
 
-    def __init__(self, from_: Register, to: Register):
+    def __init__(self, from_: IRParam, to: IRParam):
         super().__init__()
         self.from_ = from_
         self.to = to
 
-    def _touched_regs(self):
-        return "from_", "to"
+    _touched_regs = "from_", "to"
 
 
 class Spill(IRObject):
