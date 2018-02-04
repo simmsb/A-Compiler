@@ -87,12 +87,10 @@ class AllocationState:
                 else:
                     register = self.least_active_register(excludes)
                     spilled_virtual = self.allocated_registers[register]
-                    source.insert_pre_instrs(
-                        self.emit_spill(spilled_virtual, register))
+                    source.insert_pre_instrs(self.emit_spill(spilled_virtual, register))
+
                 self.allocated_registers[register] = v_reg
-                source.insert_pre_instrs(
-                    self.emit_load(v_reg, register)
-                )
+                source.insert_pre_instrs(self.emit_load(v_reg, register))
                 return register
             raise Exception(f"Register {v_reg} is marked dead but wants to be allocated.")
 
@@ -105,9 +103,7 @@ class AllocationState:
 
         register = self.least_active_register(excludes)
         spilled_virtual = self.allocated_registers[register]
-        source.insert_pre_instrs(
-            self.emit_spill(spilled_virtual, register)
-        )
+        source.insert_pre_instrs(self.emit_spill(spilled_virtual, register))
         self.register_states[v_reg] = (RegisterState.Allocated, register)
         self.allocated_registers[register] = v_reg
         return register
