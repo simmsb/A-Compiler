@@ -48,5 +48,24 @@
   + [X] Inferred type
     
 * Code Generator
-- [ ] Register allocator
+- [X] Register allocator
 - [ ] Assembler
+  + [ ] Handle placing immediates in memory and making references to them if too large to fit in an instruction
+  + [ ] LoadVar
+  + [ ] SaveVar
+  + [ ] Mov
+  + [ ] Unary
+  + [ ] Binary
+  + [ ] Compare
+  + [ ] SetCmp
+  + [ ] Push
+  + [ ] Pop
+  + [ ] Prelude
+  + [ ] Epilog
+  + [ ] Return 
+  + [ ] Call
+  + [ ] Jump
+  + [ ] JumpTarget
+  + [ ] Resize
+  + [ ] Spill
+  + [ ] Load
