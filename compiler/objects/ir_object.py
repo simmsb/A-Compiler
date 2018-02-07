@@ -35,7 +35,7 @@ class Register:
 
     def __eq__(self, other):
         if not isinstance(other, Register):
-            raise ValueError
+            return False
         return self.reg == other.reg
 
     def __hash__(self):
@@ -334,7 +334,7 @@ class Jump(Jumpable):
         self.add_jump_to(location)
         self.condition = condition
 
-    _touched_regs = "location",
+    _touched_regs = "condition",
 
 
 class JumpTarget(Jumpable):

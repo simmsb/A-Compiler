@@ -1,11 +1,7 @@
 from enum import IntEnum
 
-class Instruction:
-    @property
-    def group(self):
-        raise NotImplementedError
 
-class BinaryInstructions(IntEnum, Instruction):
+class BinaryInstructions(IntEnum):
     """Binary instructions."""
     (add, sub, mul, udiv, idiv, shl,
      shr, sar, and_, or_, xor) = range(11)
@@ -15,7 +11,7 @@ class BinaryInstructions(IntEnum, Instruction):
         return 0
 
 
-class UnaryInstructions(IntEnum, Instruction):
+class UnaryInstructions(IntEnum):
     """Unary instructions."""
     (neg, pos, not_) = range(3)
 
@@ -24,7 +20,7 @@ class UnaryInstructions(IntEnum, Instruction):
         return 1
 
 
-class Manip(IntEnum, Instruction):
+class Manip(IntEnum):
     """Cpu manipulation instructions."""
     (mov, sxu, sxi, jmp, set, tst, halt) = range(7)
 
@@ -33,7 +29,7 @@ class Manip(IntEnum, Instruction):
         return 2
 
 
-class Mem(IntEnum, Instruction):
+class Mem(IntEnum):
     """Memory manipulation instructions."""
     (stks, push, pop, call, ret) = range(5)
 
@@ -42,7 +38,7 @@ class Mem(IntEnum, Instruction):
         return 3
 
 
-class IO(IntEnum, Instruction):
+class IO(IntEnum):
     """IO instructions."""
     (getc, putc) = range(2)
 
@@ -51,6 +47,6 @@ class IO(IntEnum, Instruction):
         return 4
 
 
-def pack_instruction(instr: Instruction, size: int):
+def pack_instruction(instr, size: int):
     value = size << 14 | instr.group << 8 | instr
     return value & 0xffff
