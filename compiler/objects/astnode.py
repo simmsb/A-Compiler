@@ -11,7 +11,7 @@ class BaseObject:
     """Base class of compilables."""
 
     def __init__(self, ast: Optional[AST]):
-        self.context = None
+        self.context: 'CompileContext' = None
         self._ast = ast
         if ast is not None:
             self._info: ParseInfo = ast.parseinfo

@@ -172,6 +172,13 @@ class Scope(StatementObject, IdentifierScope):
         self.size += var.size
         return var
 
+    def add_spill_vars(self, n: int):
+        for i in range(n):
+            self.declare_variable(
+                f"spill-var-{i}",
+                types.Int.fromsize(8)
+            )
+
 
 class FunctionDecl(Scope):
     """Function definition object.
@@ -220,13 +227,20 @@ class FunctionDecl(Scope):
 class Compiler(IdentifierScope):
     def __init__(self):
         self._vars: Dict[str, Variable] = {}
-        self.compiled_objects: List[BaseObject] = []
+        self.compiled_objects: List[StatementObject] = []
         self.waiting_coros: Dict[str, List[Tuple[BaseObject, BaseObject]]] = {}
         self.data: List[Union[str, bytes, List[Variable]]] = []
 
     @property
     def vars(self) -> Dict[str, Variable]:
         return self._vars
+
+    def add_spill_vars(self, n: int):
+        for i in range(n):
+            self.declare_variable(
+                f"global-spill-{i}",
+                types.Int.fromsize(8)  # always make an 8 byte spill
+            )  # MAYBE: give sizes to spill vars
 
     def declare_variable(self, name: str, typ: types.Type) -> Variable:
         """Add a variable to global scope.

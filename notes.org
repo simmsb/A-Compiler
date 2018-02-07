@@ -7,5 +7,4 @@
    + custom vm codegen
    + LLVM codegen
    + PeachPy codegen
-
-* stuff
+ - Top level impl: place in implicit function body to do computation (spill variables)

@@ -119,8 +119,10 @@ def mark_last_usages(code: Iterable[ir_object.IRObject]):
                 spotted_registers.add(v_reg)
 
 
-def allocate(reg_count: int, code: Iterable[ir_object.IRObject]):
-    """Allocate registers for an ∞ register IR."""
+def allocate(reg_count: int, code: Iterable[ir_object.IRObject]) -> AllocationState:
+    """Allocate registers for an ∞ register IR.
+    returns the allocation state to be used in further processing.
+    """
 
     state = AllocationState(reg_count)
 
@@ -139,3 +141,5 @@ def allocate(reg_count: int, code: Iterable[ir_object.IRObject]):
             v_reg.physical_register = reg
         for v_reg in i.closing_registers:
             state.free_register(v_reg)
+
+    return state
