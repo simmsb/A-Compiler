@@ -554,12 +554,12 @@ class BoolCompOp(ExpressionObject):
         cond = ctx.get_register(1)
         ctx.emit(SetCmp(cond, op))
 
-        jump = ctx.emit(Jump(target, cond))
+        ctx.emit(Jump(target, cond))
         r2: Register = (await self.right.compile(ctx))
         if r2.size != r1.size:
             r2_ = r2.resize(r1.size)
             ctx.emit(Resize(r2, r2_))
             r2 = r2_
         ctx.emit(Mov(r1, r2))
-        ctx.emit(jump)
+        ctx.emit(target)
         return r1
