@@ -4,18 +4,15 @@ from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from functools import wraps
 from itertools import accumulate
-from typing import Any, Dict, Coroutine, List, Optional, Tuple, Union, Iterable
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from tatsu.ast import AST
 
 from compiler.objects import types
-from compiler.objects.ir_object import Epilog, IRObject, Prelude, Register
-from compiler.objects.errors import CompileException
 from compiler.objects.astnode import BaseObject
-
-
-StmtCompileType = Coroutine['ObjectRequest', 'Variable', None]  # pylint: disable=invalid-name
-ExprCompileType = Coroutine['ObjectRequest', 'Variable', Register]  # pylint: disable=invalid-name
+from compiler.objects.errors import CompileException
+from compiler.objects.ir_object import Epilog, IRObject, Prelude, Register
+from compiler.objects.variable import Variable
 
 
 # If we have many of these just use a tuple api instead
@@ -43,7 +40,7 @@ class StatementObject(BaseObject):
     """Derived base ast for statements."""
 
     @with_ctx
-    async def compile(self, ctx: 'CompileContext') -> StmtCompileType:
+    async def compile(self, ctx: 'CompileContext'):
         """Compile an object
         Statement objects do not return a register."""
         raise NotImplementedError
@@ -53,11 +50,11 @@ class ExpressionObject(BaseObject):
     """Derived base ast for expressions."""
 
     @property
-    def type(self) -> Coroutine[ObjectRequest, 'Variable', types.Type]:
+    async def type(self) -> types.Type:
         raise NotImplementedError
 
     @property
-    async def size(self) -> Coroutine[ObjectRequest, 'Variable', int]:
+    async def size(self) -> int:
         return (await self.type).size
 
     @property
@@ -65,42 +62,14 @@ class ExpressionObject(BaseObject):
         return types.Pointer((yield from self.type))
 
     @with_ctx
-    async def compile(self, ctx: 'CompileContext') -> ExprCompileType:
+    async def compile(self, ctx: 'CompileContext') -> Register:
         """Compiles an expression returning the register the result was placed in."""
         raise NotImplementedError
 
-    async def load_lvalue(self, ctx: 'CompileContext') -> ExprCompileType:  # pylint: disable=unused-argument
+    async def load_lvalue(self, ctx: 'CompileContext') -> Register:  # pylint: disable=unused-argument
         """Load the lvalue of an expression, returning the register the value was placed in."""
         raise self.error(
             f"Object of type <{self.__class__.__name__}> Holds no LValue information.")
-
-
-class Variable:
-    """A reference to a variable, holds scope and location information."""
-
-    def __init__(self,
-                 name: str,
-                 type_: types.Type,
-                 parent: Optional[BaseObject] = None):
-        self.type = type_
-        self.name = name
-        self.parent = parent
-
-        self.stack_offset = None
-        self.global_offset = None
-        # can either be global or offset to the base pointer.
-        # maybe move these calculations somewhere else to be more abstract?
-
-    @property
-    def size(self) -> int:
-        return self.type.size
-
-    @property
-    def identifier(self):
-        return self.name
-
-    def __str__(self):
-        return f"Variable({self.name}, {self.type})"
 
 
 class IdentifierScope(ABC):
@@ -155,7 +124,7 @@ class Scope(StatementObject, IdentifierScope):
         return self._vars
 
     @with_ctx
-    async def compile(self, ctx: 'CompileContext') -> StmtCompileType:
+    async def compile(self, ctx: 'CompileContext'):
         with ctx.scope(self):
             ctx.emit(Prelude(self))
             for i in self.body:
@@ -198,7 +167,8 @@ class FunctionDecl(Scope):
         self.params = {i[0]: Variable(i[0], i[2]) for i in ast.params}
 
         # for my vm:
-        # base pointer will be pointing to the first item on the stack, first offset is -2 * the size of a pointer, etc, etc
+        # base pointer will be pointing to the first item on the stack
+        # first offset is -2 * the size of a pointer, etc, etc
         offsets = accumulate((2 * types.Pointer.size, *(i.size for i in self.params.values())))
         for var, offset in zip(self.params.values(), offsets):
             var.stack_offset = -offset
@@ -219,7 +189,7 @@ class FunctionDecl(Scope):
         return var
 
     @with_ctx
-    async def compile(self, ctx: 'CompileContext') -> StmtCompileType:
+    async def compile(self, ctx: 'CompileContext'):
         ctx.make_variable(self.name, self.type, self)
         await super().compile(ctx)
 
@@ -283,7 +253,7 @@ class Compiler(IdentifierScope):
         self.data.append(data)
         return val
 
-    def add_array(self, elems: Iterable[Variable]) -> Variable:
+    def add_array(self, elems: List[Variable]) -> Variable:
         """Add an array of vars to the object table.
 
         :param elems: The variables to insert.
@@ -327,7 +297,6 @@ class Compiler(IdentifierScope):
         while True:
             try:
                 r = coro.send(to_send)
-                to_send = None
             except StopIteration:
                 return True
 

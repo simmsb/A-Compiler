@@ -1,4 +1,8 @@
+from typing import Union, Tuple
 from enum import IntEnum
+from dataclasses import dataclass
+
+from compiler.objects.ir_object import Register, Dereference
 
 
 class BinaryInstructions(IntEnum):
@@ -45,6 +49,16 @@ class IO(IntEnum):
     @property
     def group(self):
         return 4
+
+
+@dataclass
+class HardWareInstruction:
+    instr: Union[BinaryInstructions,
+                 UnaryInstructions,
+                 Manip,
+                 Mem,
+                 IO]
+    args: Tuple[Union[Register, Dereference]]
 
 
 def pack_instruction(instr, size: int):

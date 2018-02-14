@@ -1,14 +1,15 @@
+from typing import Optional, Union
+
+from tatsu.ast import AST
+
 from compiler.objects.base import (CompileContext, ExpressionObject,
-                                   ObjectRequest, Scope, StatementObject,
-                                   StmtCompileType, Variable, with_ctx)
-from compiler.objects.ir_object import (Binary, SetCmp, Compare, CompType, Dereference,
+                                   Scope, StatementObject,
+                                   with_ctx)
+from compiler.objects.ir_object import (Binary, Dereference,
                                         Immediate, Jump, JumpTarget, LoadVar,
                                         Mov, Register, Resize, Return, SaveVar)
 from compiler.objects.literals import ArrayLiteral
-from compiler.objects.types import Pointer, Type
-from typing import Coroutine, Optional
-
-from tatsu.ast import AST
+from compiler.objects.types import Pointer, Type, Array, Function
 
 
 class VariableDecl(StatementObject):
@@ -20,7 +21,7 @@ class VariableDecl(StatementObject):
         self.val: Optional[ExpressionObject] = ast.val
 
     @property
-    async def type(self) -> Coroutine[ObjectRequest, Variable, Type]:
+    async def type(self) -> Type:
         if self._type == "infer":
             if self.val is None:
                 raise self.error(f"Variable {self.name} has no initialiser or type.")
@@ -32,11 +33,11 @@ class VariableDecl(StatementObject):
         return self.name
 
     @with_ctx
-    async def compile(self, ctx: CompileContext) -> StmtCompileType:
+    async def compile(self, ctx: CompileContext):
         if isinstance(self.val, ArrayLiteral):
             await self.val.to_array()
 
-        my_type = await self.type
+        my_type: Union[Pointer, Array] = await self.type
         if self.val is None:
             val_type = my_type
         else:
@@ -54,7 +55,8 @@ class VariableDecl(StatementObject):
 
             # now check that the sizes are correct
             if my_type.length != val_type.length:
-                raise self.error(f"Array literal length {val_type.length} does not match specified type length {my_type.length}")
+                raise self.error(f"Array literal length {val_type.length} does "
+                                 f"not match specified type length {my_type.length}")
 
             # hold off declaring the variable here until we get our length information
             var = ctx.declare_variable(self.name, my_type)
@@ -88,7 +90,7 @@ class ReturnStmt(StatementObject):
 
     @with_ctx
     async def compile(self, ctx: CompileContext):
-        fn_type = ctx.top_function.type
+        fn_type: Function = ctx.top_function.type
         expr_type: Type = await self.expr.type
 
         if not fn_type.returns.implicitly_casts_to(expr_type):
@@ -113,7 +115,7 @@ class IFStmt(StatementObject):
         self.else_: Optional[Scope] = ast.f
 
     @with_ctx
-    async def compile(self, ctx: CompileContext) -> StmtCompileType:
+    async def compile(self, ctx: CompileContext):
         cond: Register = await self.cond.compile(ctx)
         end_jmp = JumpTarget()
         else_jmp = end_jmp if self.else_ is None else JumpTarget()
@@ -134,7 +136,7 @@ class LoopStmt(StatementObject):
         self.body: Scope = ast.t
 
     @with_ctx
-    async def compile(self, ctx: CompileContext) -> StmtCompileType:
+    async def compile(self, ctx: CompileContext):
         test = JumpTarget()
         end = JumpTarget()
         ctx.emit(test)

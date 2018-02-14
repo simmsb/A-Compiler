@@ -2,10 +2,11 @@ from types import coroutine
 
 from compiler.objects import types
 from compiler.objects.base import (CompileContext, ExpressionObject,
-                                   ObjectRequest, Variable, ExprCompileType, with_ctx)
+                                   ObjectRequest, with_ctx)
+from compiler.objects.variable import Variable
 from compiler.objects.ir_object import (Dereference, Immediate, LoadVar, Mov,
                                         Register)
-from typing import Coroutine, List, Tuple, Union, Optional
+from typing import List, Tuple, Union, Optional, Coroutine
 
 from tatsu.ast import AST
 
@@ -21,8 +22,9 @@ class IntegerLiteral(ExpressionObject):
         if ast.type:
             self._type = ast.type
         else:
+            # if the size isn't given, determine the size from the value of the literal
             bitlen = self.lit.bit_length()
-            for (bitrange, s) in ((range(0,  8 ), 1),
+            for (bitrange, s) in ((range(0,   8), 1),
                                   (range(8,  16), 2),
                                   (range(16, 32), 4)):
                 if bitlen in bitrange:
@@ -63,7 +65,7 @@ class StringLiteral(ExpressionObject):
         return types.string_lit
 
     @with_ctx
-    async def compile(self, ctx: CompileContext) -> ExprCompileType:
+    async def compile(self, ctx: CompileContext) -> Register:
         var = ctx.compiler.add_string(self.lit)
         reg = ctx.get_register((await self.size))
         ctx.emit(LoadVar(var, reg, lvalue=True))
@@ -91,12 +93,12 @@ class Identifier(ExpressionObject):
         ctx.emit(LoadVar(self.var, reg, lvalue=True))
         return reg, self.var
 
-    async def load_lvalue(self, ctx: CompileContext) -> ExprCompileType:
+    async def load_lvalue(self, ctx: CompileContext) -> Register:
         reg, _ = await self.load_value(ctx)
         return reg
 
     @with_ctx
-    async def compile(self, ctx: CompileContext) -> ExprCompileType:
+    async def compile(self, ctx: CompileContext) -> Register:
         reg, var = await self.load_value(ctx)
         if isinstance(var.type, types.Array):
             return reg  # array type, value is the pointer
@@ -113,7 +115,7 @@ class ArrayLiteral(ExpressionObject):
         self._type = None
 
     @property
-    async def type(self) -> Coroutine[ObjectRequest, Variable, Union[types.Array, types.Pointer]]:
+    async def type(self) -> Union[types.Array, types.Pointer]:
         if self._type is None:
             self._type = types.Pointer((await self.exprs[0].type), const=True)
         return self._type
@@ -131,7 +133,7 @@ class ArrayLiteral(ExpressionObject):
             raise self.error(f"Conflicting array literal types.")
 
     @with_ctx
-    async def compile(self, ctx: CompileContext) -> ExprCompileType:
+    async def compile(self, ctx: CompileContext) -> Register:
         #  this is only run if we're not in the form of a array initialisation.
         #  check that everything is a constant
         my_type = (await self.type).to
@@ -148,6 +150,8 @@ class ArrayLiteral(ExpressionObject):
             self.exprs: List[StringLiteral]
             vars_ = [ctx.compiler.add_string(i.lit) for i in self.exprs]
             var = ctx.compiler.add_array(vars_)
+        else:
+            raise self.error("Your array is borked???")
 
         reg = ctx.get_register(var.size)
         ctx.emit(LoadVar(var, reg))

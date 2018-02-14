@@ -1,5 +1,5 @@
 from enum import Enum, auto
-from typing import Iterable, Dict, List, Tuple, Any, Optional
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from compiler.objects import ir_object
 from compiler.objects.ir_object import Register
@@ -109,7 +109,7 @@ class AllocationState:
         return register
 
 
-def mark_last_usages(code: Iterable[ir_object.IRObject]):
+def mark_last_usages(code: Sequence[ir_object.IRObject]):
     """Scans backwards over instructions, marking registers when they are last used."""
     spotted_registers = set()
     for instr in reversed(code):
@@ -119,7 +119,7 @@ def mark_last_usages(code: Iterable[ir_object.IRObject]):
                 spotted_registers.add(v_reg)
 
 
-def allocate(reg_count: int, code: Iterable[ir_object.IRObject]) -> AllocationState:
+def allocate(reg_count: int, code: Sequence[ir_object.IRObject]) -> AllocationState:
     """Allocate registers for an ∞ register IR.
     returns the allocation state to be used in further processing.
     """

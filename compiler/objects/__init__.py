@@ -5,12 +5,12 @@ from compiler.objects import base
 from compiler.parser import lang
 
 
-def parse_with_semantics(text: str, semantics: type=None) -> List[base.BaseObject]:
+def parse_with_semantics(text: str, semantics: type=None) -> List[base.StatementObject]:
     """Parse a file with given semantics."""
     return lang.parse(text, semantics=semantics())
 
 
-def parse_source(inp: str) -> List[base.BaseObject]:
+def parse_source(inp: str) -> List[base.StatementObject]:
     return parse_with_semantics(inp, builder.WewSemantics)
 
 

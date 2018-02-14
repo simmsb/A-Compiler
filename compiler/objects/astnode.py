@@ -34,7 +34,7 @@ class BaseObject:
         # startp and endp are offsets from the start
         # calculate their offsets from the line they are on.
         startp = startp - sum(map(len, source[:startl])) + 1
-        endp = endp - sum(map(len, source[:endl]))
+        endp -= sum(map(len, source[:endl]))
 
         # strip newlines here (they are counted in startp and endp offsets)
         source = [i.rstrip('\n') for i in source]

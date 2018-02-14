@@ -4,6 +4,7 @@ from compiler.objects.astnode import BaseObject
 
 from tatsu.ast import AST
 
+
 class Type(BaseObject):
     size = 0
     const = False
@@ -82,7 +83,6 @@ class Pointer(Type):
     @property
     def can_cast_to(self) -> Tuple[Type]:
         return Pointer, Function
-
 
 
 class Array(Type):
