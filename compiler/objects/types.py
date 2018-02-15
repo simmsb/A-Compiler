@@ -23,7 +23,7 @@ class Int(Type):
 
     def __init__(self, t: str, const: bool=False, ast: Optional[AST]=None):
         super().__init__(ast)
-        self.sign = t[0] == "s"
+        self.signed = t[0] == "s"
         self.size = int(t[1])
         self.const = const
 
@@ -31,7 +31,7 @@ class Int(Type):
         if not isinstance(other, Int):
             return False
         return (self.const == other.const and
-                self.sign == other.sign and
+                self.signed == other.signed and
                 self.size == other.size)
 
     def __str__(self):
@@ -45,7 +45,7 @@ class Int(Type):
 
     @property
     def t(self):
-        return f"{'s' if self.sign else 'u'}{self.size}"
+        return f"{'s' if self.signed else 'u'}{self.size}"
 
     @property
     def can_cast_to(self) -> Tuple[Type]:

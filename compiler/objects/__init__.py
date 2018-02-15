@@ -14,8 +14,8 @@ def parse_source(inp: str) -> List[base.StatementObject]:
     return parse_with_semantics(inp, builder.WewSemantics)
 
 
-def compile_source(inp: str) -> base.Compiler:
+def compile_source(inp: str, debug: bool=False) -> base.Compiler:
     parsed = parse_source(inp)
-    compiler = base.Compiler()
+    compiler = base.Compiler(debug)
     compiler.compile(parsed)
     return compiler

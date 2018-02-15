@@ -19,9 +19,9 @@ class RegisterState(Enum):
 
 
 class AllocationState:
-    def __init__(self, register_count: int):
-        self.register_count = register_count
-        self.usable_registers = set(range(register_count))
+    def __init__(self, reg_count: int):
+        self.reg_count = reg_count
+        self.usable_registers = set(range(reg_count))
 
         #: the states of virtual registers, dict of Registers to Tuples of state and data
         self.register_states: Dict[Register, Tuple[RegisterState, Any]] = {}
@@ -69,7 +69,7 @@ class AllocationState:
 
         :param exclude: List of registers to not consider inactive at all."""
         # TODO: a better algorithm
-        return set(range(self.register_count)).difference(exclude).pop()
+        return set(range(self.reg_count)).difference(exclude).pop()
 
     def allocate_register(self, v_reg: Register,
                           source: ir_object.IRObject,

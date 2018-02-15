@@ -88,7 +88,7 @@ class IdentifierScope(ABC):
         if existing is not None:
             if existing.type != typ:
                 raise CompileException(
-                    f"Variable {name} of type '{typ}' is already declared as type '{existing.type}'"
+                    f"Variable {name} of type '{typ}' is already declared as type '{existing.type}'",
                 )
             return existing  # variable already declared but is of the same type, ignore it
 
@@ -195,17 +195,31 @@ class FunctionDecl(Scope):
 
 
 class Compiler(IdentifierScope):
-    def __init__(self):
+    def __init__(self, debug: bool=False):
+        self.debug = debug
         self._vars: Dict[str, Variable] = {}
         self.compiled_objects: List[StatementObject] = []
         self.waiting_coros: Dict[str, List[Tuple[BaseObject, BaseObject]]] = {}
-        self.data: List[Union[str, bytes, List[Variable]]] = []
+        self.data: List[Union[bytes, List[Variable]]] = []
+        self.spill_size = 0
 
     @property
     def vars(self) -> Dict[str, Variable]:
         return self._vars
 
+    @property
+    def allocated_data(self) -> int:
+        """Get size of allocated data in bytes."""
+        total = 0
+        for i in self.data:
+            if isinstance(i, bytes):
+                total += len(i)
+            elif isinstance(i, Variable):
+                total += i.size
+        return total
+
     def add_spill_vars(self, n: int):
+        self.spill_size = 8 * n
         for i in range(n):
             self.declare_variable(
                 f"global-spill-{i}",
@@ -219,7 +233,7 @@ class Compiler(IdentifierScope):
         """
         var = self.make_variable(name, typ)
         self.vars[name] = var
-        var.global_offset = len(self.data)
+        var.global_offset = self.allocated_data
         self.data.append(bytes((0,) * typ.size))
         return var
 
@@ -233,8 +247,9 @@ class Compiler(IdentifierScope):
         """
         key = f"string-lit-{string}"
         val = Variable(key, types.string_lit)
+        string = string.encode("utf-8")
         if string not in self.data:
-            val.global_offset = len(self.data)
+            val.global_offset = self.allocated_data
             self.data.append(string)
         else:
             val.global_offset = self.data.index(string)
@@ -246,7 +261,7 @@ class Compiler(IdentifierScope):
         :param data: The bytes to insert.
         :returns: The variable reference created.
         """
-        index = len(self.data)
+        index = self.allocated_data
         key = f"raw-data-{index}"
         val = Variable(key, types.string_lit)
         val.global_offset = index
@@ -260,7 +275,7 @@ class Compiler(IdentifierScope):
         :returns: The variable reference created.
         """
         assert elems  # we shouldn't be adding empty arrays
-        index = len(self.data)
+        index = self.allocated_data
         key = f"var-array-{index}"
         val = Variable(key, types.Pointer(elems[0].type))
         val.global_offset = index
@@ -341,7 +356,7 @@ class Compiler(IdentifierScope):
                     err = f"{err}\nThis object is waiting on an object of name: '{name}' which never compiled."
                     errs.append(err)
             raise CompileException(
-                "\n".join(errs),
+                *errs,
                 "code remaining that was waiting on something that never appeared.")
 
 
@@ -401,9 +416,13 @@ class CompileContext:
         try:
             yield
         except CompileException as exc:
-            if exc.trace is None and self.current_object:  # if the exception doesn't contain a trace, add it for them.
-                raise self.current_object.error(exc.reason) from None
-            raise exc from None
+            # if the exception doesn't contain a trace, try to add it for them.
+            if exc.trace is None and self.current_object:
+                exc.trace = self.current_object.make_error()
+            if self.compiler.debug:  # if we're debugging or testing, give the stack trace by raising
+                raise exc from None
+            print(exc)
+            exit(0)  # We dont want to display a stacktrace in situations like this
         self.object_stack.pop()
 
     def get_register(self, size: int, sign: bool = False):

@@ -80,8 +80,8 @@ class BaseObject:
                            f"on lines {startl} to {endl}"),
                           self.highlight_lines))
 
-    def error(self, reason: str):
-        return CompileException(reason, self.make_error())
+    def error(self, *reasons: str):
+        return CompileException(*reasons, trace=self.make_error())
 
     def pretty_print(self):
         instrs = map(str, self.context.code)

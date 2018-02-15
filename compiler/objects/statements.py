@@ -35,6 +35,7 @@ class VariableDecl(StatementObject):
     @with_ctx
     async def compile(self, ctx: CompileContext):
         if isinstance(self.val, ArrayLiteral):
+            # convert the array literal from pointer type to array type
             await self.val.to_array()
 
         my_type: Union[Pointer, Array] = await self.type
@@ -65,7 +66,11 @@ class VariableDecl(StatementObject):
             ptr = ctx.get_register(Pointer(my_type.to).size)
             ctx.emit(LoadVar(var, ptr, lvalue=True))
             for i in self.val.exprs:
-                res = await i.compile(ctx)
+                res: Register = await i.compile(ctx)
+                if res.size != my_type.cellsize:
+                    res0 = res.resize(my_type.cellsize, my_type.to.signed)
+                    ctx.emit(Resize(res, res0))
+                    res = res0
                 ctx.emit(Mov(Dereference(ptr), res))
                 ctx.emit(Binary.add(ptr, Immediate(
                     my_type.size,
@@ -73,7 +78,11 @@ class VariableDecl(StatementObject):
 
         elif isinstance(self.val, ExpressionObject):
             var = ctx.declare_variable(self.name, my_type)
-            reg = await self.val.compile(ctx)
+            reg: Register = await self.val.compile(ctx)
+            if reg.size != var.size:
+                reg0 = reg.resize(var.size, var.type.signed)
+                ctx.emit(Resize(reg, reg0))
+                reg = reg0
             ctx.emit(SaveVar(var, reg))
 
         else:
@@ -100,7 +109,7 @@ class ReturnStmt(StatementObject):
         for i in reversed(ctx.scope_stack):
             ctx.emit(i.make_epilog())
         if reg.size != fn_type.returns.size:
-            reg0 = reg.resize(fn_type.returns.size)
+            reg0 = reg.resize(fn_type.returns.size, fn_type.returns.signed)
             ctx.emit(Resize(reg, reg0))
             reg = reg0
         ctx.emit(Return(reg))

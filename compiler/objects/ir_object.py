@@ -93,12 +93,12 @@ class IRObject:
     """An instruction in internal representation."""
 
     #: list of instructions to be run before this instruction
-    pre_instructions: List['IRObject'] = field(default_factory=list, init=False)
+    pre_instructions: List['IRObject'] = field(default_factory=list, init=False, repr=False)
 
     #: regisers that are dead after this instruction
-    closing_registers: Set[Register] = field(default_factory=set, init=False)
+    closing_registers: Set[Register] = field(default_factory=set, init=False, repr=False)
 
-    parent: Optional[BaseObject] = field(default=None, init=False)
+    parent: Optional[BaseObject] = field(default=None, init=False, repr=False)
 
     def clone_regs(self):
         """Clone the registers of this instruction.

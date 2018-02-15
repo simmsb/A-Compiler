@@ -58,6 +58,11 @@ class HardwareRegister:
     index: int
 
 
+@dataclass
+class MemoryReference:
+    index: int
+
+
 class SpecificRegisters(IntEnum):
     (stk, bas, cur) = map(HardwareRegister, range(3))
 
@@ -71,6 +76,10 @@ class HardWareInstruction:
                  IO]
     args: Tuple[Union[Register, Dereference]]
 
+    @property
+    def code_size(self):
+        # TODO: sort out this
+        return 2 * (1 + len(self.args))
 
 def pack_instruction(instr, size: int):
     value = size << 14 | instr.group << 8 | instr

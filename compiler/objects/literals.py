@@ -102,9 +102,9 @@ class Identifier(ExpressionObject):
         reg, var = await self.load_value(ctx)
         if isinstance(var.type, types.Array):
             return reg  # array type, value is the pointer
-        rego = reg.resize(var.size)
-        ctx.emit(Mov(rego, Dereference(reg)))
-        return rego
+        reg0 = reg.resize(var.size, var.type.signed)
+        ctx.emit(Mov(reg0, Dereference(reg)))
+        return reg0
 
 
 class ArrayLiteral(ExpressionObject):

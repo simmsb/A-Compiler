@@ -194,7 +194,7 @@ class FunctionCallOp(ExpressionObject):
         for arg, typ in zip(self.args, fun_typ.args):
             arg_reg: Register = (await arg.compile(ctx))
             if arg_reg.size != typ.size:
-                arg_reg0 = arg_reg.resize(typ.size)
+                arg_reg0 = arg_reg.resize(typ.size, typ.signed)
                 ctx.emit(Resize(arg_reg, arg_reg0))
                 arg_reg = arg_reg0
             params.append(arg_reg)
@@ -342,12 +342,13 @@ class BinaryExpression(ExpressionObject):
         lhs: Register = (await self.left.compile(ctx))
         rhs: Register = (await self.right.compile(ctx))
 
+        # resize to the largest operand
         if lhs.size < rhs.size:
-            lhs0 = lhs.resize(rhs.size)
+            lhs0 = lhs.resize(rhs.size, rhs.sign)
             ctx.emit(Resize(lhs, lhs0))
             lhs = lhs0
         elif rhs.size < lhs.size:
-            rhs0 = rhs.resize(rhs.size)
+            rhs0 = rhs.resize(lhs.size, lhs.sign)
             ctx.emit(Resize(rhs, rhs0))
             rhs = rhs0
 
@@ -531,13 +532,14 @@ class AssignOp(ExpressionObject):
         rhs: Register = (await self.right.compile(ctx))
 
         lhs_type = await self.left.type
+        lhs_sign = lhs_type.signed
         lhs_size = lhs_type.size
 
         if lhs_type.const:
             raise self.error("cannot assign to const type.")
 
         if lhs_size != rhs.size:
-            rhs_ = rhs.resize(lhs_size)
+            rhs_ = rhs.resize(lhs_size, lhs_sign)
             ctx.emit(Resize(rhs, rhs_))
             rhs = rhs_
         ctx.emit(Mov(Dereference(lhs), rhs))
@@ -573,7 +575,7 @@ class BoolCompOp(ExpressionObject):
         ctx.emit(Jump(target, cond))
         r2: Register = (await self.right.compile(ctx))
         if r2.size != r1.size:
-            r2_ = r2.resize(r1.size)
+            r2_ = r2.resize(r1.size, r1.sign)
             ctx.emit(Resize(r2, r2_))
             r2 = r2_
         ctx.emit(Mov(r1, r2))
