@@ -49,6 +49,7 @@ class Register:
 
 @dataclass
 class Immediate:
+
     val: int
     size: int
 
@@ -290,9 +291,13 @@ class Return(IRObject):
 class Call(IRObject):
     """Jump to location, push return address."""
 
-    argsize: int
+    args: List[IRParam]
     jump: IRParam
     result: IRParam
+
+    @property
+    def argsize(self):
+        return sum(i.size for i in self.args)
 
     _touched_regs = "jump", "result"
 

@@ -4,8 +4,9 @@ from tatsu.ast import AST
 
 from compiler.objects import types
 from compiler.objects.base import (CompileContext, ExpressionObject, with_ctx)
-from compiler.objects.ir_object import (Binary, Call, CompType, Compare, Dereference, Immediate, Jump, JumpTarget, Mov,
-                                        Push, Register, Resize, SetCmp, Unary)
+from compiler.objects.ir_object import (Binary, Call, CompType, Compare, Dereference,
+                                        Immediate, Jump, JumpTarget, Mov,
+                                        Register, Resize, SetCmp, Unary)
 
 
 def unary_prefix(ast: AST):
@@ -172,6 +173,7 @@ class FunctionCallOp(ExpressionObject):
 
     @with_ctx
     async def compile(self, ctx: CompileContext) -> Register:
+
         fun_typ: types.Function = (await self.fun.type)
         if not isinstance(fun_typ, types.Function):
             raise self.error("Called object is not a function.")
@@ -188,16 +190,17 @@ class FunctionCallOp(ExpressionObject):
                     f"Argument {arg_n} to call {self.fun.identifier} was of "
                     f"type {rhs_type} instead of expected {lhs_type}.")
 
+        params = []
         for arg, typ in zip(self.args, fun_typ.args):
             arg_reg: Register = (await arg.compile(ctx))
             if arg_reg.size != typ.size:
                 arg_reg0 = arg_reg.resize(typ.size)
                 ctx.emit(Resize(arg_reg, arg_reg0))
                 arg_reg = arg_reg0
-            ctx.emit(Push(arg_reg))
+            params.append(arg_reg)
         fun: Register = (await self.fun.compile(ctx))
         result_reg: Register = ctx.get_register((await self.size))
-        ctx.emit(Call(sum([(await i.size) for i in self.args]), fun, result_reg))
+        ctx.emit(Call(params, fun, result_reg))
         return result_reg
 
 

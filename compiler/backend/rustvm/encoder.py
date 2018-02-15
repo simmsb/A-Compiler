@@ -51,6 +51,17 @@ class IO(IntEnum):
         return 4
 
 
+# Why have this? because we need to distinguish from allocated free-use registers and other registers
+
+@dataclass
+class HardwareRegister:
+    index: int
+
+
+class SpecificRegisters(IntEnum):
+    (stk, bas, cur) = map(HardwareRegister, range(3))
+
+
 @dataclass
 class HardWareInstruction:
     instr: Union[BinaryInstructions,
