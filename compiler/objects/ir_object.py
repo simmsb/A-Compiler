@@ -17,6 +17,18 @@ class CompType(IntEnum):
 
 
 @dataclass
+class DataField:
+    identifier: str
+    data: bytes
+
+
+@dataclass
+class DataReference:
+    """Index to some named object, the exact location to be resolved later."""
+    name: str
+
+
+@dataclass
 class Register:
     reg: int
     size: int
@@ -76,7 +88,7 @@ class Dereference:
         return f"Dereference({self.to})"
 
 
-IRParam = Union[Register, Dereference, Immediate]
+IRParam = Union[Register, Dereference, Immediate, DataReference]
 
 
 def filter_reg(reg: IRParam) -> Optional[Register]:

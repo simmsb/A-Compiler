@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from compiler.objects.types import Type
 from compiler.objects.astnode import BaseObject
+from compiler.objects.ir_object import DataReference
 
 
 @dataclass
@@ -15,9 +16,7 @@ class Variable:
     parent: Optional[BaseObject] = None
 
     stack_offset: Optional[int] = None
-    global_offset: Optional[int] = None
-    # can either be global or offset to the base pointer.
-    # maybe move these calculations somewhere else to be more abstract?
+    global_offset: Optional[DataReference] = None
 
     @property
     def size(self) -> int:

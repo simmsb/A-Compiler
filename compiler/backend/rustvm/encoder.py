@@ -58,11 +58,6 @@ class HardwareRegister:
     index: int
 
 
-@dataclass
-class MemoryReference:
-    index: int
-
-
 class SpecificRegisters(IntEnum):
     (stk, bas, cur) = map(HardwareRegister, range(3))
 

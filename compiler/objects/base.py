@@ -11,7 +11,7 @@ from tatsu.ast import AST
 from compiler.objects import types
 from compiler.objects.astnode import BaseObject
 from compiler.objects.errors import CompileException
-from compiler.objects.ir_object import Epilog, IRObject, Prelude, Register
+from compiler.objects.ir_object import Epilog, IRObject, Prelude, Register, DataReference
 from compiler.objects.variable import Variable
 
 
@@ -95,10 +95,6 @@ class IdentifierScope(ABC):
         var = Variable(name, typ, obj)
         self.vars[name] = var
 
-        # TODO: something to determine if a variable is lvar'd or not and what to load
-        # functions, etc should have no lvar and their value should be their code position
-        # but variables should have a lvalue, etc
-
         return var
 
     @abstractmethod
@@ -107,7 +103,7 @@ class IdentifierScope(ABC):
 
         raises if variable is redeclared to a different type than the already existing var.
         """
-        pass
+        return NotImplemented
 
 
 class Scope(StatementObject, IdentifierScope):
@@ -201,6 +197,7 @@ class Compiler(IdentifierScope):
         self.compiled_objects: List[StatementObject] = []
         self.waiting_coros: Dict[str, List[Tuple[BaseObject, BaseObject]]] = {}
         self.data: List[Union[bytes, List[Variable]]] = []
+        self.identifiers: Dict[str, int] = {}
         self.spill_size = 0
 
     @property
@@ -232,8 +229,10 @@ class Compiler(IdentifierScope):
         raises if variable is redeclared to a different type than the already existing var.
         """
         var = self.make_variable(name, typ)
-        self.vars[name] = var
-        var.global_offset = self.allocated_data
+        unique_name = f"global-var-{name}"
+        self.vars[vars] = var
+        var.global_offset = DataReference(unique_name)
+        self.identifiers[unique_name] = len(self.data)
         self.data.append(bytes((0,) * typ.size))
         return var
 
@@ -248,11 +247,10 @@ class Compiler(IdentifierScope):
         key = f"string-lit-{string}"
         val = Variable(key, types.string_lit)
         string = string.encode("utf-8")
-        if string not in self.data:
-            val.global_offset = self.allocated_data
+        val.global_offset = DataReference(key)
+        if key not in self.identifiers:
+            self.identifiers[key] = len(self.data)
             self.data.append(string)
-        else:
-            val.global_offset = self.data.index(string)
         return val
 
     def add_bytes(self, data: bytes) -> Variable:
@@ -261,10 +259,11 @@ class Compiler(IdentifierScope):
         :param data: The bytes to insert.
         :returns: The variable reference created.
         """
-        index = self.allocated_data
+        index = len(self.data)
         key = f"raw-data-{index}"
         val = Variable(key, types.string_lit)
-        val.global_offset = index
+        val.global_offset = DataReference(key)
+        self.identifiers[key] = index
         self.data.append(data)
         return val
 
@@ -275,10 +274,11 @@ class Compiler(IdentifierScope):
         :returns: The variable reference created.
         """
         assert elems  # we shouldn't be adding empty arrays
-        index = self.allocated_data
+        index = len(self.data)
         key = f"var-array-{index}"
         val = Variable(key, types.Pointer(elems[0].type))
-        val.global_offset = index
+        val.global_offset = DataReference(key)
+        self.identifiers[key] = index
         self.data.append(elems)
         return val
 
