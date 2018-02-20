@@ -11,8 +11,8 @@ from tatsu.ast import AST
 from compiler.objects import types
 from compiler.objects.astnode import BaseObject
 from compiler.objects.errors import CompileException
-from compiler.objects.ir_object import Epilog, IRObject, Prelude, Register, DataReference
-from compiler.objects.variable import Variable
+from compiler.objects.ir_object import Epilog, IRObject, Prelude, Register
+from compiler.objects.variable import Variable, DataReference
 
 
 # If we have many of these just use a tuple api instead

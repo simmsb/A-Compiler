@@ -5,7 +5,7 @@ from compiler.backend.rustvm.desugar import DesugarIR_Pre, DesugarIR_Post
 from compiler.backend.rustvm import encoder
 from compiler.backend.rustvm.register_allocate import allocate
 from compiler.objects.base import FunctionDecl, StatementObject, Compiler
-from compiler.objects.variable import Variable
+from compiler.objects.variable import Variable, DataReference
 from compiler.objects import ir_object
 
 
@@ -69,8 +69,10 @@ def process_immediates(compiler: Compiler, code: List[StatementObject]):
                     setattr(i, attr, var.global_offset)
 
 
-def package_objects(compiler: Compiler, objects: List[Union[encoder.HardWareInstruction,
-                                                            StatementObject]]) -> Dict[str, int]:
+def package_objects(compiler: Compiler,
+                    fns: List[StatementObject],
+                    toplevel: List[Union[encoder.HardWareInstruction,
+                                         ir_object.IRObject]]) -> Dict[str, int]:
     """Packages objects into the binary, making multiple passes to resolve arguments
 
     if no substitutions are made in a pass, the data will be scanned for any remaining references.
@@ -87,21 +89,48 @@ def package_objects(compiler: Compiler, objects: List[Union[encoder.HardWareInst
     pre_instr = encoder.HardWareInstruction(encoder.stks, [0])
     packaged.append(pre_instr) # this will be filled at the end of allocating sizes
     size += pre_instr.size
+
+    # do a single pass to place everything in the output table
+    for (ident, index) in compiler.identifiers.copy().items():
+
+        obj = compiler.data[index]
+        indexes[ident] = size
+
+        if isinstance(obj, bytes):
+            size += len(obj)
+
+        elif isinstance(obj, list):
+            size += len(obj) * 2  # Variables become pointers
+
+        packaged.append(obj)
+
+    indexes["toplevel"] = size
+
+    # add in startup code
+    for i in toplevel:
+        if isinstance(i, encoder.HardWareInstruction):
+            pass
+
+    # add in code
+    for i in fns:
+        pass
+
     while True:
         replaced = False  # CLEANUP: factor out state variables maybe?
         for (ident, index) in compiler.identifiers.copy().items():
 
-            object = compiler.data[index]
-            indexes[ident] = size
+            obj = compiler.data[index]
+            if ident not in indexes:
+                indexes[ident] = size
 
-            if isinstance(object, bytes):
-                size += len(object)
-                packaged.append(object)
+                if isinstance(obj, bytes):
+                    size += len(obj)
+                    packaged.append(obj)
 
-            elif isinstance(object, list):
+            if isinstance(obj, list):
                 # process each item and if we have allocated the variable, replace with an index
                 replacement = []  # CLEANUP: Nicer loop here maybe
-                for elem in object:
+                for elem in obj:
                     if isinstance(elem, Variable) and elem.name in indexes:
                         replaced = True
                         replacement.append(indexes[elem.name])
@@ -133,7 +162,7 @@ def process_code(compiler: Compiler) -> List[encoder.HardWareInstruction]:
         DesugarIR_Post.desugar(object)
 
     post_instructions = [
-        encoder.HardWareInstruction(encoder.call, [ir_object.DataReference("main")])
+        encoder.HardWareInstruction(encoder.call, [DataReference("main")])
     ]
 
 

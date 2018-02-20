@@ -2,6 +2,7 @@ from typing import Callable, Dict, Iterator
 
 from compiler.backend.rustvm import encoder
 from compiler.objects import ir_object
+from compiler.objects.variable import DataReference
 from compiler.objects.base import StatementObject, CompileContext
 from compiler.objects.errors import InternalCompileException
 
@@ -94,7 +95,7 @@ class DesugarIR_Pre:
             # load offset off of the base pointer
             yield ir_object.Binary.add(dest, ir_object.Immediate(var.stack_offset))
         elif var.global_offset is not None:
-            yield ir_object.Mov(dest, ir_object.DataReference(var.identifier))
+            yield ir_object.Mov(dest, DataReference(var.identifier))
         else:
             raise InternalCompileException(f"Variable had no stack or global offset: {var}")
 
@@ -113,7 +114,7 @@ class DesugarIR_Pre:
             # load offset off of the base pointer
             yield ir_object.Binary.add(reg, encoder.Immediate(var.stack_offset))
         elif var.global_offset is not None:
-            yield ir_object.Mov(reg, encoder.DataReference(var.global_offset))
+            yield ir_object.Mov(reg, DataReference(var.global_offset))
         else:
             # TODO: figure out function references
             raise InternalCompileException(f"Variable had no stack or global offset: {var}")

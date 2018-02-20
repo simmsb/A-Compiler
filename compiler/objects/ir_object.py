@@ -2,7 +2,7 @@ from enum import IntEnum
 from typing import Optional, Union, Iterable, List, Set, Any
 from dataclasses import dataclass, field
 
-from compiler.objects.variable import Variable
+from compiler.objects.variable import Variable, DataReference
 from compiler.objects.astnode import BaseObject
 
 
@@ -20,12 +20,6 @@ class CompType(IntEnum):
 class DataField:
     identifier: str
     data: bytes
-
-
-@dataclass
-class DataReference:
-    """Index to some named object, the exact location to be resolved later."""
-    name: str
 
 
 @dataclass

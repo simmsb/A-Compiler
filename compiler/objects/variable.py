@@ -4,7 +4,12 @@ from dataclasses import dataclass
 
 from compiler.objects.types import Type
 from compiler.objects.astnode import BaseObject
-from compiler.objects.ir_object import DataReference
+
+
+@dataclass
+class DataReference:
+    """Index to some named object, the exact location to be resolved later."""
+    name: str
 
 
 @dataclass
