@@ -1,5 +1,5 @@
 from itertools import chain
-from typing import Tuple, List
+from typing import Tuple, List, Dict, Union
 
 from compiler.backend.rustvm.desugar import DesugarIR_Pre, DesugarIR_Post
 from compiler.backend.rustvm import encoder
@@ -53,7 +53,7 @@ def process_immediates(compiler: Compiler, code: List[StatementObject]):
     """Replaces immediate values that are too large to fit into 14 bits by allocating
     global objects for them and referencing them in the arguments."""
     for i in chain.from_iterable(i.context.code for i in code):
-        for attr in i._touched_regs:
+        for attr in i.touched_regs:
             o = arg = getattr(i, attr)
             if isinstance(arg, ir_object.Dereference):
                 arg = arg.to
@@ -108,8 +108,12 @@ def package_objects(compiler: Compiler,
 
     # add in startup code
     for i in toplevel:
+        size += instr.size
         if isinstance(i, encoder.HardWareInstruction):
-            pass
+            for position, arg in enumerate(i.args):
+                if isinstance(arg, ir_object.DataReference) and arg.name in indexes:
+                    i.args[position] = encoder.HardwareMemoryLocation(indexes[arg.name])
+
 
     # add in code
     for i in fns:

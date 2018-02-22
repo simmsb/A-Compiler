@@ -114,18 +114,18 @@ class IRObject:
                 return arg.copy()
             return arg
 
-        for attr in self._touched_regs:
+        for attr in self.touched_regs:
             # copy the instances of the registers we're using
             setattr(self, attr, copy_reg(getattr(self, attr)))
 
     @property
     def touched_registers(self) -> Iterable[Register]:
         """Get the registers that this instruction reads from and writes to."""
-        attrs = self._touched_regs
+        attrs = self.touched_regs
         regs = (filter_reg(getattr(self, i)) for i in attrs)
         return list(filter(None, regs))
 
-    _touched_regs = ()
+    touched_regs = ()
 
     def insert_pre_instrs(self, *instrs):
         self.pre_instructions.extend(instrs)
@@ -150,7 +150,7 @@ class LoadVar(IRObject):
     to: IRParam
     lvalue: bool = False
 
-    _touched_regs = ("to",)
+    touched_regs = ("to",)
 
 
 @dataclass
@@ -159,7 +159,7 @@ class SaveVar(IRObject):
     variable: Variable
     from_: IRParam
 
-    _touched_regs = ("from_",)
+    touched_regs = ("from_",)
 
 
 @dataclass
@@ -169,7 +169,7 @@ class Mov(IRObject):
     to: IRParam
     from_: IRParam
 
-    _touched_regs = "to", "from_"
+    touched_regs = "to", "from_"
 
 
 class UnaryMeta(type):
@@ -197,7 +197,7 @@ class Unary(IRObject, metaclass=UnaryMeta):
 
     valid_ops = ("binv", "linv", "neg", "pos")
 
-    _touched_regs = ("op",)
+    touched_regs = ("op",)
 
 
 class BinaryMeta(type):
@@ -226,7 +226,7 @@ class Binary(IRObject, metaclass=BinaryMeta):
 
     valid_ops = ("add", "sub", "mul", "div")
 
-    _touched_regs = "left", "right", "to"
+    touched_regs = "left", "right", "to"
 
 
 @dataclass
@@ -239,7 +239,7 @@ class Compare(IRObject):
     left: IRParam
     right: IRParam
 
-    _touched_regs = "left", "right"
+    touched_regs = "left", "right"
 
 
 @dataclass
@@ -249,7 +249,7 @@ class SetCmp(IRObject):
     reg: IRParam
     op: CompType
 
-    _touched_regs = ("reg",)
+    touched_regs = ("reg",)
 
 
 @dataclass
@@ -257,7 +257,7 @@ class Push(IRObject):
 
     arg: IRParam
 
-    _touched_regs = ("arg",)
+    touched_regs = ("arg",)
 
 
 @dataclass
@@ -265,7 +265,7 @@ class Pop(IRObject):
 
     arg: IRParam
 
-    _touched_regs = ("arg",)
+    touched_regs = ("arg",)
 
 
 @dataclass
@@ -290,7 +290,7 @@ class Return(IRObject):
 
     reg: Optional[IRParam] = None
 
-    _touched_regs = ("reg",)
+    touched_regs = ("reg",)
 
 
 @dataclass
@@ -305,7 +305,7 @@ class Call(IRObject):
     def argsize(self):
         return sum(i.size for i in self.args)
 
-    _touched_regs = "jump", "result"
+    touched_regs = "jump", "result"
 
 
 @dataclass
@@ -345,7 +345,7 @@ class Jump(Jumpable):
     def __post_init__(self):
         self.add_jump_to(self.location)
 
-    _touched_regs = ("condition",)
+    touched_regs = ("condition",)
 
 
 @dataclass
@@ -355,7 +355,7 @@ class Resize(IRObject):
     from_: IRParam
     to: IRParam
 
-    _touched_regs = "from_", "to"
+    touched_regs = "from_", "to"
 
 
 @dataclass
