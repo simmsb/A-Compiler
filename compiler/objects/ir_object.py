@@ -329,7 +329,10 @@ class Jumpable(IRObject):
 
 class JumpTarget(Jumpable):
     """Jump target."""
-    pass
+
+    @property
+    def identifier(self):
+        return f"jump-target-{id(self)}"
 
 
 @dataclass

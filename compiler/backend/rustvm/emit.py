@@ -1,10 +1,11 @@
 from itertools import chain
-from typing import Tuple, List, Dict, Union
+from typing import Tuple, List, Dict, Union, Optional
 
 from compiler.backend.rustvm.desugar import DesugarIR_Pre, DesugarIR_Post
 from compiler.backend.rustvm import encoder
 from compiler.backend.rustvm.register_allocate import allocate
 from compiler.objects.base import FunctionDecl, StatementObject, Compiler
+from compiler.objects.errors import InternalCompileException
 from compiler.objects.variable import Variable, DataReference
 from compiler.objects import ir_object
 
@@ -28,13 +29,13 @@ def allocate_code(compiler: Compiler, reg_count: int=10) -> Tuple[List[FunctionD
     toplevel_spill_vars = 0
 
     for i in toplevel:
-        allocator = allocate(reg_count, i.context.code)
+        allocator = allocate(reg_count, i.code)
         toplevel_spill_vars = max(toplevel_spill_vars, len(allocator.spilled_registers))
 
     compiler.add_spill_vars(toplevel_spill_vars)
 
     for i in functions:
-        allocator = allocate(reg_count, i.context.code)
+        allocator = allocate(reg_count, i.code)
         i.add_spill_vars(len(allocator.spilled_registers))
 
     return functions, toplevel
@@ -44,7 +45,7 @@ def process_toplevel(compiler: Compiler, code: List[StatementObject]) -> List[ir
     """Inserts scope around the toplevel assignment code."""
     return [
         ir_object.Binary.add(encoder.SpecificRegisters.stk, ir_object.Immediate(compiler.spill_size)),
-        *chain.from_iterable(i.context.code for i in code),
+        *chain.from_iterable(i.code for i in code),
         ir_object.Binary.sub(encoder.SpecificRegisters.stk, ir_object.Immediate(compiler.spill_size))
     ]
 
@@ -52,7 +53,7 @@ def process_toplevel(compiler: Compiler, code: List[StatementObject]) -> List[ir
 def process_immediates(compiler: Compiler, code: List[StatementObject]):
     """Replaces immediate values that are too large to fit into 14 bits by allocating
     global objects for them and referencing them in the arguments."""
-    for i in chain.from_iterable(i.context.code for i in code):
+    for i in chain.from_iterable(i.code for i in code):
         for attr in i.touched_regs:
             o = arg = getattr(i, attr)
             if isinstance(arg, ir_object.Dereference):
@@ -69,13 +70,31 @@ def process_immediates(compiler: Compiler, code: List[StatementObject]):
                     setattr(i, attr, var.global_offset)
 
 
+def process_instruction(indexes: Dict[str, int],
+                        size: int,
+                        instr: Union[encoder.HardWareInstruction, ir_object.JumpTarget]) -> Optional[encoder.HardWareInstruction]:
+    """Process an instruction for packaging.
+
+    :returns: The instruction processed. Jump targets return None."""
+    if isinstance(instr, encoder.HardWareInstruction):
+        return instr.size
+
+    elif isinstance(instr, ir_object.JumpTarget):
+        indexes[instr.identifier] = size
+        return 0
+
+    raise InternalCompileException("Content of code that was not a hardware instruction or jump point")
+
+
 def package_objects(compiler: Compiler,
                     fns: List[StatementObject],
                     toplevel: List[Union[encoder.HardWareInstruction,
-                                         ir_object.IRObject]]) -> Dict[str, int]:
+                                         ir_object.JumpTarget]]) -> Dict[str, int]:
     """Packages objects into the binary, making multiple passes to resolve arguments
 
-    if no substitutions are made in a pass, the data will be scanned for any remaining references.
+    All IR instructions should have been moved into HardWareInstructions by this point.
+
+    If no substitutions are made in a pass, the data will be scanned for any remaining references.
     although remaining references should be minimal since the IR generator couldn't have worked
     properly for everything but a missing main reference
 
@@ -84,7 +103,7 @@ def package_objects(compiler: Compiler,
 
     packaged = []
     size = 0
-    indexes = {}
+    indexes = {}  # CLEANUP: factor out state variables maybe?
 
     pre_instr = encoder.HardWareInstruction(encoder.stks, [0])
     packaged.append(pre_instr) # this will be filled at the end of allocating sizes
@@ -108,40 +127,74 @@ def package_objects(compiler: Compiler,
 
     # add in startup code
     for i in toplevel:
-        size += instr.size
-        if isinstance(i, encoder.HardWareInstruction):
-            for position, arg in enumerate(i.args):
-                if isinstance(arg, ir_object.DataReference) and arg.name in indexes:
-                    i.args[position] = encoder.HardwareMemoryLocation(indexes[arg.name])
+        instr = process_instruction(indexes, size, i)
+        if instr:
+            size += instr.size
+            packaged.append(instr)
 
 
     # add in code
-    for i in fns:
-        pass
+    for fn in fns:
+        indexes[fn.identifier] = size
+        for i in fn.code:
+            instr = process_instruction(indexes, size, i)
+            if instr:
+                size += instr.size
+                packaged.append(instr)
 
-    while True:
-        replaced = False  # CLEANUP: factor out state variables maybe?
-        for (ident, index) in compiler.identifiers.copy().items():
 
-            obj = compiler.data[index]
-            if ident not in indexes:
-                indexes[ident] = size
+    # begin replacing identifiers
+    while True:  # pylint: disable=too-many-nested-blocks;  no go away they're not that bad
+        # did we replace any references
+        replaced = False
 
-                if isinstance(obj, bytes):
-                    size += len(obj)
-                    packaged.append(obj)
+        # did we visit any references
+        visited = False
+
+        # If we visited some nodes but made no replacements,
+        # we cannot make any replacements in the future and so must fail
+        #
+        # If we made some replacements then we should make another pass
+        # (OPTIMISATION: maybe take note if we replaced all the references and can exit without checking)
+
+        for obj in packaged:
+
+            if isinstance(obj, encoder.HardWareInstruction):
+                for position, arg in enumerate(instr.args):
+                    # resolve data reference
+                    if isinstance(arg, ir_object.DataReference):
+                        visited = True
+                        if arg.name in indexes:  # replace reference to actual location
+                            replaced = True
+                            instr.args[position] = encoder.HardwareMemoryLocation(indexes[arg.name])
+
+                    # resolve jump target
+                    if isinstance(arg, ir_object.JumpTarget):
+                        visited = True
+                        if arg.identifier in indexes:
+                            replaced = True
+                            instr.args[position] = encoder.HardwareMemoryLocation(indexes[arg.identifier])
 
             if isinstance(obj, list):
-                # process each item and if we have allocated the variable, replace with an index
-                replacement = []  # CLEANUP: Nicer loop here maybe
+                replacement = []
                 for elem in obj:
-                    if isinstance(elem, Variable) and elem.name in indexes:
-                        replaced = True
-                        replacement.append(indexes[elem.name])
+                    if isinstance(elem, Variable):
+                        visited = True
+                        if elem.name in indexes:
+                            replaced = True
+                            replacement.append(indexes[elem.name])
                     else:
                         replacement.append(elem)
-                compiler.data[index] = replacement
-        # TODO: workon this
+                obj[:] = replacement
+
+        if visited and not replaced:
+            # FEATURE: keep track of what we're missing and display it
+            raise InternalCompileException("Failed to resolve references!")
+
+        if not replaced:
+            break
+
+    return indexes
 
 def process_code(compiler: Compiler) -> List[encoder.HardWareInstruction]:
     """Process the IR for a program ready to be emitted.

@@ -2,7 +2,7 @@ from typing import Union, Tuple
 from enum import IntEnum
 from dataclasses import dataclass
 
-from compiler.objects.ir_object import Register, Dereference, DataReference
+from compiler.objects.ir_object import Register, Dereference, DataReference, JumpTarget
 
 
 class BinaryInstructions(IntEnum):
@@ -77,7 +77,8 @@ class HardWareInstruction:
     args: Tuple[Union[Register,
                       Dereference,
                       DataReference,
-                      HardwareMemoryLocation]]
+                      HardwareMemoryLocation,
+                      JumpTarget]]
 
     @property
     def code_size(self):
