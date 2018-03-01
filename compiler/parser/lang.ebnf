@@ -1,6 +1,6 @@
 @@grammar :: Wew
 @@comments :: /{~(\n|.)*~}/
-@@eol_comments :: /~~.*?$/
+@@eol_comments :: /\/\/.*?$/
 @@left_recursion :: False
 @@parseinfo :: True
 
@@ -56,49 +56,27 @@ var_decl = 'var' ~ name:name >optional_def ;
 decl = (fun_decl | var_decl) [';'] ;
 
 
-assign_expr = left:logical op:'=' right:expr ;
+assign_expr = left:logical_pre op:'=' right:expr ;
 
 
-logical = bitwise | boolean | comparison ;
+logical_pre = logical | boolean_pre ;
+logical = ('|' | '^' | '&')>{boolean_pre}+ ;
+boolean_pre = boolean | equality_pre ;
+boolean = ('or' | 'and')>{equality_pre}+ ;
+equality_pre = equality | relation_pre ;
+equality = ('!=' | '==')<{relation_pre}+ ;
+relation_pre = relation | bitshift_pre ;
+relation = ('<=' | '>=' | '<' | '>')<{bitshift_pre}+ ;
+bitshift_pre = bitshift | additive_pre ;
+bitshift = ('>>' | '<<')<{additive_pre}+ ;
+additive_pre = additive | multiply_pre ;
+additive = ('+' | '-')<{multiply_pre}+ ;
+multiply_pre = multiply | unop_pre ;
+multiply = ('*' | '/')<{unop_pre}+ ;
 
+unop_pre = prefix | postop ;
 
-bitwise = left:comparison op:('|' | '^' | '&') right:logical ;
-
-
-boolean = left:comparison op:('||' | '&&') ~ right:logical ;
-
-
-comparison = equality | relation | shift ;
-
-
-equality = left:shift op:('!=' | '==') ~ right:comparison ;
-
-
-relation = left:shift op:('<=' | '>=' | '<' | '>') ~ right:comparison ;
-
-
-shift = bitshift | binop ;
-
-
-bitshift = left:binop op:('>>' | '<<') ~ right:shift ;
-
-
-binop = additive | multiplicative ;
-
-
-additive = left:multiplicative op:('+' | '-') ~ right:binop ;
-
-
-multiplicative = multiply | unop ;
-
-
-multiply = left:unop op:('*' | '/') right:multiplicative ;
-
-
-unop = prefix | postop ;
-
-
-prefix = op:('*' | '--' | '++' | '~' | '!' | '-' | '&' | '+') right:unop ;
+prefix = op:('*' | '--' | '++' | '~' | '!' | '-' | '&' | '+') right:unop_pre ;
 
 
 postop = postfix | singular ;

@@ -28,7 +28,7 @@ def test_multiple_advanced():
         var a: [u4@4] = {1, 2, 3, 4};
         a = 5 * (4 + (4 / 3));
         if a < b {print(wew, lad);}
-        x++; ~~ we need a semicolon here
+        x++; // we need a semicolon here
         n = *(0:::*u2);
         n[1+2]--;
         return f(a);
