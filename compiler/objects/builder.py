@@ -11,7 +11,7 @@ from compiler.objects.operations import (AssignOp, BinAddOp, BinMulOp,
                                          unary_prefix)
 from compiler.objects.statements import (IFStmt, LoopStmt, ReturnStmt,
                                          VariableDecl)
-from compiler.objects.types import Array, Function, Int, Pointer, Type
+from compiler.objects.types import Array, Function, Int, Pointer, Type, Void
 
 from tatsu.ast import AST
 
@@ -45,6 +45,9 @@ class WewSemantics(object):
 
     def base_type(self, ast):
         return Int(ast.t, ast=ast)
+
+    def void_type(self, ast):
+        return Void(ast=ast)
 
     def ptr_type(self, ast):
         return Pointer(ast.t, ast=ast)

@@ -10,10 +10,11 @@ from tatsu.infos import ParseInfo
 class BaseObject:
     """Base class of compilables."""
 
-    def __init__(self, ast: Optional[AST]):
+    def __init__(self, ast: Optional[AST]=None):
         self.context: 'CompileContext' = None
         self._ast = ast
         if ast is not None:
+            assert isinstance(ast, AST)
             self._info: ParseInfo = ast.parseinfo
         else:
             self._info = None

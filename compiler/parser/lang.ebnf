@@ -13,6 +13,9 @@ base_type = t:('u1' | 'u2' | 'u4' | 'u8' | 's1' | 's2' | 's4' | 's8') ;
 ptr_type = '*' t:type ;
 
 
+void_type = t:'()' ;
+
+
 const_type = '|' t:type '|' ;
 
 
@@ -22,7 +25,7 @@ array_type = '[' t:type ['@' s:int] ']' ;
 fun_type = '(' t:','.{type} ')' '->' r:type ;
 
 
-type = base_type | ptr_type | array_type | const_type | fun_type | '(' type ')' ;
+type = base_type | ptr_type | array_type | const_type | fun_type | void_type | '(' type ')' ;
 
 
 statement = (var_decl | scope | if_stmt | loop_stmt | return_stmt) [';'] | expr ';' ;
@@ -41,7 +44,7 @@ loop_stmt = 'while' ~ e:expr t:scope ;
 return_stmt = 'return' ~ e:expr ;
 
 
-fun_decl = 'fn' ~ name:name '(' params:','.{name ':' type} ')' '->' r:type >scope ;
+fun_decl = 'fn' ~ name:name '(' params:','.{name ':' type} ')' ['->' r:type] >scope ;
 
 
 optional_def = ':=' ~ val:expr typ:`'infer'` | ':' typ:type ['=' val:expr] ;

@@ -168,7 +168,7 @@ class FunctionDecl(Scope):
         offsets = accumulate((2 * types.Pointer.size, *(i.size for i in self.params.values())))
         for var, offset in zip(self.params.values(), offsets):
             var.stack_offset = -offset
-        self._type = types.Function(ast.r, [i[2] for i in ast.params], const=True)
+        self._type = types.Function(ast.r or types.Void(), [i[2] for i in ast.params], const=True)
 
     @property
     def type(self) -> types.Type:
