@@ -173,9 +173,9 @@ def test_incompatible_types_to_bitwise_op():
 def test_types_to_binary_comparison_op():
     """Test types to binary comparison operation."""
     tests = (
-        "1 || 1",
-        "1 || 1::*u1",
-        "1::*u1 || 1"
+        "1 or 1",
+        "1 or 1::*u1",
+        "1::*u1 or 1"
     )
 
     for i in tests:

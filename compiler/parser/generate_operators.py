@@ -1,8 +1,8 @@
 from typing import Tuple
 
 bin_ops = (
-    ("logical",  ("|", "^", "&"),        ">"),
     ("boolean",  ("or", "and"),          ">"),
+    ("bitwise",  ("|", "^", "&"),        "<"),
     ("equality", ("!=", "=="),           "<"),
     ("relation", ("<=", ">=", "<", ">"), "<"),
     ("bitshift", (">>", "<<"),           "<"),
@@ -22,9 +22,20 @@ def generate(op_table: Tuple[str, Tuple[str, ...]]):
 
         op_list = " | ".join(f"'{x}'" for x in ops)
 
-        result.append(
-            f"{name} = ({op_list}){assoc}{{{next_op}_pre}}+ ;"
-        )
+        if assoc == "<":
+            result.append(
+                f"{name} = left:{next_op}_pre rest:{{{name}_rep}}+ ;"
+            )
+
+            result.append(
+                f"{name}_rep = op:({op_list}) right:{next_op}_pre ;"
+            )
+        else:
+            result.append(
+                f"{name} = left:{next_op}_pre op:({op_list}) ~ right:{name}_pre ;"
+            )
+
+        result.append("\n")
 
     return "\n".join(result)
 

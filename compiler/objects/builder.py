@@ -13,8 +13,30 @@ from compiler.objects.statements import (IFStmt, LoopStmt, ReturnStmt,
                                          VariableDecl)
 from compiler.objects.types import Array, Function, Int, Pointer, Type
 
+from tatsu.ast import AST
+
 
 sys.setrecursionlimit(10000)  # this goes deep
+
+
+def resolve_left_assoc(builder_fun, ast):
+    # we end up with an ast looking like:
+    # {'left': expr, 'rest': [{'op': ..., 'right': expr}, ...]}
+    #
+    # go from left right, add the result of the last expression as the 'left' of the current
+
+    assert isinstance(ast, AST)
+    assert ast.rest is not None
+
+    operations = iter(ast.rest)
+
+    node = ast.left
+
+    for i in operations:
+        i['left'] = node
+        node = builder_fun(i)
+
+    return node
 
 
 class WewSemantics(object):
@@ -89,44 +111,26 @@ class WewSemantics(object):
     def assign_expr(self, ast):
         return AssignOp(ast)
 
-    def logical(self, ast):
-        return ast
-
-    def bitwise(self, ast):
-        return BitwiseOp(ast)
-
     def boolean(self, ast):
         return BoolCompOp(ast)
 
-    def comparison(self, ast):
-        return ast
+    def bitwise(self, ast):
+        return resolve_left_assoc(BitwiseOp, ast)
 
     def equality(self, ast):
-        return BinRelOp(ast)
+        return resolve_left_assoc(BinRelOp, ast)
 
     def relation(self, ast):
-        return BinRelOp(ast)
-
-    def shift(self, ast):
-        return ast
+        return resolve_left_assoc(BinRelOp, ast)
 
     def bitshift(self, ast):
-        return BinShiftOp(ast)
-
-    def binop(self, ast):
-        return ast
+        return resolve_left_assoc(BinShiftOp, ast)
 
     def additive(self, ast):
-        return BinAddOp(ast)
-
-    def multiplicative(self, ast):
-        return ast
+        return resolve_left_assoc(BinAddOp, ast)
 
     def multiply(self, ast):
-        return BinMulOp(ast)
-
-    def unop(self, ast):
-        return ast
+        return resolve_left_assoc(BinMulOp, ast)
 
     def prefix(self, ast):
         # negation operator applied to an integer literal makes it negative and signed

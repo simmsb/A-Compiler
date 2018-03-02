@@ -41,9 +41,6 @@ loop_stmt = 'while' ~ e:expr t:scope ;
 return_stmt = 'return' ~ e:expr ;
 
 
-expr = assign_expr | logical ;
-
-
 fun_decl = 'fn' ~ name:name '(' params:','.{name ':' type} ')' '->' r:type >scope ;
 
 
@@ -55,24 +52,43 @@ var_decl = 'var' ~ name:name >optional_def ;
 
 decl = (fun_decl | var_decl) [';'] ;
 
+expr = assign_expr | boolean_pre ;
 
-assign_expr = left:logical_pre op:'=' right:expr ;
+assign_expr = left:boolean_pre op:'=' right:expr ;
+
+boolean_pre = boolean | bitwise_pre ;
+boolean = left:bitwise_pre op:('or' | 'and') ~ right:boolean_pre ;
 
 
-logical_pre = logical | boolean_pre ;
-logical = ('|' | '^' | '&')>{boolean_pre}+ ;
-boolean_pre = boolean | equality_pre ;
-boolean = ('or' | 'and')>{equality_pre}+ ;
+bitwise_pre = bitwise | equality_pre ;
+bitwise = left:equality_pre rest:{bitwise_rep}+ ;
+bitwise_rep = op:('|' | '^' | '&') right:equality_pre ;
+
+
 equality_pre = equality | relation_pre ;
-equality = ('!=' | '==')<{relation_pre}+ ;
+equality = left:relation_pre rest:{equality_rep}+ ;
+equality_rep = op:('!=' | '==') right:relation_pre ;
+
+
 relation_pre = relation | bitshift_pre ;
-relation = ('<=' | '>=' | '<' | '>')<{bitshift_pre}+ ;
+relation = left:bitshift_pre rest:{relation_rep}+ ;
+relation_rep = op:('<=' | '>=' | '<' | '>') right:bitshift_pre ;
+
+
 bitshift_pre = bitshift | additive_pre ;
-bitshift = ('>>' | '<<')<{additive_pre}+ ;
+bitshift = left:additive_pre rest:{bitshift_rep}+ ;
+bitshift_rep = op:('>>' | '<<') right:additive_pre ;
+
+
 additive_pre = additive | multiply_pre ;
-additive = ('+' | '-')<{multiply_pre}+ ;
+additive = left:multiply_pre rest:{additive_rep}+ ;
+additive_rep = op:('+' | '-') right:multiply_pre ;
+
+
 multiply_pre = multiply | unop_pre ;
-multiply = ('*' | '/')<{unop_pre}+ ;
+multiply = left:unop_pre rest:{multiply_rep}+ ;
+multiply_rep = op:('*' | '/') right:unop_pre ;
+
 
 unop_pre = prefix | postop ;
 
