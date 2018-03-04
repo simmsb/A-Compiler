@@ -19,7 +19,7 @@ class BinaryInstructions(IntEnum):
 
 class UnaryInstructions(IntEnum):
     """Unary instructions."""
-    (neg, pos, not_) = range(3)
+    (binv, linv, neg, pos) = range(4)
 
     @property
     def group(self):
@@ -58,11 +58,7 @@ class IO(IntEnum):
 
 @dataclass
 class HardwareRegister:
-    index: int
-
-
-@dataclass
-class HardwareSpecificRegister:
+    """Reference to a named hardware register."""
     index: int
 
 
@@ -72,7 +68,7 @@ class HardwareMemoryLocation:
 
 
 class SpecificRegisters(IntEnum):
-    (stk, bas, cur) = map(HardwareSpecificRegister, range(3))
+    (stk, bas, cur) = map(HardwareRegister, range(3))
 
 
 @dataclass
@@ -117,3 +113,41 @@ class InstructionEncoder(metaclass=Emitter):
             raise InternalCompileException(f"Missing encoder for instruction {instr.__name__}")
 
         return cls.emitters[instr.__name__](instr)
+
+    @emits("Mov")
+    def emit_mov(cls, instr: ir_object.Mov):
+        return HardWareInstruction(
+            Manip.mov,
+            (instr.to, instr.from_)
+        )
+
+    @emits("Unary")
+    def emit_unart(cls, instr: ir_object.Unary):
+
+        hwin = getattr(UnaryInstructions, instr.op)
+
+        return HardWareInstruction(
+            hwin,
+            (instr.arg, instr.to)
+        )
+
+    @emits("Binary")
+    def emit_binary(cls, instr: ir_object.Binary):
+
+        replacements = {
+            "and": "and_",
+            "or": "or_"
+        }
+
+        op = replacements.get(instr.op, instr.op)  # replace 'and' with 'and_', etc. leave everything else
+
+        hwin = getattr(BinaryInstructions, op)
+
+        return HardWareInstruction(
+            hwin,
+            (instr.left, instr.right, instr.to)
+        )
+
+    @emits("Compare")
+    def emit_compare(cls, instr: ir_object.Compare):
+        pass

@@ -6,12 +6,6 @@ from compiler.objects.variable import Variable, DataReference
 from compiler.objects.astnode import BaseObject
 
 
-def pullsize(arg):
-    if hasattr(arg, "size"):
-        return arg.size
-    return 4
-
-
 class CompType(IntEnum):
     (leq, lt, eq, neq, gt, geq, uncond) = range(7)
 
@@ -68,7 +62,7 @@ class Immediate:
 @dataclass
 class Dereference:
 
-    to: Register
+    to: Union[Register, Immediate]
 
     def __post_init__(self):
         self.to = self.to.copy()
@@ -76,7 +70,7 @@ class Dereference:
 
     @property
     def size(self):
-        return pullsize(self.to)
+        return self.to.size
 
     def __str__(self):
         return f"Dereference({self.to})"
@@ -129,12 +123,6 @@ class IRObject:
 
     def insert_pre_instrs(self, *instrs):
         self.pre_instructions.extend(instrs)
-
-
-@dataclass
-class MakeVar(IRObject):
-    # TODO: why does this exist?
-    var: Variable
 
 
 @dataclass
@@ -224,7 +212,8 @@ class Binary(IRObject, metaclass=BinaryMeta):
         if self.to is None:
             self.to = self.left
 
-    valid_ops = ("add", "sub", "mul", "div")
+    valid_ops = ("add", "sub", "mul", "udiv", "idiv",
+                 "shr", "sar", "shl", "and", "or", "xor")
 
     touched_regs = "left", "right", "to"
 
