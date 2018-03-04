@@ -208,19 +208,23 @@ def process_code(compiler: Compiler) -> List[encoder.HardWareInstruction]:
       5. Package into :class:`encoder.HardwareInstruction` objects
       """
 
-    for object in compiler.compiled_objects:
-        DesugarIR_Pre.desugar(object)
+    for o in compiler.compiled_objects:
+        DesugarIR_Pre.desugar(o)
 
     functions, toplevel = allocate_code(compiler)
 
-    toplevel = process_toplevel(compiler, toplevel)
+    # NOTE: This mutates the objects contained in 'functions' and 'toplevel' on the line above
+    for o in compiler.compiled_objects:
+        DesugarIR_Post.desugar(o)
 
-    for object in (*functions, *toplevel):
-        DesugarIR_Post.desugar(object)
+    toplevel_instructions = process_toplevel(compiler, toplevel)
 
     post_instructions = [
         encoder.HardWareInstruction(encoder.call, [DataReference("main")])
     ]
 
 
-    # TODO: this code
+    # TODO: Convert from IR to hardware instructions
+    # pass to package_objects
+    # Emit code
+    # WIn

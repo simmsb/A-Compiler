@@ -3,7 +3,9 @@ from enum import IntEnum
 from dataclasses import dataclass
 
 from compiler.objects.ir_object import Register, Dereference, DataReference, JumpTarget
-
+from compiler.objects.errors import InternalCompileException
+from compiler.objects import ir_object
+from compiler.utils.emitterclass import Emitter, emits
 
 class BinaryInstructions(IntEnum):
     """Binary instructions."""
@@ -51,10 +53,16 @@ class IO(IntEnum):
         return 4
 
 
-# Why have this? because we need to distinguish from allocated free-use registers and other registers
+# Why have this? because we need to distinguish from allocated free-use registers
+# and other registers (stack pointer, base pointer, current-instruction pointer, etc)
 
 @dataclass
 class HardwareRegister:
+    index: int
+
+
+@dataclass
+class HardwareSpecificRegister:
     index: int
 
 
@@ -64,7 +72,7 @@ class HardwareMemoryLocation:
 
 
 class SpecificRegisters(IntEnum):
-    (stk, bas, cur) = map(HardwareRegister, range(3))
+    (stk, bas, cur) = map(HardwareSpecificRegister, range(3))
 
 
 @dataclass
@@ -88,3 +96,24 @@ class HardWareInstruction:
 def pack_instruction(instr, size: int):
     value = size << 14 | instr.group << 8 | instr
     return value & 0xffff
+
+
+def encodes(name: str):
+    """Decorator that marks a function for what IR it will encode.
+    Also marks as a static method.
+    """
+    def deco(fn):
+        fn.encoder_for = name
+        return staticmethod(fn)
+    return deco
+
+
+class InstructionEncoder(metaclass=Emitter):
+
+    @classmethod
+    def encode_instr(cls, instr: ir_object.IRObject):
+
+        if instr.__name__ not in cls.emitters:
+            raise InternalCompileException(f"Missing encoder for instruction {instr.__name__}")
+
+        return cls.emitters[instr.__name__](instr)
