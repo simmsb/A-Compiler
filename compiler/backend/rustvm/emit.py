@@ -1,12 +1,14 @@
 from itertools import chain
-from typing import Tuple, List
+from typing import Tuple, List, Dict, Union, Optional
 
-from compiler.backend.rustvm.desugar import DesugarIR
+from compiler.backend.rustvm.desugar import DesugarIR_Pre, DesugarIR_Post
 from compiler.backend.rustvm import encoder
 from compiler.backend.rustvm.register_allocate import allocate
 from compiler.objects.base import FunctionDecl, StatementObject, Compiler
 from compiler.objects.errors import InternalCompileException
+from compiler.objects.variable import Variable, DataReference
 from compiler.objects import ir_object
+
 
 def group_fns_toplevel(code: List[StatementObject]) -> Tuple[List[FunctionDecl],
                                                              List[StatementObject]]:
@@ -19,7 +21,7 @@ def group_fns_toplevel(code: List[StatementObject]) -> Tuple[List[FunctionDecl],
 
 
 def allocate_code(compiler: Compiler, reg_count: int=10) -> Tuple[List[FunctionDecl],
-                                               List[StatementObject]]:
+                                                                  List[StatementObject]]:
     """Allocates registers for toplevel and function level blocks."""
 
     functions, toplevel = group_fns_toplevel(compiler.compiled_objects)
@@ -27,38 +29,32 @@ def allocate_code(compiler: Compiler, reg_count: int=10) -> Tuple[List[FunctionD
     toplevel_spill_vars = 0
 
     for i in toplevel:
-        allocator = allocate(reg_count, i.context.code)
+        allocator = allocate(reg_count, i.code)
         toplevel_spill_vars = max(toplevel_spill_vars, len(allocator.spilled_registers))
 
     compiler.add_spill_vars(toplevel_spill_vars)
 
     for i in functions:
-        allocator = allocate(reg_count, i.context.code)
+        allocator = allocate(reg_count, i.code)
         i.add_spill_vars(len(allocator.spilled_registers))
 
-
-def find_main_index(fns: List[FunctionDecl]) -> int:
-    """Find the index of the main function in bytes"""
-    index = 0
-    for fn in fns:
-        if fn.identifier == "main":
-            return index
-        index += fn.code_size
-    raise InternalCompileException("Could not find reference to 'main'.")
+    return functions, toplevel
 
 
 def process_toplevel(compiler: Compiler, code: List[StatementObject]) -> List[ir_object.IRObject]:
     """Inserts scope around the toplevel assignment code."""
     return [
         ir_object.Binary.add(encoder.SpecificRegisters.stk, ir_object.Immediate(compiler.spill_size)),
-        *chain.from_iterable(i.context.code for i in code),
+        *chain.from_iterable(i.code for i in code),
         ir_object.Binary.sub(encoder.SpecificRegisters.stk, ir_object.Immediate(compiler.spill_size))
     ]
 
 
 def process_immediates(compiler: Compiler, code: List[StatementObject]):
-    for i in chain.from_iterable(i.context.code for i in code):
-        for attr in i._touched_regs:
+    """Replaces immediate values that are too large to fit into 14 bits by allocating
+    global objects for them and referencing them in the arguments."""
+    for i in chain.from_iterable(i.code for i in code):
+        for attr in i.touched_regs:
             o = arg = getattr(i, attr)
             if isinstance(arg, ir_object.Dereference):
                 arg = arg.to
@@ -68,12 +64,137 @@ def process_immediates(compiler: Compiler, code: List[StatementObject]):
             if arg.val.bit_length() > 14:
                 # bit length wont fit in an argument, we need to allocate a variable and make this point to it
                 var = compiler.add_bytes(arg.val.to_bytes(length=arg.size, byteorder="little"))  # TODO: check this is the correct byteorder
-                ref = encoder.MemoryReference(var.global_offset)
                 if isinstance(o, ir_object.Dereference):
-                    o.to = ref
+                    o.to = var.global_offset
                 else:
-                    setattr(i, attr, ref)
+                    setattr(i, attr, var.global_offset)
 
+
+def process_instruction(indexes: Dict[str, int],
+                        size: int,
+                        instr: Union[encoder.HardWareInstruction, ir_object.JumpTarget]) -> Optional[encoder.HardWareInstruction]:
+    """Process an instruction for packaging.
+
+    :returns: The instruction processed. Jump targets return None."""
+    if isinstance(instr, encoder.HardWareInstruction):
+        return instr.size
+
+    elif isinstance(instr, ir_object.JumpTarget):
+        indexes[instr.identifier] = size
+        return 0
+
+    raise InternalCompileException("Content of code that was not a hardware instruction or jump point")
+
+
+def package_objects(compiler: Compiler,
+                    fns: List[StatementObject],
+                    toplevel: List[Union[encoder.HardWareInstruction,
+                                         ir_object.JumpTarget]]) -> Dict[str, int]:
+    """Packages objects into the binary, making multiple passes to resolve arguments
+
+    All IR instructions should have been moved into HardWareInstructions by this point.
+
+    If no substitutions are made in a pass, the data will be scanned for any remaining references.
+    although remaining references should be minimal since the IR generator couldn't have worked
+    properly for everything but a missing main reference
+
+    :returns: The dict of identifier to byte offset.
+    """
+
+    packaged = []
+    size = 0
+    indexes = {}  # CLEANUP: factor out state variables maybe?
+
+    pre_instr = encoder.HardWareInstruction(encoder.stks, [0])
+    packaged.append(pre_instr) # this will be filled at the end of allocating sizes
+    size += pre_instr.size
+
+    # do a single pass to place everything in the output table
+    for (ident, index) in compiler.identifiers.copy().items():
+
+        obj = compiler.data[index]
+        indexes[ident] = size
+
+        if isinstance(obj, bytes):
+            size += len(obj)
+
+        elif isinstance(obj, list):
+            size += len(obj) * 2  # Variables become pointers
+
+        packaged.append(obj)
+
+    indexes["toplevel"] = size
+
+    # add in startup code
+    for i in toplevel:
+        instr = process_instruction(indexes, size, i)
+        if instr:
+            size += instr.size
+            packaged.append(instr)
+
+
+    # add in code
+    for fn in fns:
+        indexes[fn.identifier] = size
+        for i in fn.code:
+            instr = process_instruction(indexes, size, i)
+            if instr:
+                size += instr.size
+                packaged.append(instr)
+
+
+    # begin replacing identifiers
+    while True:  # pylint: disable=too-many-nested-blocks;  no go away they're not that bad
+        # did we replace any references
+        replaced = False
+
+        # did we visit any references
+        visited = False
+
+        # If we visited some nodes but made no replacements,
+        # we cannot make any replacements in the future and so must fail
+        #
+        # If we made some replacements then we should make another pass
+        # (OPTIMISATION: maybe take note if we replaced all the references and can exit without checking)
+
+        for obj in packaged:
+
+            if isinstance(obj, encoder.HardWareInstruction):
+                for position, arg in enumerate(instr.args):
+                    # resolve data reference
+                    if isinstance(arg, ir_object.DataReference):
+                        visited = True
+                        if arg.name in indexes:  # replace reference to actual location
+                            replaced = True
+                            instr.args[position] = encoder.HardwareMemoryLocation(indexes[arg.name])
+
+                    # resolve jump target
+                    if isinstance(arg, ir_object.JumpTarget):
+                        visited = True
+                        if arg.identifier in indexes:
+                            replaced = True
+                            instr.args[position] = encoder.HardwareMemoryLocation(indexes[arg.identifier])
+
+            if isinstance(obj, list):
+                replacement = []
+                for elem in obj:
+                    if isinstance(elem, Variable):
+                        visited = True
+                        if elem.name in indexes:
+                            replaced = True
+                            replacement.append(indexes[elem.name])
+                    else:
+                        replacement.append(elem)
+                obj[:] = replacement
+
+        if visited and not replaced:
+            # FEATURE: keep track of what we're missing and display it
+            raise InternalCompileException("Failed to resolve references!")
+
+        if not replaced:
+            break
+
+    return indexes
 
 def process_code(compiler: Compiler) -> List[encoder.HardWareInstruction]:
     """Process the IR for a program ready to be emitted.
@@ -87,32 +208,23 @@ def process_code(compiler: Compiler) -> List[encoder.HardWareInstruction]:
       5. Package into :class:`encoder.HardwareInstruction` objects
       """
 
-    for object in compiler.compiled_objects:
-        DesugarIR.desugar(object)
+    for o in compiler.compiled_objects:
+        DesugarIR_Pre.desugar(o)
 
     functions, toplevel = allocate_code(compiler)
 
-    toplevel = process_toplevel(compiler, toplevel)
+    # NOTE: This mutates the objects contained in 'functions' and 'toplevel' on the line above
+    for o in compiler.compiled_objects:
+        DesugarIR_Post.desugar(o)
 
-    toplevel_size = sum(i.code_size for i in toplevel)
-
-    code_size = (compiler.allocated_data
-                 + sum(i.code_size for i in functions)
-                 + toplevel_size)
-
-    main_fn_index = toplevel_size + find_main_index(functions)
-
-
-    pre_instructions = [
-        encoder.HardWareInstruction(encoder.stks, code_size + 5), # leave 5 bytes because I feel like it
-    ]
+    toplevel_instructions = process_toplevel(compiler, toplevel)
 
     post_instructions = [
-        encoder.HardWareInstruction(encoder.call, [main_fn_index])
+        encoder.HardWareInstruction(encoder.call, [DataReference("main")])
     ]
 
-    pre_toplevel_code_offset = sum(i.code_size for i in pre_instructions)
-    post_toplevel_code_offset = (pre_toplevel_code_offset
-                                 + sum(i.code_size for i in post_instructions))
 
-    # TODO: this code
+    # TODO: Convert from IR to hardware instructions
+    # pass to package_objects
+    # Emit code
+    # WIn

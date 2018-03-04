@@ -33,6 +33,14 @@ def test_var_multiple_same():
 
 
 @for_feature(variables="Variables")
+def test_var_multiple_different_newscope():
+    """Test that multiple declarations of a variable with the same type is valid."""
+    decl = emptyfn("var a:u4;"
+                   "{ var a:*u4; }")
+    compile(decl)
+
+
+@for_feature(variables="Variables")
 def test_var_multiple_different():
     """Test that multiple declarations of a variable with different types is invalid."""
     decl = ("var a:u4;"
@@ -173,9 +181,9 @@ def test_incompatible_types_to_bitwise_op():
 def test_types_to_binary_comparison_op():
     """Test types to binary comparison operation."""
     tests = (
-        "1 || 1",
-        "1 || 1::*u1",
-        "1::*u1 || 1"
+        "1 or 1",
+        "1 or 1::*u1",
+        "1::*u1 or 1"
     )
 
     for i in tests:
@@ -475,3 +483,20 @@ def test_dereference_operation():
             "    return ptr[offset];"
             "}")
     compile(decl)
+
+
+@for_feature(functions="Functions")
+def test_function_void():
+    decl = ("fn isvoid() {}")
+    compile(decl)
+
+    decl = ("fn isvoid() -> () {}")
+    compile(decl)
+
+
+@for_feature(functions="Functions")
+def test_void_function_usage():
+    decl = ("fn isvoid() {}"
+            "var x := isvoid() * 3;")
+    with raises(CompileException):
+        compile(decl)

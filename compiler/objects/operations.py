@@ -565,8 +565,8 @@ class BoolCompOp(ExpressionObject):
         ctx.emit(Compare(r1, Immediate(0, r1.size)))
         target = JumpTarget()
         op = {
-            '||': CompType.neq,
-            '&&': CompType.eq
+            'or': CompType.neq,
+            'and': CompType.eq
         }[self.op]
 
         cond = ctx.get_register(1)

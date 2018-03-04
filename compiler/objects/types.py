@@ -19,6 +19,15 @@ class Type(BaseObject):
         return isinstance(other, self.can_cast_to)
 
 
+class Void(Type):
+
+    def __str__(self):
+        return "()"
+
+    def __repr__(self):
+        return "Void()"
+
+
 class Int(Type):
 
     def __init__(self, t: str, const: bool=False, ast: Optional[AST]=None):

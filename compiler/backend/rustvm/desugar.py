@@ -1,36 +1,42 @@
-from typing import Callable, Dict, Iterator
-
 from compiler.backend.rustvm import encoder
 from compiler.objects import ir_object
+from compiler.objects.variable import DataReference
 from compiler.objects.base import StatementObject, CompileContext
 from compiler.objects.errors import InternalCompileException
+from compiler.utils.emitterclass import Emitter, emits
 
 
-def emits(name: str):
-    """Decorator that marks a function for what it will desugar.
-    Also marks as a static method.
-    """
-    def deco(fn):
-        fn.emitter_for = name
-        return staticmethod(fn)
-    return deco
+class DesugarIR_Post(metaclass=Emitter):
+    """Desugarer for the IR, Performed post-allocation."""
+
+    @classmethod
+    def desugar_instr(cls, ctx: CompileContext, instr: ir_object.IRObject):
+        """Desugars an ir object"""
+        if instr.__name__ in cls.emitters:
+            return cls.emitters[instr.__name__](ctx, instr)
+        return instr
+
+    @classmethod
+    def desugar(cls, obj: StatementObject):
+        """Desugars code for an object in place."""
+        code = obj.ctx.code
+        obj.ctx.code = [cls.desugar_instr(obj.ctx, i) for i in code]
+
+    @emits("Prelude")
+    def emit_prelude(ctx: CompileContext, pre: ir_object.Prelude):  # pylint: disable=unused-argument
+        # vm enters function with base pointer and stack pointer equal
+        yield ir_object.Binary.add(encoder.SpecificRegisters.stk, ir_object.Immediate(pre.scope.size, 8))
+
+    @emits("Epilog")
+    def emit_epilog(ctx: CompileContext, epi: ir_object.Epilog):  # pylint: disable=unused-argument
+        yield ir_object.Binary.sub(encoder.SpecificRegisters.stk, ir_object.Immediate(epi.scope.size, 8))
 
 
-class DesugarIR:
-    """Desugarer for the IR
+class DesugarIR_Pre(metaclass=Emitter):
+    """Desugarer for the IR, Performed pre-allocation
 
     Operations such as LoadVar/ SaveVar are desugared into Mov instructions.
     """
-
-    @classmethod
-    def get_emitters(cls) -> Dict[str, Callable[[CompileContext, ir_object.IRObject], Iterator[ir_object.IRObject]]]:
-        emitters = {}
-
-        for member in dir(cls):
-            if hasattr(member, "emitter_for"):
-                emitters[member.emitter_for] = member
-
-        return emitters
 
     @classmethod
     def desugar(cls, obj: StatementObject):
@@ -38,25 +44,23 @@ class DesugarIR:
         code = obj.ctx.code
         desugared = []
 
-        emitters = cls.get_emitters()
-
         for ir in code:
-            if ir.__name__ in emitters:
-                desugared.extend(emitters[ir.__name__](obj.ctx, ir))
+            if ir.__name__ in cls.emitters:
+                desugared.extend(cls.emitters[ir.__name__](obj.ctx, ir))
             else:
                 desugared.append(ir)
         obj.ctx.code = desugared
 
     @emits("LoadVar")
-    def emit_loadvar(ctx: CompileContext, load: ir_object.LoadVar):
+    def emit_loadvar(_: CompileContext, load: ir_object.LoadVar):
         var = load.variable
         dest = load.to
         if var.stack_offset is not None:  # load from a stack address
             yield ir_object.Mov(dest, encoder.SpecificRegisters.bas)  # grab base pointer
             # load offset off of the base pointer
-            yield ir_object.Binary.add(dest, encoder.MemoryReference(var.stack_offset))
+            yield ir_object.Binary.add(dest, ir_object.Immediate(var.stack_offset))
         elif var.global_offset is not None:
-            yield ir_object.Mov(dest, encoder.MemoryReference(var.global_offset))
+            yield ir_object.Mov(dest, DataReference(var.identifier))
         else:
             raise InternalCompileException(f"Variable had no stack or global offset: {var}")
 
@@ -73,9 +77,9 @@ class DesugarIR:
         if var.stack_offset is not None:  # load from a stack address
             yield ir_object.Mov(reg, encoder.SpecificRegisters.bas)  # grab base pointer
             # load offset off of the base pointer
-            yield ir_object.Binary.add(reg, encoder.MemoryReference(var.stack_offset))
+            yield ir_object.Binary.add(reg, encoder.Immediate(var.stack_offset))
         elif var.global_offset is not None:
-            yield ir_object.Mov(reg, encoder.MemoryReference(var.global_offset))
+            yield ir_object.Mov(reg, DataReference(var.global_offset))
         else:
             # TODO: figure out function references
             raise InternalCompileException(f"Variable had no stack or global offset: {var}")
@@ -83,17 +87,8 @@ class DesugarIR:
         # emit the dereference and store
         yield ir_object.Mov(ir_object.Dereference(reg), save.from_)
 
-    @emits("Prelude")
-    def emit_prelude(ctx: CompileContext, pre: ir_object.Prelude):
-        # vm enters function with base pointer and stack pointer equal
-        yield ir_object.Binary.add(encoder.SpecificRegisters.stk, ir_object.Immediate(pre.scope.size, 8))
-
-    @emits("Epilog")
-    def emit_epilog(ctx: CompileContext, epi: ir_object.Epilog):
-        yield ir_object.Binary.sub(encoder.SpecificRegisters.stk, ir_object.Immediate(epi.scope.size, 8))
-
     @emits("Call")
-    def emit_call(ctx: CompileContext, call: ir_object.Call):
+    def emit_call(_: CompileContext, call: ir_object.Call):
         for i in call.args:
             yield ir_object.Push(i)
         # retain the call here, but we dont care about the arguments because they've been pushed

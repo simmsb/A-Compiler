@@ -1,7 +1,7 @@
 from typing import Optional
 
 from compiler.utils.formatter import format_lines
-from compiler.objects.errors import CompileException
+from compiler.objects.errors import CompileException, InternalCompileException
 
 from tatsu.ast import AST
 from tatsu.infos import ParseInfo
@@ -10,10 +10,11 @@ from tatsu.infos import ParseInfo
 class BaseObject:
     """Base class of compilables."""
 
-    def __init__(self, ast: Optional[AST]):
+    def __init__(self, ast: Optional[AST]=None):
         self.context: 'CompileContext' = None
         self._ast = ast
         if ast is not None:
+            assert isinstance(ast, AST)
             self._info: ParseInfo = ast.parseinfo
         else:
             self._info = None
@@ -22,6 +23,12 @@ class BaseObject:
     def identifier(self) -> str:
         info = self._info
         return f"{info.line}:{info.pos}:{info.endpos}"
+
+    @property
+    def code(self):
+        if not hasattr(self, 'context'):
+            raise InternalCompileException("AST node does not have context attached.")
+        return self.context.code
 
     @property
     def highlight_lines(self) -> str:
@@ -84,5 +91,5 @@ class BaseObject:
         return CompileException(*reasons, trace=self.make_error())
 
     def pretty_print(self):
-        instrs = map(str, self.context.code)
+        instrs = map(str, self.code)
         return format_lines("\n".join(instrs))

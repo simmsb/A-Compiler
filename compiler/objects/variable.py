@@ -7,6 +7,12 @@ from compiler.objects.astnode import BaseObject
 
 
 @dataclass
+class DataReference:
+    """Index to some named object, the exact location to be resolved later."""
+    name: str
+
+
+@dataclass
 class Variable:
     """A reference to a variable, holds scope and location information."""
 
@@ -15,9 +21,7 @@ class Variable:
     parent: Optional[BaseObject] = None
 
     stack_offset: Optional[int] = None
-    global_offset: Optional[int] = None
-    # can either be global or offset to the base pointer.
-    # maybe move these calculations somewhere else to be more abstract?
+    global_offset: Optional[DataReference] = None
 
     @property
     def size(self) -> int:
