@@ -93,7 +93,7 @@ class IRObject:
     """An instruction in internal representation."""
 
     #: list of instructions to be run before this instruction
-    pre_instructions: List['IRObject'] = field(default_factory=list, init=False, repr=False)
+    pre_instructions: List[Any] = field(default_factory=list, init=False, repr=False)
 
     #: regisers that are dead after this instruction
     closing_registers: Set[Register] = field(default_factory=set, init=False, repr=False)
@@ -233,12 +233,12 @@ class Compare(IRObject):
 
 @dataclass
 class SetCmp(IRObject):
-    """Set register from last comparison."""
+    """Set a location from the results of the last comparison."""
 
-    reg: IRParam
+    dest: IRParam
     op: CompType
 
-    touched_regs = ("reg",)
+    touched_regs = ("dest",)
 
 
 @dataclass
@@ -277,9 +277,9 @@ class Return(IRObject):
     This should be placed after preludes to all scopes beforehand.
     """
 
-    reg: Optional[IRParam] = None
+    arg: Optional[IRParam] = None
 
-    touched_regs = ("reg",)
+    touched_regs = ("arg",)
 
 
 @dataclass
@@ -303,6 +303,7 @@ class Jumpable(IRObject):
     jumps_from: List['Jumpable'] = field(default_factory=list, init=False)
     jumps_to: List['Jumpable'] = field(default_factory=list, init=False)
 
+    # none of these are used at the moment but if we add optimisations they will be needed
     def add_jump_to(self, from_: 'Jumpable'):
         self.jumps_from.append(from_)
         from_.jumps_to.append(self)
@@ -348,27 +349,3 @@ class Resize(IRObject):
     to: IRParam
 
     touched_regs = "from_", "to"
-
-
-@dataclass
-class Spill(IRObject):
-    """Spill a register to a location.
-
-    :reg: Physical register to save
-    :index: Index of saved registers to save to
-    """
-
-    reg: int
-    index: int
-
-
-@dataclass
-class Load(IRObject):
-    """Recover a spilled register.
-
-    :reg: Physical register to load into
-    :index: Index of saved registers to load from
-    """
-
-    reg: int
-    index: int

@@ -219,12 +219,15 @@ def process_code(compiler: Compiler) -> List[encoder.HardWareInstruction]:
 
     toplevel_instructions = process_toplevel(compiler, toplevel)
 
+
+    # TODO: here
+    #
+    # 1. decode instructions and fetch out pre_instruction load/spills
+    # 2. transform load/spills into Mov's
+    # 3. package everything
+    # 3. spit it out
+    #
+
     post_instructions = [
         encoder.HardWareInstruction(encoder.call, [DataReference("main")])
     ]
-
-
-    # TODO: Convert from IR to hardware instructions
-    # pass to package_objects
-    # Emit code
-    # WIn

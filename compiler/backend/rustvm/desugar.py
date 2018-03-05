@@ -23,12 +23,12 @@ class DesugarIR_Post(metaclass=Emitter):
         obj.ctx.code = [cls.desugar_instr(obj.ctx, i) for i in code]
 
     @emits("Prelude")
-    def emit_prelude(ctx: CompileContext, pre: ir_object.Prelude):  # pylint: disable=unused-argument
+    def emit_prelude(cls, ctx: CompileContext, pre: ir_object.Prelude):  # pylint: disable=unused-argument
         # vm enters function with base pointer and stack pointer equal
         yield ir_object.Binary.add(encoder.SpecificRegisters.stk, ir_object.Immediate(pre.scope.size, 8))
 
     @emits("Epilog")
-    def emit_epilog(ctx: CompileContext, epi: ir_object.Epilog):  # pylint: disable=unused-argument
+    def emit_epilog(cls, ctx: CompileContext, epi: ir_object.Epilog):  # pylint: disable=unused-argument
         yield ir_object.Binary.sub(encoder.SpecificRegisters.stk, ir_object.Immediate(epi.scope.size, 8))
 
 
@@ -52,7 +52,7 @@ class DesugarIR_Pre(metaclass=Emitter):
         obj.ctx.code = desugared
 
     @emits("LoadVar")
-    def emit_loadvar(_: CompileContext, load: ir_object.LoadVar):
+    def emit_loadvar(cls, ctx: CompileContext, load: ir_object.LoadVar):  # pylint: disable=unused-argument
         var = load.variable
         dest = load.to
         if var.stack_offset is not None:  # load from a stack address
@@ -68,7 +68,7 @@ class DesugarIR_Pre(metaclass=Emitter):
             yield ir_object.Mov(dest, ir_object.Dereference(dest))
 
     @emits("SaveVar")
-    def emit_savevar(ctx: CompileContext, save: ir_object.SaveVar):
+    def emit_savevar(cls, ctx: CompileContext, save: ir_object.SaveVar):
         var = save.variable
 
         # we need an extra register to store the temporary address
@@ -88,7 +88,7 @@ class DesugarIR_Pre(metaclass=Emitter):
         yield ir_object.Mov(ir_object.Dereference(reg), save.from_)
 
     @emits("Call")
-    def emit_call(_: CompileContext, call: ir_object.Call):
+    def emit_call(cls, ctx: CompileContext, call: ir_object.Call):  # pylint: disable=unused-argument
         for i in call.args:
             yield ir_object.Push(i)
         # retain the call here, but we dont care about the arguments because they've been pushed

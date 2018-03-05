@@ -1,8 +1,33 @@
 from enum import Enum, auto
 from typing import Any, Dict, List, Optional, Sequence, Tuple
+from dataclasses import dataclass
 
 from compiler.objects import ir_object
 from compiler.objects.ir_object import Register
+
+
+@dataclass
+class Spill:
+    """Spill a register to a location.
+
+    :reg: Physical register to save
+    :index: Index of saved registers to save to
+    """
+
+    reg: int
+    index: int
+
+
+@dataclass
+class Load:
+    """Recover a spilled register.
+
+    :reg: Physical register to load into
+    :index: Index of saved registers to load from
+    """
+
+    reg: int
+    index: int
 
 
 class RegisterState(Enum):
@@ -42,7 +67,7 @@ class AllocationState:
             self.spilled_registers.append(None)
         self.spilled_registers[index] = v_reg
         self.register_states[v_reg] = (RegisterState.Spilled, index)
-        return ir_object.Spill(reg, index)
+        return Spill(reg, index)
 
     def emit_load(self, v_reg: Register, reg: int):
         """Emit a load for a spilled register.
@@ -50,7 +75,7 @@ class AllocationState:
         index = self.spilled_registers.index(v_reg)
         self.spilled_registers[index] = None
         self.register_states[v_reg] = (RegisterState.Allocated, reg)
-        return ir_object.Load(reg, index)
+        return Load(reg, index)
 
     def free_register(self, v_reg: Register):
         state, data = self.register_states[v_reg]
