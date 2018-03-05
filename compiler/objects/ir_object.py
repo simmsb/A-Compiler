@@ -6,12 +6,6 @@ from compiler.objects.variable import Variable, DataReference
 from compiler.objects.astnode import BaseObject
 
 
-def pullsize(arg):
-    if hasattr(arg, "size"):
-        return arg.size
-    return 4
-
-
 class CompType(IntEnum):
     (leq, lt, eq, neq, gt, geq, uncond) = range(7)
 
@@ -68,7 +62,7 @@ class Immediate:
 @dataclass
 class Dereference:
 
-    to: Register
+    to: Union[Register, Immediate]
 
     def __post_init__(self):
         self.to = self.to.copy()
@@ -76,7 +70,7 @@ class Dereference:
 
     @property
     def size(self):
-        return pullsize(self.to)
+        return self.to.size
 
     def __str__(self):
         return f"Dereference({self.to})"
@@ -99,7 +93,7 @@ class IRObject:
     """An instruction in internal representation."""
 
     #: list of instructions to be run before this instruction
-    pre_instructions: List['IRObject'] = field(default_factory=list, init=False, repr=False)
+    pre_instructions: List[Any] = field(default_factory=list, init=False, repr=False)
 
     #: regisers that are dead after this instruction
     closing_registers: Set[Register] = field(default_factory=set, init=False, repr=False)
@@ -129,12 +123,6 @@ class IRObject:
 
     def insert_pre_instrs(self, *instrs):
         self.pre_instructions.extend(instrs)
-
-
-@dataclass
-class MakeVar(IRObject):
-    # TODO: why does this exist?
-    var: Variable
 
 
 @dataclass
@@ -224,7 +212,8 @@ class Binary(IRObject, metaclass=BinaryMeta):
         if self.to is None:
             self.to = self.left
 
-    valid_ops = ("add", "sub", "mul", "div")
+    valid_ops = ("add", "sub", "mul", "udiv", "idiv",
+                 "shr", "sar", "shl", "and", "or", "xor")
 
     touched_regs = "left", "right", "to"
 
@@ -244,12 +233,12 @@ class Compare(IRObject):
 
 @dataclass
 class SetCmp(IRObject):
-    """Set register from last comparison."""
+    """Set a location from the results of the last comparison."""
 
-    reg: IRParam
+    dest: IRParam
     op: CompType
 
-    touched_regs = ("reg",)
+    touched_regs = ("dest",)
 
 
 @dataclass
@@ -288,9 +277,9 @@ class Return(IRObject):
     This should be placed after preludes to all scopes beforehand.
     """
 
-    reg: Optional[IRParam] = None
+    arg: Optional[IRParam] = None
 
-    touched_regs = ("reg",)
+    touched_regs = ("arg",)
 
 
 @dataclass
@@ -314,6 +303,7 @@ class Jumpable(IRObject):
     jumps_from: List['Jumpable'] = field(default_factory=list, init=False)
     jumps_to: List['Jumpable'] = field(default_factory=list, init=False)
 
+    # none of these are used at the moment but if we add optimisations they will be needed
     def add_jump_to(self, from_: 'Jumpable'):
         self.jumps_from.append(from_)
         from_.jumps_to.append(self)
@@ -359,27 +349,3 @@ class Resize(IRObject):
     to: IRParam
 
     touched_regs = "from_", "to"
-
-
-@dataclass
-class Spill(IRObject):
-    """Spill a register to a location.
-
-    :reg: Physical register to save
-    :index: Index of saved registers to save to
-    """
-
-    reg: int
-    index: int
-
-
-@dataclass
-class Load(IRObject):
-    """Recover a spilled register.
-
-    :reg: Physical register to load into
-    :index: Index of saved registers to load from
-    """
-
-    reg: int
-    index: int
