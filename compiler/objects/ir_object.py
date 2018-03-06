@@ -17,11 +17,19 @@ class DataField:
 
 
 @dataclass
+class AllocatedRegister:
+    """References an allocated register."""
+    size: int
+    sign: bool = False
+    physical_register: Optional[int] = None
+
+
+@dataclass
 class Register:
     reg: int
     size: int
     sign: bool = False
-    physical_register: int = field(default=None, init=False)
+    physical_register: Optional[int] = None
 
     def resize(self, new_size: int=None, new_sign: bool=None) -> 'Register':
         """Get a resized copy of this register."""
@@ -76,7 +84,7 @@ class Dereference:
         return f"Dereference({self.to})"
 
 
-IRParam = Union[Register, Dereference, Immediate, DataReference]
+IRParam = Union[Register, AllocatedRegister, Dereference, Immediate, DataReference]
 
 
 def filter_reg(reg: IRParam) -> Optional[Register]:

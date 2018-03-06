@@ -3,8 +3,9 @@ from typing import Tuple, List, Dict, Union, Optional
 
 from compiler.backend.rustvm.desugar import DesugarIR_Pre, DesugarIR_Post
 from compiler.backend.rustvm import encoder
-from compiler.backend.rustvm.register_allocate import allocate
-from compiler.objects.base import FunctionDecl, StatementObject, Compiler
+from compiler.backend.rustvm.register_allocate import allocate, Spill, Load
+from compiler.objects.base import FunctionDecl, StatementObject, Compiler, CompileContext
+from compilrt.objects.astnode import BaseObject
 from compiler.objects.errors import InternalCompileException
 from compiler.objects.variable import Variable, DataReference
 from compiler.objects import ir_object
@@ -196,6 +197,38 @@ def package_objects(compiler: Compiler,
 
     return indexes
 
+
+def process_spill(ctx: CompileContext, instr: Union[Spill, Load]) -> ir_object.IRObject:
+    """Process spill instructions, emits LoadVar and SaveVar
+    instructions so these need to be passed through the second stage desugar beforehand.
+    """
+    if isinstance(instr, Spill):
+        ctor = ir_object.LoadVar
+    else:
+        ctor = ir_object.SaveVar
+
+    var = ctx.vars[f"spill-var-{instr.index}"]
+    return ctor(
+        var,
+        ir_object.AllocatedRegister(
+            8, False, instr.reg,
+        )
+    )
+
+
+def extract_spill_process(obj: BaseObject):
+    """Extract the spill instructions for a context.
+    the code body of the context is edited in place.
+    """
+
+    replacement = []
+    for c in obj.context.code:
+        spills = (process_spill(obj.context, i) for i in c.pre_instructions)
+        replacement.extend(spills)
+        replacement.append(c)
+    obj.context.code = replacement
+
+
 def process_code(compiler: Compiler) -> List[encoder.HardWareInstruction]:
     """Process the IR for a program ready to be emitted.
 
@@ -215,6 +248,7 @@ def process_code(compiler: Compiler) -> List[encoder.HardWareInstruction]:
 
     # NOTE: This mutates the objects contained in 'functions' and 'toplevel' on the line above
     for o in compiler.compiled_objects:
+        extract_spill_process(o)
         DesugarIR_Post.desugar(o)
 
     toplevel_instructions = process_toplevel(compiler, toplevel)
@@ -222,10 +256,11 @@ def process_code(compiler: Compiler) -> List[encoder.HardWareInstruction]:
 
     # TODO: here
     #
-    # 1. decode instructions and fetch out pre_instruction load/spills
-    # 2. transform load/spills into Mov's
-    # 3. package everything
-    # 3. spit it out
+    # 1. decode instructions and fetch out pre_instruction load/spills 🗹
+    # 2. transform load/spills into Mov's 🗹
+    # 3. !! at some point we need to add register saves/ stores to instructions
+    # 4. package everything
+    # 5. spit it out
     #
 
     post_instructions = [
