@@ -1,4 +1,4 @@
-from typing import Union, Tuple, List
+from typing import Union, Tuple, Iterable
 from enum import IntEnum
 from dataclasses import dataclass
 
@@ -67,7 +67,7 @@ class HardwareMemoryLocation:
     index: int
 
 
-class SpecificRegisters(IntEnum):
+class SpecificRegisters:
     (stk, bas, cur, ret) = map(HardwareRegister, range(4))
 
 
@@ -87,7 +87,7 @@ class HardWareInstruction:
 
     @property
     def code_size(self):
-        # TODO: sort out this (actually just do this)
+        # TODO: confirm this works
         return 2 * (1 + len(self.args))
 
 def pack_instruction(instr, size: int):
@@ -108,15 +108,15 @@ def encodes(name: str):
 class InstructionEncoder(metaclass=Emitter):
 
     @classmethod
-    def encode_instr(cls, instr: ir_object.IRObject) -> List[HardWareInstruction]:
+    def encode_instr(cls, instr: ir_object.IRObject) -> Iterable[HardWareInstruction]:
         """Encode an IR Instruction into a hardware instruction.
-        Some instructions may expand into multiple hardware instructions so the result is a list.
+        Some instructions may expand into multiple hardware instructions so the result is an iterable.
         """
 
         if instr.__name__ not in cls.emitters:
             raise InternalCompileException(f"Missing encoder for instruction {instr.__name__}")
 
-        return list(cls.emitters[instr.__name__](instr))
+        return cls.emitters[instr.__name__](instr)
 
     @emits("Mov")
     def emit_mov(cls, instr: ir_object.Mov):
@@ -146,7 +146,7 @@ class InstructionEncoder(metaclass=Emitter):
         }
 
         # replace 'and' with 'and_', etc. leave everything else
-        op = replacements.get(instr.op, instr.op)
+        op = replacements.get(instr.op) or instr.op
 
         hwin = getattr(BinaryInstructions, op)
 
@@ -224,7 +224,6 @@ class InstructionEncoder(metaclass=Emitter):
             instr.result.size,
             (instr.result, HardwareRegister.ret)
         )
-
 
     @emits("Jump")
     def emit_jump(cls, instr: ir_object.Jump):

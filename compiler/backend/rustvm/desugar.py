@@ -6,7 +6,23 @@ from compiler.objects.errors import InternalCompileException
 from compiler.utils.emitterclass import Emitter, emits
 
 
-class DesugarIR_Post(metaclass=Emitter):
+class Desugarer(metaclass=Emitter):
+
+    @classmethod
+    def desugar(cls, obj: StatementObject):
+        """Desugars code for an object in place."""
+        code = obj.ctx.code
+        desugared = []
+
+        for ir in code:
+            if ir.__name__ in cls.emitters:
+                desugared.extend(cls.emitters[ir.__name__](obj.ctx, ir))
+            else:
+                desugared.append(ir)
+        obj.ctx.code[:] = desugared
+
+
+class DesugarIR_Post(Desugarer):
     """Desugarer for the IR, Performed post-allocation."""
 
     @classmethod
@@ -32,24 +48,11 @@ class DesugarIR_Post(metaclass=Emitter):
         yield ir_object.Binary.sub(encoder.SpecificRegisters.stk, ir_object.Immediate(epi.scope.size, 8))
 
 
-class DesugarIR_Pre(metaclass=Emitter):
+class DesugarIR_Pre(Desugarer):
     """Desugarer for the IR, Performed pre-allocation
 
     Operations such as LoadVar/ SaveVar are desugared into Mov instructions.
     """
-
-    @classmethod
-    def desugar(cls, obj: StatementObject):
-        """Desugars code for an object in place."""
-        code = obj.ctx.code
-        desugared = []
-
-        for ir in code:
-            if ir.__name__ in cls.emitters:
-                desugared.extend(cls.emitters[ir.__name__](obj.ctx, ir))
-            else:
-                desugared.append(ir)
-        obj.ctx.code = desugared
 
     @emits("LoadVar")
     def emit_loadvar(cls, ctx: CompileContext, load: ir_object.LoadVar):  # pylint: disable=unused-argument

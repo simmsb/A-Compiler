@@ -1,5 +1,5 @@
 from itertools import chain
-from typing import Tuple, List, Dict, Union, Optional
+from typing import Tuple, List, Dict, Union, Optional, Iterable, Any
 
 from compiler.backend.rustvm.desugar import DesugarIR_Pre, DesugarIR_Post
 from compiler.backend.rustvm import encoder
@@ -87,10 +87,12 @@ def process_instruction(indexes: Dict[str, int],
     raise InternalCompileException("Content of code that was not a hardware instruction or jump point")
 
 
+instr_or_target = Union[encoder.HardWareInstruction, ir_object.JumpTarget]
+
+
 def package_objects(compiler: Compiler,
-                    fns: List[StatementObject],
-                    toplevel: List[Union[encoder.HardWareInstruction,
-                                         ir_object.JumpTarget]]) -> Dict[str, int]:
+                    fns: Iterable[Tuple[str, instr_or_target]],
+                    toplevel: Iterable[instr_or_target]) -> Tuple[Dict[str, int], Any]:  # TODO: add correct type to this
     """Packages objects into the binary, making multiple passes to resolve arguments
 
     All IR instructions should have been moved into HardWareInstructions by this point.
@@ -99,7 +101,7 @@ def package_objects(compiler: Compiler,
     although remaining references should be minimal since the IR generator couldn't have worked
     properly for everything but a missing main reference
 
-    :returns: The dict of identifier to byte offset.
+    :returns: The dict of identifier to byte offset and the packaged objects.
     """
 
     packaged = []
@@ -135,9 +137,9 @@ def package_objects(compiler: Compiler,
 
 
     # add in code
-    for fn in fns:
-        indexes[fn.identifier] = size
-        for i in fn.code:
+    for (name, code) in fns:
+        indexes[name] = size
+        for i in code:
             instr = process_instruction(indexes, size, i)
             if instr:
                 size += instr.size
@@ -226,11 +228,17 @@ def extract_spill_process(obj: BaseObject):
         spills = (process_spill(obj.context, i) for i in c.pre_instructions)
         replacement.extend(spills)
         replacement.append(c)
-    obj.context.code = replacement
+    obj.context.code[:] = replacement
 
 
-def process_code(compiler: Compiler) -> List[encoder.HardWareInstruction]:
+def encode_instructions(instrs: List[ir_object.IRObject]) -> Iterable[encoder.HardWareInstruction]:
+    """Encode a list of ir_object instructions into hardware instructions."""
+    return chain.from_iterable(map(encoder.InstructionEncoder.encode_instr, instrs))
+
+def process_code(compiler: Compiler) -> Tuple[Dict[str, int], Any]:
     """Process the IR for a program ready to be emitted.
+
+    :returns: dictionary mapping identifiers to indexes, and the packaged objects in the order packed.
 
     Steps:
       1. Desugar IR
@@ -253,16 +261,21 @@ def process_code(compiler: Compiler) -> List[encoder.HardWareInstruction]:
 
     toplevel_instructions = process_toplevel(compiler, toplevel)
 
+    encoded_toplevel = encode_instructions(toplevel_instructions)
+
+    encoded_functions = [(i.identifier, encode_instructions(i.code)) for i in functions]
+
+    encoded_toplevel.extend([
+        encoder.HardWareInstruction(encoder.call, [DataReference("main")])
+    ])
+
+    return package_objects(compiler, encoded_functions, encoded_toplevel)
 
     # TODO: here
     #
     # 1. decode instructions and fetch out pre_instruction load/spills 🗹
     # 2. transform load/spills into Mov's 🗹
     # 3. !! at some point we need to add register saves/ stores to instructions
-    # 4. package everything
+    # 4. package everything  🗹
     # 5. spit it out
     #
-
-    post_instructions = [
-        encoder.HardWareInstruction(encoder.call, [DataReference("main")])
-    ]
