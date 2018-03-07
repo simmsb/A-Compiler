@@ -1,4 +1,4 @@
-from compiler.backend.rustvm import compile_and_allocate
+from compiler.backend.rustvm import compile_and_pack
 from compiler.objects.errors import CompileException
 
 from pytest import raises
@@ -7,7 +7,7 @@ from tests.helpers import emptyfn, for_feature
 
 def compile(inp):
     # when testing we want debug mode to be on
-    return compile_and_allocate(inp, debug=True)
+    return compile_and_pack(inp, debug=True)
 
 
 @for_feature(globals="Global variables")

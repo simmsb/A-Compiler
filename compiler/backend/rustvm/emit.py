@@ -21,7 +21,7 @@ def group_fns_toplevel(code: List[StatementObject]) -> Tuple[List[FunctionDecl],
     return fns, nfns
 
 
-def allocate_code(compiler: Compiler, reg_count: int=10) -> Tuple[List[FunctionDecl],
+def allocate_code(compiler: Compiler, reg_count) -> Tuple[List[FunctionDecl],
                                                                   List[StatementObject]]:
     """Allocates registers for toplevel and function level blocks."""
 
@@ -267,7 +267,7 @@ def encode_instructions(instrs: List[ir_object.IRObject]) -> Iterable[encoder.Ha
     """Encode a list of ir_object instructions into hardware instructions."""
     return chain.from_iterable(map(encoder.InstructionEncoder.encode_instr, instrs))
 
-def process_code(compiler: Compiler) -> Tuple[Dict[str, int], Any]:
+def process_code(compiler: Compiler, reg_count) -> Tuple[Dict[str, int], Any]:
     """Process the IR for a program ready to be emitted.
 
     :returns: dictionary mapping identifiers to indexes, and the packaged objects in the order packed.
@@ -284,7 +284,7 @@ def process_code(compiler: Compiler) -> Tuple[Dict[str, int], Any]:
     for o in compiler.compiled_objects:
         DesugarIR_Pre.desugar(o)
 
-    functions, toplevel = allocate_code(compiler)
+    functions, toplevel = allocate_code(compiler, reg_count)
 
     for fn in functions:
         insert_register_stores(fn)

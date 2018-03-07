@@ -11,15 +11,15 @@ class Desugarer(metaclass=Emitter):
     @classmethod
     def desugar(cls, obj: StatementObject):
         """Desugars code for an object in place."""
-        code = obj.ctx.code
+        code = obj.context.code
         desugared = []
 
         for ir in code:
             if ir.__name__ in cls.emitters:
-                desugared.extend(cls.emitters[ir.__name__](obj.ctx, ir))
+                desugared.extend(cls.emitters[ir.__name__](obj.context, ir))
             else:
                 desugared.append(ir)
-        obj.ctx.code[:] = desugared
+        obj.context.code[:] = desugared
 
 
 class DesugarIR_Post(Desugarer):
@@ -35,8 +35,8 @@ class DesugarIR_Post(Desugarer):
     @classmethod
     def desugar(cls, obj: StatementObject):
         """Desugars code for an object in place."""
-        code = obj.ctx.code
-        obj.ctx.code = [cls.desugar_instr(obj.ctx, i) for i in code]
+        code = obj.context.code
+        obj.context.code = [cls.desugar_instr(obj.context, i) for i in code]
 
     @emits("Prelude")
     def emit_prelude(cls, ctx: CompileContext, pre: ir_object.Prelude):  # pylint: disable=unused-argument
