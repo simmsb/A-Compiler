@@ -5,7 +5,7 @@ from compiler.backend.rustvm.desugar import DesugarIR_Pre, DesugarIR_Post
 from compiler.backend.rustvm import encoder
 from compiler.backend.rustvm.register_allocate import allocate, Spill, Load
 from compiler.objects.base import FunctionDecl, StatementObject, Compiler, CompileContext
-from compilrt.objects.astnode import BaseObject
+from compiler.objects.astnode import BaseObject
 from compiler.objects.errors import InternalCompileException
 from compiler.objects.variable import Variable, DataReference
 from compiler.objects import ir_object
@@ -87,12 +87,12 @@ def process_instruction(indexes: Dict[str, int],
     raise InternalCompileException("Content of code that was not a hardware instruction or jump point")
 
 
-instr_or_target = Union[encoder.HardWareInstruction, ir_object.JumpTarget]
+InstrOrTarget = Union[encoder.HardWareInstruction, ir_object.JumpTarget]
 
 
 def package_objects(compiler: Compiler,
-                    fns: Iterable[Tuple[str, instr_or_target]],
-                    toplevel: Iterable[instr_or_target]) -> Tuple[Dict[str, int], Any]:  # TODO: add correct type to this
+                    fns: Iterable[Tuple[str, InstrOrTarget]],
+                    toplevel: Iterable[InstrOrTarget]) -> Tuple[Dict[str, int], Any]:  # TODO: add correct type to this
     """Packages objects into the binary, making multiple passes to resolve arguments
 
     All IR instructions should have been moved into HardWareInstructions by this point.
@@ -200,6 +200,38 @@ def package_objects(compiler: Compiler,
     return indexes
 
 
+def insert_register_stores(fn: FunctionDecl):
+    """Insert register stores to preserve registers used inside this function.
+
+    Inserts extra variables into the function body and inserts stores/ loads before and after the function code.
+    """
+
+    # scan through the function and collect used registers
+    touched_regs = set()
+
+    for i in fn.code:
+        touched_regs.update(
+            {reg.physical_register for reg in i.touched_registers}
+        )
+
+    # Add vars here but dont actually insert instructions to save/restore
+    # instead this will happen when prelude/ epilog are desugared
+    for i in touched_regs:
+        fn.add_reg_save_var(i)
+
+    # pre_instructions = [
+    #     ir_object.SaveVar(var, ir_object.AllocatedRegister(reg))
+    #     for (reg, var) in vars
+    # ]
+
+    # post_instructions = [
+    #     ir_object.LoadVar(var, ir_object.AllocatedRegister(reg))
+    #     for (reg, var) in vars
+    # ]
+
+    # fn.code[:] = pre_instructions + fn.code + post_instructions
+
+
 def process_spill(ctx: CompileContext, instr: Union[Spill, Load]) -> ir_object.IRObject:
     """Process spill instructions, emits LoadVar and SaveVar
     instructions so these need to be passed through the second stage desugar beforehand.
@@ -254,6 +286,9 @@ def process_code(compiler: Compiler) -> Tuple[Dict[str, int], Any]:
 
     functions, toplevel = allocate_code(compiler)
 
+    for fn in functions:
+        insert_register_stores(fn)
+
     # NOTE: This mutates the objects contained in 'functions' and 'toplevel' on the line above
     for o in compiler.compiled_objects:
         extract_spill_process(o)
@@ -275,7 +310,7 @@ def process_code(compiler: Compiler) -> Tuple[Dict[str, int], Any]:
     #
     # 1. decode instructions and fetch out pre_instruction load/spills 🗹
     # 2. transform load/spills into Mov's 🗹
-    # 3. !! at some point we need to add register saves/ stores to instructions
+    # 3. !! at some point we need to add register saves/ stores to instructions 🗹
     # 4. package everything  🗹
     # 5. spit it out
     #
