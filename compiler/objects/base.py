@@ -114,6 +114,7 @@ class Scope(StatementObject, IdentifierScope):
         self._vars: Dict[str, Variable] = {}
         self.size = 0
         self.body = ast.body
+        self.regsaves = []
 
     @property
     def vars(self) -> Dict[str, Variable]:
@@ -138,11 +139,20 @@ class Scope(StatementObject, IdentifierScope):
         return var
 
     def add_spill_vars(self, n: int):
+        """Insert variables to spill registers into."""
         for i in range(n):
             self.declare_variable(
                 f"spill-var-{i}",
                 types.Int.fromsize(8)
             )
+
+    def add_reg_save_var(self, n: int):
+        """Insert register save variable."""
+        self.regsaves.append(n)
+        return self.declare_variable(
+            f"reg-save-var-{n}",
+            types.Int.fromsize(8)
+        )
 
 
 class FunctionDecl(Scope):

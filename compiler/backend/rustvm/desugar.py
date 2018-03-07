@@ -6,7 +6,23 @@ from compiler.objects.errors import InternalCompileException
 from compiler.utils.emitterclass import Emitter, emits
 
 
-class DesugarIR_Post(metaclass=Emitter):
+class Desugarer(metaclass=Emitter):
+
+    @classmethod
+    def desugar(cls, obj: StatementObject):
+        """Desugars code for an object in place."""
+        code = obj.ctx.code
+        desugared = []
+
+        for ir in code:
+            if ir.__name__ in cls.emitters:
+                desugared.extend(cls.emitters[ir.__name__](obj.ctx, ir))
+            else:
+                desugared.append(ir)
+        obj.ctx.code[:] = desugared
+
+
+class DesugarIR_Post(Desugarer):
     """Desugarer for the IR, Performed post-allocation."""
 
     @classmethod
@@ -25,31 +41,22 @@ class DesugarIR_Post(metaclass=Emitter):
     @emits("Prelude")
     def emit_prelude(cls, ctx: CompileContext, pre: ir_object.Prelude):  # pylint: disable=unused-argument
         # vm enters function with base pointer and stack pointer equal
+        for reg in pre.scope.regsaves:
+            yield ir_object.push(ir_object.allocatedregister(8, reg))
         yield ir_object.Binary.add(encoder.SpecificRegisters.stk, ir_object.Immediate(pre.scope.size, 8))
 
     @emits("Epilog")
     def emit_epilog(cls, ctx: CompileContext, epi: ir_object.Epilog):  # pylint: disable=unused-argument
+        for reg in reversed(epi.scope.regsaves):
+            yield ir_object.Pop(ir_object.allocatedregister(8, reg))
         yield ir_object.Binary.sub(encoder.SpecificRegisters.stk, ir_object.Immediate(epi.scope.size, 8))
 
 
-class DesugarIR_Pre(metaclass=Emitter):
+class DesugarIR_Pre(Desugarer):
     """Desugarer for the IR, Performed pre-allocation
 
     Operations such as LoadVar/ SaveVar are desugared into Mov instructions.
     """
-
-    @classmethod
-    def desugar(cls, obj: StatementObject):
-        """Desugars code for an object in place."""
-        code = obj.ctx.code
-        desugared = []
-
-        for ir in code:
-            if ir.__name__ in cls.emitters:
-                desugared.extend(cls.emitters[ir.__name__](obj.ctx, ir))
-            else:
-                desugared.append(ir)
-        obj.ctx.code = desugared
 
     @emits("LoadVar")
     def emit_loadvar(cls, ctx: CompileContext, load: ir_object.LoadVar):  # pylint: disable=unused-argument
@@ -81,7 +88,6 @@ class DesugarIR_Pre(metaclass=Emitter):
         elif var.global_offset is not None:
             yield ir_object.Mov(reg, DataReference(var.global_offset))
         else:
-            # TODO: figure out function references
             raise InternalCompileException(f"Variable had no stack or global offset: {var}")
 
         # emit the dereference and store

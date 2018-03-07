@@ -49,23 +49,31 @@
     
 * Code Generator
 - [X] Register allocator
-- [ ] Assembler
-  + [ ] Handle placing immediates in memory and making references to them if too large to fit in an instruction
-  + [ ] LoadVar
-  + [ ] SaveVar
-  + [ ] Mov
-  + [ ] Unary
-  + [ ] Binary
-  + [ ] Compare
-  + [ ] SetCmp
-  + [ ] Push
-  + [ ] Pop
-  + [ ] Prelude
-  + [ ] Epilog
-  + [ ] Return 
-  + [ ] Call
-  + [ ] Jump
-  + [ ] JumpTarget
-  + [ ] Resize
-  + [ ] Spill
-  + [ ] Load
+- [ ] Place register stores before function body is run, place register restores afterwards
+- [X] IR desugar
+- [X] Assembler
+  + [X] Handle placing immediates in memory and making references to them if too large to fit in an instruction
+  + [X] LoadVar
+  + [X] SaveVar
+  + [X] Mov
+  + [X] Unary
+  + [X] Binary
+  + [X] Compare
+  + [X] SetCmp
+  + [X] Push
+  + [X] Pop
+  + [X] Prelude
+  + [X] Epilog
+  + [X] Return 
+  + [X] Call
+  + [X] Jump
+  + [X] JumpTarget
+  + [X] Resize
+  + [X] Spill
+  + [X] Load
+- [X] Data packer and reference resolver
+- [ ] Final binary emitter
+  
+    
+    
+    
