@@ -1,4 +1,4 @@
-from compiler.backend.rustvm import compile_and_allocate
+from compiler.backend.rustvm import compile_and_pack
 
 src1 = (
     """
@@ -39,8 +39,8 @@ src2 = (
     """
 )
 
-comp1 = compile_and_allocate(src1)
-comp2 = compile_and_allocate(src2)
+comp1 = compile_and_pack(src1)
+comp2 = compile_and_pack(src2)
 
 for i in comp1.compiled_objects:
     print(i.pretty_print())

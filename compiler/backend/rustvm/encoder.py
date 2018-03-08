@@ -60,6 +60,7 @@ class IO(IntEnum):
 class HardwareRegister:
     """Reference to a named hardware register."""
     index: int
+    size = 8  # all hardware registers are just size 8
 
 
 @dataclass
@@ -112,11 +113,16 @@ class InstructionEncoder(metaclass=Emitter):
         """Encode an IR Instruction into a hardware instruction.
         Some instructions may expand into multiple hardware instructions so the result is an iterable.
         """
+        name = type(instr).__name__
 
-        if instr.__name__ not in cls.emitters:
-            raise InternalCompileException(f"Missing encoder for instruction {instr.__name__}")
+        if name in ("JumpTarget",):  # leave in jump targets
+            yield instr
+            return
 
-        return cls.emitters[instr.__name__](instr)
+        if name not in cls.emitters:
+            raise InternalCompileException(f"Missing encoder for instruction {name}")
+
+        yield from cls.emitters[name](instr)
 
     @emits("Mov")
     def emit_mov(cls, instr: ir_object.Mov):
@@ -127,7 +133,7 @@ class InstructionEncoder(metaclass=Emitter):
         )
 
     @emits("Unary")
-    def emit_unart(cls, instr: ir_object.Unary):
+    def emit_unary(cls, instr: ir_object.Unary):
 
         hwin = getattr(UnaryInstructions, instr.op)
 
@@ -193,7 +199,7 @@ class InstructionEncoder(metaclass=Emitter):
         yield HardWareInstruction(
             Manip.mov,
             instr.arg.size,
-            (HardwareRegister.ret, instr.arg)
+            (SpecificRegisters.ret, instr.arg)
         )
 
         yield HardWareInstruction(
@@ -222,7 +228,7 @@ class InstructionEncoder(metaclass=Emitter):
         yield HardWareInstruction(
             Manip.mov,
             instr.result.size,
-            (instr.result, HardwareRegister.ret)
+            (instr.result, SpecificRegisters.ret)
         )
 
     @emits("Jump")
@@ -239,13 +245,13 @@ class InstructionEncoder(metaclass=Emitter):
     def emit_resize(cls, instr: ir_object.Resize):
 
         # if source is signed, we emit signed resize
-        instr = Manip.sxi if instr.from_.sign else Manip.sxu
+        hwin = Manip.sxi if instr.from_.sign else Manip.sxu
 
         # instruction size is size of 'from_' param
         # instruction size parameter is size of 'to' param
 
         yield HardWareInstruction(
-            instr,
+            hwin,
             instr.from_.size,
             (instr.from_, instr.to.size, instr.to)
         )

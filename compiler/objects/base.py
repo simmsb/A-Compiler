@@ -114,7 +114,7 @@ class Scope(StatementObject, IdentifierScope):
         self._vars: Dict[str, Variable] = {}
         self.size = 0
         self.body = ast.body
-        self.regsaves = []
+        self.used_hw_regs = []
 
     @property
     def vars(self) -> Dict[str, Variable]:
@@ -145,14 +145,6 @@ class Scope(StatementObject, IdentifierScope):
                 f"spill-var-{i}",
                 types.Int.fromsize(8)
             )
-
-    def add_reg_save_var(self, n: int):
-        """Insert register save variable."""
-        self.regsaves.append(n)
-        return self.declare_variable(
-            f"reg-save-var-{n}",
-            types.Int.fromsize(8)
-        )
 
 
 class FunctionDecl(Scope):
@@ -196,7 +188,8 @@ class FunctionDecl(Scope):
 
     @with_ctx
     async def compile(self, ctx: 'CompileContext'):
-        ctx.make_variable(self.name, self.type, self)
+        var = ctx.compiler.make_variable(self.name, self.type, self)
+        var.global_offset = DataReference(self.identifier)  # set to our name
         await super().compile(ctx)
 
 
