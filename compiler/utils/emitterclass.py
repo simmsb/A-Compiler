@@ -25,7 +25,7 @@ class Emitter(type):
         for attr in dir(klass):
             obj = getattr(klass, attr)
             if hasattr(obj, "emitter_for"):
-                emitters[attr] = obj
+                emitters[obj.emitter_for] = obj
 
         klass.emitters = emitters
 

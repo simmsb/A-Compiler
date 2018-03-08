@@ -272,7 +272,7 @@ class PostIncrementOp(ExpressionObject):
         size = await self.size
         res, temp = ctx.get_register(size), ctx.get_register(size)
         ctx.emit(Mov(res, Dereference(ptr)))
-        ctx.emit(Binary(res, Immediate(1, size), self.op[0], temp))
+        ctx.emit(Binary(res, Immediate(1, size), self.op, temp))
         ctx.emit(Mov(Dereference(ptr), temp))
         return res
 

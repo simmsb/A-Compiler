@@ -4,7 +4,7 @@ from typing import Tuple, List, Dict, Union, Optional, Iterable, Any
 from compiler.backend.rustvm.desugar import DesugarIR_Pre, DesugarIR_Post
 from compiler.backend.rustvm import encoder
 from compiler.backend.rustvm.register_allocate import allocate, Spill, Load
-from compiler.objects.base import FunctionDecl, StatementObject, Compiler, CompileContext
+from compiler.objects.base import FunctionDecl, StatementObject, Compiler, CompileContext, Scope
 from compiler.objects.astnode import BaseObject
 from compiler.objects.errors import InternalCompileException
 from compiler.objects.variable import Variable, DataReference
@@ -22,7 +22,7 @@ def group_fns_toplevel(code: List[StatementObject]) -> Tuple[List[FunctionDecl],
 
 
 def allocate_code(compiler: Compiler, reg_count) -> Tuple[List[FunctionDecl],
-                                                                  List[StatementObject]]:
+                                                          List[StatementObject]]:
     """Allocates registers for toplevel and function level blocks."""
 
     functions, toplevel = group_fns_toplevel(compiler.compiled_objects)
@@ -45,9 +45,9 @@ def allocate_code(compiler: Compiler, reg_count) -> Tuple[List[FunctionDecl],
 def process_toplevel(compiler: Compiler, code: List[StatementObject]) -> List[ir_object.IRObject]:
     """Inserts scope around the toplevel assignment code."""
     return [
-        ir_object.Binary.add(encoder.SpecificRegisters.stk, ir_object.Immediate(compiler.spill_size)),
+        ir_object.Binary.add(encoder.SpecificRegisters.stk, ir_object.Immediate(compiler.spill_size, 8)),
         *chain.from_iterable(i.code for i in code),
-        ir_object.Binary.sub(encoder.SpecificRegisters.stk, ir_object.Immediate(compiler.spill_size))
+        ir_object.Binary.sub(encoder.SpecificRegisters.stk, ir_object.Immediate(compiler.spill_size, 8))
     ]
 
 
@@ -78,11 +78,11 @@ def process_instruction(indexes: Dict[str, int],
 
     :returns: The instruction processed. Jump targets return None."""
     if isinstance(instr, encoder.HardWareInstruction):
-        return instr.size
+        return instr
 
     elif isinstance(instr, ir_object.JumpTarget):
         indexes[instr.identifier] = size
-        return 0
+        return None
 
     raise InternalCompileException("Content of code that was not a hardware instruction or jump point")
 
@@ -91,8 +91,8 @@ InstrOrTarget = Union[encoder.HardWareInstruction, ir_object.JumpTarget]
 
 
 def package_objects(compiler: Compiler,
-                    fns: Iterable[Tuple[str, InstrOrTarget]],
-                    toplevel: Iterable[InstrOrTarget]) -> Tuple[Dict[str, int], Any]:  # TODO: add correct type to this
+                    fns: List[Tuple[str, InstrOrTarget]],
+                    toplevel: List[InstrOrTarget]) -> Tuple[Dict[str, int], Any]:  # TODO: add correct type to this
     """Packages objects into the binary, making multiple passes to resolve arguments
 
     All IR instructions should have been moved into HardWareInstructions by this point.
@@ -108,7 +108,7 @@ def package_objects(compiler: Compiler,
     size = 0
     indexes = {}  # CLEANUP: factor out state variables maybe?
 
-    pre_instr = encoder.HardWareInstruction(encoder.stks, [0])
+    pre_instr = encoder.HardWareInstruction(encoder.Mem.stks, 2, [ir_object.Immediate(0, 2)])
     packaged.append(pre_instr) # this will be filled at the end of allocating sizes
     size += pre_instr.size
 
@@ -232,20 +232,23 @@ def insert_register_stores(fn: FunctionDecl):
     # fn.code[:] = pre_instructions + fn.code + post_instructions
 
 
-def process_spill(ctx: CompileContext, instr: Union[Spill, Load]) -> ir_object.IRObject:
+def process_spill(scope: Scope, instr: Union[Spill, Load]) -> ir_object.IRObject:
     """Process spill instructions, emits LoadVar and SaveVar
     instructions so these need to be passed through the second stage desugar beforehand.
     """
+
+    assert isinstance(instr, (Spill, Load))
+
     if isinstance(instr, Spill):
         ctor = ir_object.LoadVar
     else:
         ctor = ir_object.SaveVar
 
-    var = ctx.vars[f"spill-var-{instr.index}"]
+    var = scope.vars[f"spill-var-{instr.index}"]
     return ctor(
         var,
         ir_object.AllocatedRegister(
-            8, False, instr.reg,
+            8, False, instr.reg
         )
     )
 
@@ -257,15 +260,16 @@ def extract_spill_process(obj: BaseObject):
 
     replacement = []
     for c in obj.context.code:
-        spills = (process_spill(obj.context, i) for i in c.pre_instructions)
+        spills = (process_spill(obj, i) for i in c.pre_instructions)
         replacement.extend(spills)
         replacement.append(c)
     obj.context.code[:] = replacement
 
 
-def encode_instructions(instrs: List[ir_object.IRObject]) -> Iterable[encoder.HardWareInstruction]:
+def encode_instructions(instrs: List[ir_object.IRObject]) -> List[encoder.HardWareInstruction]:
     """Encode a list of ir_object instructions into hardware instructions."""
-    return chain.from_iterable(map(encoder.InstructionEncoder.encode_instr, instrs))
+    print(instrs)
+    return list(chain.from_iterable(map(encoder.InstructionEncoder.encode_instr, instrs)))
 
 def process_code(compiler: Compiler, reg_count) -> Tuple[Dict[str, int], Any]:
     """Process the IR for a program ready to be emitted.
@@ -291,7 +295,7 @@ def process_code(compiler: Compiler, reg_count) -> Tuple[Dict[str, int], Any]:
 
     # NOTE: This mutates the objects contained in 'functions' and 'toplevel' on the line above
     for o in compiler.compiled_objects:
-        extract_spill_process(o)
+        extract_spill_process(o)  # TODO: this cannot use SaveVar or LoadVar instructions. Instead we should use: (Push, load index, pop)
         DesugarIR_Post.desugar(o)
 
     toplevel_instructions = process_toplevel(compiler, toplevel)
@@ -300,8 +304,10 @@ def process_code(compiler: Compiler, reg_count) -> Tuple[Dict[str, int], Any]:
 
     encoded_functions = [(i.identifier, encode_instructions(i.code)) for i in functions]
 
+    print(encoded_functions)
+
     encoded_toplevel.extend([
-        encoder.HardWareInstruction(encoder.call, [DataReference("main")])
+        encoder.HardWareInstruction(encoder.Mem.call, 2, [DataReference("main")])
     ])
 
     return package_objects(compiler, encoded_functions, encoded_toplevel)

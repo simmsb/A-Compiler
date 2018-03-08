@@ -120,6 +120,11 @@ class Scope(StatementObject, IdentifierScope):
     def vars(self) -> Dict[str, Variable]:
         return self._vars
 
+    @property
+    def scope_size(self) -> int:
+        """The scope size to use, doesn't include saved registers."""
+        return self.size - len(self.regsaves) * 8
+
     @with_ctx
     async def compile(self, ctx: 'CompileContext'):
         with ctx.scope(self):
@@ -196,7 +201,8 @@ class FunctionDecl(Scope):
 
     @with_ctx
     async def compile(self, ctx: 'CompileContext'):
-        ctx.make_variable(self.name, self.type, self)
+        var = ctx.compiler.make_variable(self.name, self.type, self)
+        var.global_offset = DataReference(self.identifier)  # set to our name
         await super().compile(ctx)
 
 
