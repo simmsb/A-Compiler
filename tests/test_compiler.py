@@ -5,8 +5,9 @@ from pytest import raises
 from tests.helpers import emptyfn, for_feature
 
 
-def compile(inp):
+def compile(inp: str):
     # when testing we want debug mode to be on
+    inp += "fn main() {}"  # add an empty main function
     return compile_and_pack(inp, debug=True)
 
 
@@ -44,7 +45,7 @@ def test_var_multiple_different_newscope():
 def test_var_multiple_different():
     """Test that multiple declarations of a variable with different types is invalid."""
     decl = ("var a:u4;"
-            "var a:s1")
+            "var a:s1;")
     with raises(CompileException):
         compile(decl)
 
@@ -276,7 +277,7 @@ def test_function_call():
     decl = ("fn a(b: u1, c: *u2) -> u2 {"
             "    return c[b];"
             "}"
-            "fn main() -> u1 {"
+            "fn afn() -> u1 {"
             "    a(1, 2::*u2);"
             "}")
     compile(decl)
@@ -288,7 +289,7 @@ def test_function_call_fail_count():
     decl = ("fn a(b: u1, c: *u2) -> u2 {"
             "    return c[b];"
             "}"
-            "fn main() -> u1 {"
+            "fn afn() -> u1 {"
             "    a(1);"
             "}")
     with raises(CompileException):
@@ -301,7 +302,7 @@ def test_function_call_fail_type():
     decl = ("fn a(b: u1, c: *u2) -> u2 {"
             "    return c[b];"
             "}"
-            "fn main() -> u1 {"
+            "fn afn() -> u1 {"
             "    a(0::*u1, 1);"
             "}")
     with raises(CompileException):

@@ -42,12 +42,12 @@ class DesugarIR_Post(Desugarer):
     def emit_prelude(cls, ctx: CompileContext, pre: ir_object.Prelude):  # pylint: disable=unused-argument
         # vm enters function with base pointer and stack pointer equal
         yield ir_object.Binary.add(encoder.SpecificRegisters.stk, ir_object.Immediate(pre.scope.size, 8))
-        for reg in pre.scope.regsaves:
+        for reg in pre.scope.used_hw_regs:
             yield ir_object.Push(ir_object.AllocatedRegister(8, False, reg))
 
     @emits("Epilog")
     def emit_epilog(cls, ctx: CompileContext, epi: ir_object.Epilog):  # pylint: disable=unused-argument
-        for reg in reversed(epi.scope.regsaves):
+        for reg in reversed(epi.scope.used_hw_regs):
             yield ir_object.Pop(ir_object.AllocatedRegister(8, False, reg))
         yield ir_object.Binary.sub(encoder.SpecificRegisters.stk, ir_object.Immediate(epi.scope.size, 8))
 

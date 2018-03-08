@@ -216,60 +216,78 @@ def insert_register_stores(fn: FunctionDecl):
 
     # Add vars here but dont actually insert instructions to save/restore
     # instead this will happen when prelude/ epilog are desugared
-    for i in touched_regs:
-        fn.add_reg_save_var(i)
 
-    # pre_instructions = [
-    #     ir_object.SaveVar(var, ir_object.AllocatedRegister(reg))
-    #     for (reg, var) in vars
-    # ]
-
-    # post_instructions = [
-    #     ir_object.LoadVar(var, ir_object.AllocatedRegister(reg))
-    #     for (reg, var) in vars
-    # ]
-
-    # fn.code[:] = pre_instructions + fn.code + post_instructions
+    fn.used_hw_regs = list(touched_regs)
 
 
-def process_spill(scope: Scope, instr: Union[Spill, Load]) -> ir_object.IRObject:
-    """Process spill instructions, emits LoadVar and SaveVar
-    instructions so these need to be passed through the second stage desugar beforehand.
-    """
+def process_spill(scope: Scope, instr: Union[Spill, Load]) -> Iterable[encoder.HardWareInstruction]:
+    """Process spill instructions."""
+
+    # Spill:
+    # Push current value
+    # load index of location to spill
+    # Pop into location
+    #
+    # Load:
+    # load index of location to load
+    # dereference into register
 
     assert isinstance(instr, (Spill, Load))
 
-    if isinstance(instr, Spill):
-        ctor = ir_object.LoadVar
-    else:
-        ctor = ir_object.SaveVar
+    reg_s8 = ir_object.AllocatedRegister(8, False, instr.reg)
+    reg_s2 = ir_object.AllocatedRegister(2, False, instr.reg)
 
-    var = scope.vars[f"spill-var-{instr.index}"]
-    return ctor(
-        var,
-        ir_object.AllocatedRegister(
-            8, False, instr.reg
+    if isinstance(instr, Spill):
+        yield encoder.HardWareInstruction(
+            encoder.Mem.push,
+            8,
+            (reg_s8,)
         )
+
+    yield encoder.HardWareInstruction(
+        encoder.Manip.mov,
+        2,
+        (reg_s2,
+        encoder.SpecificRegisters.bas)
     )
 
+    var = scope.lookup_variable(f"spill-var-{instr.index}")
+    assert var is not None
 
-def extract_spill_process(obj: BaseObject):
-    """Extract the spill instructions for a context.
-    the code body of the context is edited in place.
+    yield encoder.HardWareInstruction(
+        encoder.BinaryInstructions.add,
+        2,
+        (reg_s2, ir_object.Immediate(var.stack_offset, 2), reg_s2)
+    )
+
+    if isinstance(instr, Spill):
+        yield encoder.HardWareInstruction(
+            encoder.Mem.pop,
+            8,
+            (ir_object.Dereference(reg_s2),)
+        )
+    else:
+        yield encoder.HardWareInstruction(
+            encoder.Manip.mov,
+            8,
+            (reg_s8, ir_object.Dereference(reg_s2))
+        )
+
+
+def encode_instructions(obj: Scope, instrs: List[ir_object.IRObject]) -> List[encoder.HardWareInstruction]:
+    """Encode a list of ir_object instructions into hardware instructions.
+    This also pulls out loads and spills from instructions.
     """
 
-    replacement = []
-    for c in obj.context.code:
-        spills = (process_spill(obj, i) for i in c.pre_instructions)
-        replacement.extend(spills)
-        replacement.append(c)
-    obj.context.code[:] = replacement
+    encoded = []
 
+    for i in instrs:
+        spills = chain.from_iterable(process_spill(obj, x) for x in i.pre_instructions)
+        encoded.extend(spills)
+        encoded.extend(encoder.InstructionEncoder.encode_instr(i))
 
-def encode_instructions(instrs: List[ir_object.IRObject]) -> List[encoder.HardWareInstruction]:
-    """Encode a list of ir_object instructions into hardware instructions."""
-    print(instrs)
-    return list(chain.from_iterable(map(encoder.InstructionEncoder.encode_instr, instrs)))
+    return encoded
+
 
 def process_code(compiler: Compiler, reg_count) -> Tuple[Dict[str, int], Any]:
     """Process the IR for a program ready to be emitted.
@@ -295,16 +313,13 @@ def process_code(compiler: Compiler, reg_count) -> Tuple[Dict[str, int], Any]:
 
     # NOTE: This mutates the objects contained in 'functions' and 'toplevel' on the line above
     for o in compiler.compiled_objects:
-        extract_spill_process(o)  # TODO: this cannot use SaveVar or LoadVar instructions. Instead we should use: (Push, load index, pop)
         DesugarIR_Post.desugar(o)
 
     toplevel_instructions = process_toplevel(compiler, toplevel)
 
-    encoded_toplevel = encode_instructions(toplevel_instructions)
+    encoded_toplevel = encode_instructions(compiler, toplevel_instructions)
 
-    encoded_functions = [(i.identifier, encode_instructions(i.code)) for i in functions]
-
-    print(encoded_functions)
+    encoded_functions = [(i.identifier, encode_instructions(i, i.code)) for i in functions]
 
     encoded_toplevel.extend([
         encoder.HardWareInstruction(encoder.Mem.call, 2, [DataReference("main")])
