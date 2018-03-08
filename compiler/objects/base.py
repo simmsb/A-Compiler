@@ -191,6 +191,8 @@ class FunctionDecl(Scope):
         var = ctx.compiler.make_variable(self.name, self.type, self)
         var.global_offset = DataReference(self.identifier)  # set to our name
         await super().compile(ctx)
+        # TODO: void functions should get a return
+        # TODO: support return statements with no expression
 
 
 class Compiler(IdentifierScope):
