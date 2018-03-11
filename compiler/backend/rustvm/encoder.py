@@ -56,19 +56,21 @@ class IO(IntEnum):
 # Why have this? because we need to distinguish from allocated free-use registers
 # and other registers (stack pointer, base pointer, current-instruction pointer, etc)
 
-@dataclass
+@dataclass(frozen=True)
 class HardwareRegister:
     """Reference to a named hardware register."""
     index: int
     size = 8  # all hardware registers are just size 8
 
 
-@dataclass
+@dataclass(frozen=True)
 class HardwareMemoryLocation:
     index: int
 
 
 class SpecificRegisters:
+    free_reg_offset = 3
+
     (stk, bas, cur, ret) = map(HardwareRegister, range(4))
 
 
@@ -91,19 +93,19 @@ class HardWareInstruction:
         # TODO: confirm this works
         return 2 * (1 + len(self.args))
 
-def pack_instruction(instr, size: int):
-    value = size << 14 | instr.group << 8 | instr
-    return value & 0xffff
+
+def pack_instruction(instr: HardWareInstruction) -> bytes:
+    """Pack an instruction into bytes."""
+    idx = instr.instr
+    value = instr.size << 14 | idx.group << 8 | idx
+    return (value & 0xffff).to_bytes(2, byteorder="little")
 
 
-def encodes(name: str):
-    """Decorator that marks a function for what IR it will encode.
-    Also marks as a static method.
-    """
-    def deco(fn):
-        fn.encoder_for = name
-        return staticmethod(fn)
-    return deco
+def pack_param(param: int, reg: bool=False, deref: bool=False) -> bytes:
+    """Packs a single parameter into bytes."""
+    if param < 0:
+        param = 0xffff + param + 1
+    return (param | reg << 15 | deref << 14).to_bytes(2, byteorder="little")
 
 
 class InstructionEncoder(metaclass=Emitter):

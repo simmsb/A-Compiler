@@ -163,32 +163,31 @@ def package_objects(compiler: Compiler,
         for obj in packaged:
 
             if isinstance(obj, encoder.HardWareInstruction):
-                for position, arg in enumerate(instr.args):
+                args = list(obj.args)  # create list from args to allow us to mutate indexes
+                for position, arg in enumerate(args):
                     # resolve data reference
+                    # we dont need to process dereferences as they can only be applied to registers or immediates
                     if isinstance(arg, ir_object.DataReference):
                         visited = True
                         if arg.name in indexes:  # replace reference to actual location
                             replaced = True
-                            instr.args[position] = encoder.HardwareMemoryLocation(indexes[arg.name])
+                            args[position] = encoder.HardwareMemoryLocation(indexes[arg.name])
 
                     # resolve jump target
                     if isinstance(arg, ir_object.JumpTarget):
                         visited = True
                         if arg.identifier in indexes:
                             replaced = True
-                            instr.args[position] = encoder.HardwareMemoryLocation(indexes[arg.identifier])
+                            args[position] = encoder.HardwareMemoryLocation(indexes[arg.identifier])
+                obj.args = tuple(args)
 
             if isinstance(obj, list):
-                replacement = []
-                for elem in obj:
+                for index, elem in enumerate(obj):
                     if isinstance(elem, Variable):
                         visited = True
                         if elem.name in indexes:
                             replaced = True
-                            replacement.append(indexes[elem.name])
-                    else:
-                        replacement.append(elem)
-                obj[:] = replacement
+                            obj[index] = encoder.HardwareMemoryLocation(indexes[elem.name])
 
         if visited and not replaced:
             # FEATURE: keep track of what we're missing and display it
@@ -197,7 +196,7 @@ def package_objects(compiler: Compiler,
         if not replaced:
             break
 
-    return indexes
+    return indexes, packaged
 
 
 def insert_register_stores(fn: FunctionDecl):
@@ -335,3 +334,49 @@ def process_code(compiler: Compiler, reg_count) -> Tuple[Dict[str, int], Any]:
     # 4. package everything  🗹
     # 5. spit it out
     #
+
+
+def assemble_single(obj: Any) -> bytes:
+    if isinstance(obj, bytes):
+        return obj
+
+    if isinstance(obj, list):
+        return b"".join(map(assemble_single, obj))
+
+    if isinstance(obj, encoder.HardwareMemoryLocation):
+        return encoder.pack_param(obj.index)
+
+    if isinstance(obj, ir_object.Dereference):
+        if isinstance(obj.to, ir_object.Immediate):
+            return encoder.pack_param(obj.to.val, deref=True)
+
+        if isinstance(obj.to, (ir_object.Register, ir_object.AllocatedRegister)):
+            return encoder.pack_param(obj.to.physical_register + encoder.SpecificRegisters.free_reg_offset, deref=True, reg=True)
+
+    if isinstance(obj, ir_object.Immediate):
+        return encoder.pack_param(obj.val)
+
+    if isinstance(obj, (ir_object.Register, ir_object.AllocatedRegister)):
+        return encoder.pack_param(obj.physical_register + encoder.SpecificRegisters.free_reg_offset, reg=True)
+
+    if isinstance(obj, encoder.HardwareRegister):
+        return encoder.pack_param(obj.index, reg=True)
+
+    if isinstance(obj, int):
+        return encoder.pack_param(obj)
+
+    raise InternalCompileException(f"Could not assemble object: {obj} of type: {type(obj)}")
+
+
+def assemble_instructions(packed_instructions: List[Any]) -> bytearray:
+    assembled = bytearray()
+
+    for i in packed_instructions:
+        if isinstance(i, encoder.HardWareInstruction):
+            assembled.extend(encoder.pack_instruction(i))
+            for arg in i.args:
+                assembled.extend(assemble_single(arg))
+        else:
+            assembled.extend(assemble_single(i))
+
+    return assembled

@@ -89,7 +89,7 @@ class DesugarIR_Pre(Desugarer):
             # load offset off of the base pointer
             yield ir_object.Binary.add(temp_reg, ir_object.Immediate(var.stack_offset, temp_reg.size))
         elif var.global_offset is not None:
-            yield ir_object.Mov(temp_reg, DataReference(var.global_offset))
+            yield ir_object.Mov(temp_reg, var.global_offset)
         else:
             raise InternalCompileException(f"Variable had no stack or global offset: {var}")
 

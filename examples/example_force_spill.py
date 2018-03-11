@@ -1,4 +1,4 @@
-from compiler.backend.rustvm import compile_and_pack
+from compiler.backend.rustvm import compile_and_pack, assemble
 
 src1 = (
     """
@@ -21,6 +21,8 @@ src1 = (
         }
         return b;
     }
+
+    fn main() {}
     """)
 
 
@@ -36,16 +38,21 @@ src2 = (
         }
         return to[4];
     }
+
+    fn main() {}
     """
 )
 
-comp1 = compile_and_pack(src1)
-comp2 = compile_and_pack(src2)
+(offset1, code1), compiler1 = compile_and_pack(src1)
+(offset2, code2), compiler2 = compile_and_pack(src2)
 
-for i in comp1.compiled_objects:
+print(assemble.assemble_instructions(code1))
+print(assemble.assemble_instructions(code2))
+
+for i in compiler1.compiled_objects:
     print(i.pretty_print())
     print("\n\n\n\n")
 
-for i in comp2.compiled_objects:
+for i in compiler2.compiled_objects:
     print(i.pretty_print())
     print("\n\n\n\n")

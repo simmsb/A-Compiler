@@ -6,7 +6,7 @@ from compiler.objects import ir_object
 from compiler.objects.ir_object import Register
 
 
-@dataclass
+@dataclass(frozen=True)
 class Spill:
     """Spill a register to a location.
 
@@ -18,7 +18,7 @@ class Spill:
     index: int
 
 
-@dataclass
+@dataclass(frozen=True)
 class Load:
     """Recover a spilled register.
 

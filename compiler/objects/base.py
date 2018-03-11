@@ -234,10 +234,9 @@ class Compiler(IdentifierScope):
         raises if variable is redeclared to a different type than the already existing var.
         """
         var = self.make_variable(name, typ)
-        unique_name = f"global-var-{name}"
         self.vars[vars] = var
-        var.global_offset = DataReference(unique_name)
-        self.identifiers[unique_name] = len(self.data)
+        var.global_offset = DataReference(name)
+        self.identifiers[name] = len(self.data)
         self.data.append(bytes((0,) * typ.size))
         return var
 
