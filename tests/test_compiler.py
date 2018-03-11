@@ -35,7 +35,8 @@ def test_var_multiple_same():
 
 @for_feature(variables="Variables")
 def test_var_multiple_different_newscope():
-    """Test that multiple declarations of a variable with the same type is valid."""
+    """Test that declarations of a variable with the same name as an existing
+    variable of a different type in an enclosing type is valid."""
     decl = emptyfn("var a:u4;"
                    "{ var a:*u4; }")
     compile(decl)

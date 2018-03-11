@@ -61,8 +61,10 @@ class DesugarIR_Pre(Desugarer):
     @emits("LoadVar")
     def emit_loadvar(cls, ctx: CompileContext, load: ir_object.LoadVar):  # pylint: disable=unused-argument
         var = load.variable
-        dest = load.to
+
+        # we need an extra register to store the temporary address
         temp_reg = ctx.get_register(2)
+
         if var.stack_offset is not None:  # load from a stack address
             yield ir_object.Mov(temp_reg, encoder.SpecificRegisters.bas)  # grab base pointer
             # load offset off of the base pointer
@@ -73,9 +75,9 @@ class DesugarIR_Pre(Desugarer):
             raise InternalCompileException(f"Variable had no stack or global offset: {var}")
 
         if not load.lvalue:  # dereference if not lvalue load, otherwise load the memory location
-            yield ir_object.Mov(dest, ir_object.Dereference(temp_reg))
+            yield ir_object.Mov(load.to, ir_object.Dereference(temp_reg))
         else:
-            yield ir_object.Mov(dest, temp_reg)
+            yield ir_object.Mov(load.to, temp_reg)
 
     @emits("SaveVar")
     def emit_savevar(cls, ctx: CompileContext, save: ir_object.SaveVar):
