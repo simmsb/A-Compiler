@@ -6,6 +6,35 @@ from compiler.objects import ir_object
 from compiler.objects.ir_object import Register
 
 
+@dataclass
+class ListView:
+    """Provides a view into a section of a list."""
+
+    lst: List[Any]
+    slc: slice
+
+    @dataclass
+    class ListViewBuilderProxy:
+
+        lst: List[Any]
+
+        def __getitem__(self, key):
+            return ListView(self.lst, key)
+
+    @classmethod
+    def from_list(cls, lst: List[Any]):
+        return cls.ListViewBuilderProxy(lst)
+
+    def __getitem__(self, key):
+        if not isinstance(key, int):
+            raise TypeError("ListView only accepts single indexes")
+
+        step = self.slc.step or 1
+        idx = self.slc.start + step * key
+
+        return self.lst[idx]
+
+
 @dataclass(frozen=True)
 class Spill:
     """Spill a register to a location.
