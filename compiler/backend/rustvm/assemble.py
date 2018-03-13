@@ -112,6 +112,19 @@ def package_objects(compiler: Compiler,
     packaged.append(pre_instr) # this will be filled at the end of allocating sizes
     size += pre_instr.size
 
+    # TODO: insert a jump here to the actual code that will then go after the
+    # data pieces inserted at the start of the program
+    #
+    # jump
+    # data0
+    # data1
+    # data2
+    # toplevel_prelude
+    # toplevel
+    # toplevel_prologue
+    # call_to_main
+    # ...
+
     # do a single pass to place everything in the output table
     for (ident, index) in compiler.identifiers.copy().items():
 

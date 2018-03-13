@@ -46,13 +46,15 @@ src2 = (
 (offset1, code1), compiler1 = compile_and_pack(src1)
 (offset2, code2), compiler2 = compile_and_pack(src2)
 
-print(assemble.assemble_instructions(code1))
-print(assemble.assemble_instructions(code2))
+assembled1 = assemble.assemble_instructions(code1)
+assembled2 = assemble.assemble_instructions(code2)
 
-for i in compiler1.compiled_objects:
-    print(i.pretty_print())
-    print("\n\n\n\n")
+print("rec:")
+for i in code1:
+    print(i)
 
-for i in compiler2.compiled_objects:
-    print(i.pretty_print())
-    print("\n\n\n\n")
+print("\n\n")
+
+print("derefme")
+for i in code2:
+    print(i)

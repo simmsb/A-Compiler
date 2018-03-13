@@ -1,4 +1,4 @@
-from compiler.backend.rustvm import compile_and_allocate
+from compiler.backend.rustvm import compile_and_pack, assemble
 
 decl = (
     "fn ap(y: u8, z: u8, testfn: (u8, u8) -> u8) -> u8 {"
@@ -10,9 +10,14 @@ decl = (
     "fn test() -> u1 {"
     "    ap(1, 2, mul);"
     "}"
+    "fn main() {}"
 )
 
-compiled = compile_and_allocate(decl)
-for i in compiled.compiled_objects:
-    print(i.identifier)
-    print(i.pretty_print())
+(offsets, code), compiler = compile_and_pack(decl)
+
+assembled = assemble.assemble_instructions(code)
+
+print(assembled)
+
+for i in code:
+    print(i)
