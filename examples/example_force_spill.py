@@ -1,3 +1,6 @@
+import sys
+sys.path.append("")  # lookup modules in the cwd
+
 from compiler.backend.rustvm import compile_and_pack, assemble
 
 src1 = (
