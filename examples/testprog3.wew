@@ -1,0 +1,8 @@
+fn main() {
+  var x : u2 = 0;
+  var mem := 1000::*u8;
+
+  while x++ < 10 {
+     *(mem + x) = x;
+  }
+}

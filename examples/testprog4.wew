@@ -1,0 +1,16 @@
+fn test(arr: *u8, len: u8) {
+  var i : u8 = 0;
+  while i++ < len {
+    arr[i] = multwo(arr[i]);
+  }
+}
+
+fn multwo(x: u8) -> u8 {
+  return x * 2;
+}
+
+fn main() {
+  var arr: [u8] = {0, 1, 2, 3, 4, 5, 6};
+
+  test(arr, 7);
+}
