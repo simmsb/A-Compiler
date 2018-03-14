@@ -108,11 +108,13 @@ def package_objects(compiler: Compiler,
     size = 0
     indexes = {}  # CLEANUP: factor out state variables maybe?
 
-    packaged.append(
-        encoder.HardWareInstruction(encoder.Manip.jmp, 2,
-                                    (ir_object.Immediate(1, 2),
-                                     ir_object.DataReference("toplevel-code")))
-    )
+    starting_jump = encoder.HardWareInstruction(encoder.Manip.jmp, 2,
+                                                (ir_object.Immediate(1, 2),
+                                                 ir_object.DataReference("toplevel-code")))
+
+    packaged.append(starting_jump)
+
+    size += starting_jump.code_size
 
     indexes["program-data"] = size
 
@@ -132,15 +134,15 @@ def package_objects(compiler: Compiler,
 
     indexes["toplevel-code"] = size
 
-    pre_instr = encoder.HardWareInstruction(encoder.Mem.stks, 2, (ir_object.Immediate(0, 2),))
+    pre_instr = encoder.HardWareInstruction(encoder.Mem.stks, 2, (None,))
     packaged.append(pre_instr) # this will be filled at the end of allocating sizes
-    size += pre_instr.size
+    size += pre_instr.code_size
 
     # add in startup code
     for i in toplevel:
         instr = process_instruction(indexes, size, i)
         if instr:
-            size += instr.size
+            size += instr.code_size
             packaged.append(instr)
 
 
@@ -150,9 +152,11 @@ def package_objects(compiler: Compiler,
         for i in code:
             instr = process_instruction(indexes, size, i)
             if instr:
-                size += instr.size
+                size += instr.code_size
                 packaged.append(instr)
 
+    # set stack position
+    pre_instr.args = (ir_object.Immediate(size + 2, 2),)
 
     # begin replacing identifiers
     while True:  # pylint: disable=too-many-nested-blocks;  no go away they're not that bad
@@ -329,7 +333,8 @@ def process_code(compiler: Compiler, reg_count) -> Tuple[Dict[str, int], Any]:
     encoded_functions = [(i.identifier, encode_instructions(i, i.code)) for i in functions]
 
     encoded_toplevel.extend([
-        encoder.HardWareInstruction(encoder.Mem.call, 2, [DataReference("main")])
+        encoder.HardWareInstruction(encoder.Mem.call, 2, (DataReference("main"),)),
+        encoder.HardWareInstruction(encoder.Manip.halt, 1, ())
     ])
 
     return package_objects(compiler, encoded_functions, encoded_toplevel)

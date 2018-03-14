@@ -11,7 +11,7 @@ from tatsu.ast import AST
 from compiler.objects import types
 from compiler.objects.astnode import BaseObject
 from compiler.objects.errors import CompileException
-from compiler.objects.ir_object import Epilog, IRObject, Prelude, Register
+from compiler.objects.ir_object import Epilog, IRObject, Prelude, Register, Return, Immediate
 from compiler.objects.variable import Variable, DataReference
 
 
@@ -191,7 +191,10 @@ class FunctionDecl(Scope):
         var = ctx.compiler.make_variable(self.name, self.type, self)
         var.global_offset = DataReference(self.identifier)  # set to our name
         await super().compile(ctx)
-        # TODO: void functions should get a return
+
+        if isinstance(self.type.returns, types.Void):
+            ctx.emit(Return(Immediate(0, 1)))
+
         # TODO: support return statements with no expression
 
 
