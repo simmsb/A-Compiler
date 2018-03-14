@@ -192,10 +192,10 @@ class FunctionCallOp(ExpressionObject):
         # check that the argument types are valid
         arg_types = [(i, (await i.type)) for i in self.args]
         for arg_n, (lhs_type, (rhs_obj, rhs_type)) in enumerate(zip(fun_typ.args, arg_types)):
-            if not lhs_type.implicitly_casts_to(rhs_type):
+            if not rhs_type.implicitly_casts_to(lhs_type):
                 raise rhs_obj.error(
-                    f"Argument {arg_n} to call {self.fun.identifier} was of "
-                    f"type {rhs_type} instead of expected {lhs_type}.")
+                    f"Argument {arg_n} to call '{self.fun.identifier}' was of "
+                    f"type {rhs_type} instead of expected {lhs_type} and cannot be casted.")
 
         params = []
         for arg, typ in zip(self.args, fun_typ.args):

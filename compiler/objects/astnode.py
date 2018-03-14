@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Tuple
 
 from compiler.utils.formatter import format_lines
 from compiler.objects.errors import CompileException, InternalCompileException
@@ -21,8 +21,7 @@ class BaseObject:
 
     @property
     def identifier(self) -> str:
-        info = self._info
-        return f"{info.line}:{info.pos}:{info.endpos}"
+        return self.matched_region
 
     @property
     def code(self):
@@ -31,8 +30,21 @@ class BaseObject:
         return self.context.code
 
     @property
-    def highlight_lines(self) -> str:
-        """Generate the error info line for this ast node."""
+    def matched_region(self) -> str:
+        startp, endp = self.get_text_positions()
+
+        source = [i.rstrip("\n") for i in self._info.text_lines()]
+        srclen = len(source)
+        if srclen == 1:
+            return source[0][startp:endp]
+
+        return "\n".join(
+            source[0][startp:],
+            *source[1:-1],
+            source[-1][:endp]
+        )
+
+    def get_text_positions(self) -> Tuple[int, int]:
         info = self._info
         startl, endl = info.line, info.endline
         startp, endp = info.pos, info.endpos
@@ -40,16 +52,22 @@ class BaseObject:
         source = info.buffer.get_lines()
         # startp and endp are offsets from the start
         # calculate their offsets from the line they are on.
-        startp = startp - sum(map(len, source[:startl])) + 1
+        startp = startp - sum(map(len, source[:startl]))
         endp -= sum(map(len, source[:endl]))
 
-        # strip newlines here (they are counted in startp and endp offsets)
-        source = [i.rstrip('\n') for i in source]
+        return startp, endp
+
+    @property
+    def highlight_lines(self) -> str:
+        """Generate the error info line for this ast node."""
+        startp, endp = self.get_text_positions()
+
+        source = [i.rstrip("\n") for i in self._info.text_lines()]
 
         def fmtr():
-            if startl == endl:
+            if len(source) == 1:
                 # start and end on same line, only need simple fmt
-                yield source[startl]
+                yield source[0]
                 if startp == endp:  # only emit single carat when the error is a single character
                     yield f"'^':>{startp}"
                 else:
@@ -57,17 +75,16 @@ class BaseObject:
                     separator = '-' * width
                     yield f"{'^':>{startp}}{separator}^"
             else:
-                width = (len(source[startl]) - startp)
+                width = (len(source[0]) - startp)
                 separator = '-' * width
-                yield source[startl]
+                yield source[0]
                 yield f"{'^':>{startp}}{separator}"
-                for i in source[startl + 1:endl]:
+                for i in source[1:-1]:
                     yield i
                     yield '-' * len(i)
                 width = endp - 1  # - len(source[endl])
                 separator = '-' * width
-                if endl < len(source):  # sometimes this is one more than the total number of lines
-                    yield source[endl]
+                yield source[-1]
                 yield f"{separator}^"
 
         return "\n".join(fmtr())

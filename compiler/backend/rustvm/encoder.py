@@ -98,6 +98,10 @@ def pack_instruction(instr: HardWareInstruction) -> bytes:
     """Pack an instruction into bytes."""
     idx = instr.instr
 
+    # FIXME: Some mov instruction is getting a size of zero
+    # if instr.size == 0:
+    #     print(f"INSTR ERR: {instr}")
+
     size = {
         1: 0,
         2: 1,

@@ -72,7 +72,7 @@ class VariableDecl(StatementObject):
                     res0 = res.resize(my_type.cellsize, my_type.to.signed)
                     ctx.emit(Resize(res, res0))
                     res = res0
-                ctx.emit(Mov(Dereference(ptr), res))
+                ctx.emit(Mov(Dereference(ptr, res.size), res))
                 ctx.emit(Binary.add(ptr, Immediate(
                     my_type.size,
                     Pointer(my_type).size)))
