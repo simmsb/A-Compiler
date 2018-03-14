@@ -1,6 +1,6 @@
 from typing import Union, Tuple, Iterable
 from enum import IntEnum
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from compiler.objects.ir_object import Register, Dereference, DataReference, JumpTarget
 from compiler.objects.errors import InternalCompileException
@@ -97,7 +97,15 @@ class HardWareInstruction:
 def pack_instruction(instr: HardWareInstruction) -> bytes:
     """Pack an instruction into bytes."""
     idx = instr.instr
-    value = instr.size << 14 | idx.group << 8 | idx
+
+    size = {
+        1: 0,
+        2: 1,
+        4: 2,
+        8: 3
+    }[instr.size]
+
+    value = (size << 14) | (idx.group << 8) | idx
     return (value & 0xffff).to_bytes(2, byteorder="little")
 
 
@@ -206,7 +214,7 @@ class InstructionEncoder(metaclass=Emitter):
 
         yield HardWareInstruction(
             Mem.ret,
-            0,  # unused
+            1,  # unused
             ()
         )
 
@@ -252,8 +260,15 @@ class InstructionEncoder(metaclass=Emitter):
         # instruction size is size of 'from_' param
         # instruction size parameter is size of 'to' param
 
+        size = {
+            1: 0,
+            2: 1,
+            4: 2,
+            8: 3
+        }[instr.to.size]
+
         yield HardWareInstruction(
             hwin,
             instr.from_.size,
-            (instr.from_, instr.to.size, instr.to)
+            (instr.from_, size, instr.to)
         )
