@@ -309,8 +309,8 @@ class Call(IRObject):
 @dataclass
 class Jumpable(IRObject):
 
-    jumps_from: List['Jumpable'] = field(default_factory=list, init=False)
-    jumps_to: List['Jumpable'] = field(default_factory=list, init=False)
+    jumps_from: List['Jumpable'] = field(default_factory=list, init=False, repr=False)
+    jumps_to: List['Jumpable'] = field(default_factory=list, init=False, repr=False)
 
     # none of these are used at the moment but if we add optimisations they will be needed
     def add_jump_to(self, from_: 'Jumpable'):
@@ -332,6 +332,9 @@ class JumpTarget(Jumpable):
     @property
     def identifier(self):
         return f"jump-target-{id(self)}"
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}(identifier={self.identifier})"
 
 
 @dataclass

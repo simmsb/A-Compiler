@@ -126,14 +126,23 @@ class IFStmt(StatementObject):
     @with_ctx
     async def compile(self, ctx: CompileContext):
         cond: Register = await self.cond.compile(ctx)
+
+        # if we have an else clause we rearrange to jump over that
+        # instead of inverting the condition to jump over the truth case
+        if self.else_:
+            body = self.else_
+            else_ = self.body
+        else:
+            body = self.else_
+
         end_jmp = JumpTarget()
         else_jmp = end_jmp if self.else_ is None else JumpTarget()
         ctx.emit(Jump(else_jmp, cond))
-        await self.body.compile(ctx)
+        await body.compile(ctx)
         if self.else_:  # if there is no else body, else_jmp = end_jmp so no need to emit anything but the end marker.
             ctx.emit(Jump(end_jmp))
             ctx.emit(else_jmp)
-            await self.else_.compile(ctx)
+            await else_.compile(ctx)
         ctx.emit(end_jmp)
 
 
