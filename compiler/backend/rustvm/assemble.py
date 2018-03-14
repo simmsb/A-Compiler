@@ -275,13 +275,13 @@ def process_spill(scope: Scope, instr: Union[Spill, Load]) -> Iterable[encoder.H
         yield encoder.HardWareInstruction(
             encoder.Mem.pop,
             8,
-            (ir_object.Dereference(reg_s2),)
+            (ir_object.Dereference(reg_s2, 8),)
         )
     else:
         yield encoder.HardWareInstruction(
             encoder.Manip.mov,
             8,
-            (reg_s8, ir_object.Dereference(reg_s2))
+            (reg_s8, ir_object.Dereference(reg_s2, 8))
         )
 
 

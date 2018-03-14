@@ -75,7 +75,7 @@ class DesugarIR_Pre(Desugarer):
             raise InternalCompileException(f"Variable had no stack or global offset: {var}")
 
         if not load.lvalue:  # dereference if not lvalue load, otherwise load the memory location
-            yield ir_object.Mov(load.to, ir_object.Dereference(temp_reg))
+            yield ir_object.Mov(load.to, ir_object.Dereference(temp_reg, load.to.size))
         else:
             yield ir_object.Mov(load.to, temp_reg)
 
@@ -96,7 +96,7 @@ class DesugarIR_Pre(Desugarer):
             raise InternalCompileException(f"Variable had no stack or global offset: {var}")
 
         # emit the dereference and store
-        yield ir_object.Mov(ir_object.Dereference(temp_reg), save.from_)
+        yield ir_object.Mov(ir_object.Dereference(temp_reg, save.from_.size), save.from_)
 
     @emits("Call")
     def emit_call(cls, ctx: CompileContext, call: ir_object.Call):  # pylint: disable=unused-argument

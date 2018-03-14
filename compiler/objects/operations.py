@@ -96,11 +96,18 @@ class PreincrementOP(ExpressionObject):
 
     @with_ctx
     async def compile(self, ctx: CompileContext) -> Register:
+        my_type = await self.type
+
         ptr: Register = (await self.load_lvalue(ctx))
         tmp = ctx.get_register((await self.size))
-        ctx.emit(Mov(tmp, Dereference(ptr)))
-        ctx.emit(Binary.add(tmp, Immediate(1, tmp.size)))
-        ctx.emit(Mov(Dereference(ptr), tmp))
+
+        value = 1
+        if isinstance(my_type, (types.Array, types.Pointer)):
+            value = my_type.to.size
+
+        ctx.emit(Mov(tmp, Dereference(ptr, tmp.size)))
+        ctx.emit(Binary.add(tmp, Immediate(value, tmp.size)))
+        ctx.emit(Mov(Dereference(ptr, tmp.size), tmp))
         return tmp
 
 
@@ -130,7 +137,7 @@ class DereferenceOP(ExpressionObject):
         ptr: Register = (await self.load_lvalue(ctx))
         assert isinstance(ptr, Register)
         reg = ctx.get_register((await self.size))
-        ctx.emit(Mov(reg, Dereference(ptr)))
+        ctx.emit(Mov(reg, Dereference(ptr, reg.size)))
         return reg
 
 
@@ -250,7 +257,7 @@ class ArrayIndexOp(ExpressionObject):
             ptr = ptr0
 
         res = ctx.get_register((await self.size))
-        ctx.emit(Mov(res, Dereference(ptr)))
+        ctx.emit(Mov(res, Dereference(ptr, res.size)))
         return res
 
 
@@ -268,12 +275,19 @@ class PostIncrementOp(ExpressionObject):
 
     @with_ctx
     async def compile(self, ctx: CompileContext) -> Register:
+        my_type = await self.type
+
         ptr: Register = (await self.arg.load_lvalue(ctx))
         size = await self.size
         res, temp = ctx.get_register(size), ctx.get_register(size)
-        ctx.emit(Mov(res, Dereference(ptr)))
-        ctx.emit(Binary(res, Immediate(1, size), self.op, temp))
-        ctx.emit(Mov(Dereference(ptr), temp))
+
+        value = 1
+        if isinstance(my_type, (types.Array, types.Pointer)):
+            value = my_type.to.size
+
+        ctx.emit(Mov(res, Dereference(ptr, res.size)))
+        ctx.emit(Binary(res, Immediate(value, size), self.op, temp))
+        ctx.emit(Mov(Dereference(ptr, temp.size), temp))
         return res
 
 
@@ -369,7 +383,9 @@ class BinAddOp(BinaryExpression):
         await self.resolve_types()
 
         if self.ret_type is types.Pointer:
-            ptr_side = self.left_type if isinstance(self.left_type, types.Pointer) else self.right_type
+            ptr_side = (self.left_type
+                        if isinstance(self.left_type, (types.Pointer, types.Array))
+                        else self.right_type)
             return ptr_side
         return types.Int.fromsize((await self.size))
 
@@ -381,7 +397,14 @@ class BinAddOp(BinaryExpression):
 
         op = {"+": "add",
               "-": "sub"}[self.op]
-        # TODO: If adding to a pointer, multiply the non-pointer side by the size of the type
+
+        if isinstance(await self.type, (types.Pointer, types.Array)):
+            (ptr_type, non_ptr) = ((self.left_type, rhs)
+                                   if isinstance(self.left_type, (types.Pointer, types.Array))
+                                   else (self.right_type, lhs))
+
+            ctx.emit(Binary.mul(non_ptr, Immediate(ptr_type.to.size, non_ptr.size)))
+
         ctx.emit(Binary(lhs, rhs, op, res))
         return res
 
@@ -542,7 +565,7 @@ class AssignOp(ExpressionObject):
             rhs_ = rhs.resize(lhs_size, lhs_sign)
             ctx.emit(Resize(rhs, rhs_))
             rhs = rhs_
-        ctx.emit(Mov(Dereference(lhs), rhs))
+        ctx.emit(Mov(Dereference(lhs, rhs.size), rhs))
         return rhs
 
 

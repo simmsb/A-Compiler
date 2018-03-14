@@ -7,7 +7,8 @@ from compiler.objects.base import (CompileContext, ExpressionObject,
                                    with_ctx)
 from compiler.objects.ir_object import (Binary, Dereference,
                                         Immediate, Jump, JumpTarget, LoadVar,
-                                        Mov, Register, Resize, Return, SaveVar)
+                                        Mov, Register, Resize, Return, SaveVar,
+                                        Compare, SetCmp, CompType)
 from compiler.objects.literals import ArrayLiteral
 from compiler.objects.types import Pointer, Type, Array, Function
 
@@ -159,6 +160,11 @@ class LoopStmt(StatementObject):
         end = JumpTarget()
         ctx.emit(test)
         cond: Register = await self.cond.compile(ctx)
+
+        ctx.emit(Compare(cond, Immediate(0, cond.size)))
+        cond = cond.resize(1)
+        ctx.emit(SetCmp(cond, CompType.neq))
+
         ctx.emit(Jump(end, cond))
         await self.body.compile(ctx)
         ctx.emit(Jump(test))

@@ -103,7 +103,7 @@ class Identifier(ExpressionObject):
         if isinstance(var.type, types.Array):
             return reg  # array type, value is the pointer
         reg0 = reg.resize(var.size, var.type.signed)
-        ctx.emit(Mov(reg0, Dereference(reg)))
+        ctx.emit(Mov(reg0, Dereference(reg, var.size)))
         return reg0
 
 

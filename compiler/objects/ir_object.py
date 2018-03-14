@@ -71,15 +71,11 @@ class Immediate:
 class Dereference:
 
     to: Union[Register, AllocatedRegister, Immediate]
+    size: int
 
     def __post_init__(self):
         if isinstance(self.to, Register):
             self.to = self.to.copy()
-        assert self.to.size == 2
-
-    @property
-    def size(self):
-        return self.to.size
 
     def __str__(self):
         return f"Dereference({self.to})"
