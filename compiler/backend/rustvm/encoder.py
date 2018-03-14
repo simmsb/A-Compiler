@@ -69,7 +69,7 @@ class HardwareMemoryLocation:
 
 
 class SpecificRegisters:
-    free_reg_offset = 3
+    free_reg_offset = 4
 
     (stk, bas, cur, ret) = map(HardwareRegister, range(4))
 
