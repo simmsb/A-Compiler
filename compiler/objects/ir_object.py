@@ -289,11 +289,11 @@ class Return(IRObject):
 
 @dataclass
 class Call(IRObject):
-    """Jump to location, push return address."""
+    """Call a procedure with arguments and possibly collect the result."""
 
     args: List[IRParam]
     jump: IRParam
-    result: IRParam
+    result: Optional[IRParam] = None
 
     @property
     def argsize(self):

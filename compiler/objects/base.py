@@ -126,10 +126,7 @@ class Scope(StatementObject, IdentifierScope):
             ctx.emit(Prelude(self))
             for i in self.body:
                 await i.compile(ctx)
-            ctx.emit(self.make_epilog())
-
-    def make_epilog(self) -> IRObject:
-        return Epilog(self)
+            ctx.emit(Epilog(self))
 
     def declare_variable(self, name: str, typ: types.Type) -> Variable:
         var = self.make_variable(name, typ)
@@ -188,14 +185,22 @@ class FunctionDecl(Scope):
 
     @with_ctx
     async def compile(self, ctx: 'CompileContext'):
-        var = ctx.compiler.make_variable(self.name, self.type, self)
-        var.global_offset = DataReference(self.identifier)  # set to our name
-        await super().compile(ctx)
+        with ctx.scope(self):
+            var = ctx.compiler.make_variable(self.name, self.type, self)
+            var.global_offset = DataReference(self.identifier)  # set to our name
+            var.lvalue_is_rvalue = True
 
-        if isinstance(self.type.returns, types.Void):
-            ctx.emit(Return(Immediate(0, 1)))
+            ctx.emit(Prelude(self))
+            for i in self.body:
+                await i.compile(ctx)
 
-        # TODO: support return statements with no expression
+            # functions dont have an epilog unless from void function implicit returns
+
+            if isinstance(self.type.returns, types.Void):
+                ctx.emit(Epilog(self))
+                ctx.emit(Return(Immediate(0, 1)))
+
+            # TODO: support return statements with no expression
 
 
 class Compiler(IdentifierScope):

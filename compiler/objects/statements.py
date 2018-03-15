@@ -8,7 +8,7 @@ from compiler.objects.base import (CompileContext, ExpressionObject,
 from compiler.objects.ir_object import (Binary, Dereference,
                                         Immediate, Jump, JumpTarget, LoadVar,
                                         Mov, Register, Resize, Return, SaveVar,
-                                        Compare, SetCmp, CompType)
+                                        Compare, SetCmp, CompType, Epilog)
 from compiler.objects.literals import ArrayLiteral
 from compiler.objects.types import Pointer, Type, Array, Function
 
@@ -62,10 +62,11 @@ class VariableDecl(StatementObject):
 
             # hold off declaring the variable here until we get our length information
             var = ctx.declare_variable(self.name, my_type)
+            var.lvalue_is_rvalue = True
 
             await self.val.check_types()
             ptr = ctx.get_register(Pointer(my_type.to).size)
-            ctx.emit(LoadVar(var, ptr, lvalue=True))
+            ctx.emit(LoadVar(var, ptr))
             for i in self.val.exprs:
                 res: Register = await i.compile(ctx)
                 if res.size != my_type.cellsize:
@@ -74,7 +75,7 @@ class VariableDecl(StatementObject):
                     res = res0
                 ctx.emit(Mov(Dereference(ptr, res.size), res))
                 ctx.emit(Binary.add(ptr, Immediate(
-                    my_type.size,
+                    my_type.cellsize,
                     Pointer(my_type).size)))
 
         elif isinstance(self.val, ExpressionObject):
@@ -108,7 +109,7 @@ class ReturnStmt(StatementObject):
 
         reg = await self.expr.compile(ctx)
         for i in reversed(ctx.scope_stack):
-            ctx.emit(i.make_epilog())
+            ctx.emit(Epilog(i))
         if reg.size != fn_type.returns.size:
             reg0 = reg.resize(fn_type.returns.size, fn_type.returns.signed)
             ctx.emit(Resize(reg, reg0))

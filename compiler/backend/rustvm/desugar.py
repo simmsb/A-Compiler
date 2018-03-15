@@ -1,7 +1,7 @@
 from typing import Iterable
 
 from compiler.backend.rustvm import encoder
-from compiler.objects import ir_object
+from compiler.objects import ir_object, types
 from compiler.objects.variable import DataReference
 from compiler.objects.base import StatementObject, CompileContext
 from compiler.objects.errors import InternalCompileException
@@ -62,6 +62,10 @@ class DesugarIR_Pre(Desugarer):
     def emit_loadvar(cls, ctx: CompileContext, load: ir_object.LoadVar):  # pylint: disable=unused-argument
         var = load.variable
 
+        if var.lvalue_is_rvalue and load.lvalue:
+            raise InternalCompileException(f"Variable: {var} is marked that it's rvalue "
+                                           "is it's lvalue and a lvalue load was requested.")
+
         # we need an extra register to store the temporary address
         temp_reg = ctx.get_register(2)
 
@@ -74,10 +78,12 @@ class DesugarIR_Pre(Desugarer):
         else:
             raise InternalCompileException(f"Variable had no stack or global offset: {var}")
 
-        if not load.lvalue:  # dereference if not lvalue load, otherwise load the memory location
-            yield ir_object.Mov(load.to, ir_object.Dereference(temp_reg, load.to.size))
-        else:
+
+        if var.lvalue_is_rvalue or load.lvalue:
             yield ir_object.Mov(load.to, temp_reg)
+        else:
+            yield ir_object.Mov(load.to, ir_object.Dereference(temp_reg, load.to.size))
+
 
     @emits("SaveVar")
     def emit_savevar(cls, ctx: CompileContext, save: ir_object.SaveVar):

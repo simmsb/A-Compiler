@@ -205,10 +205,15 @@ class FunctionCallOp(ExpressionObject):
                 ctx.emit(Resize(arg_reg, arg_reg0))
                 arg_reg = arg_reg0
             params.append(arg_reg)
-        fun: Register = (await self.fun.compile(ctx))
-        result_reg: Register = ctx.get_register((await self.size))
-        ctx.emit(Call(params, fun, result_reg))
-        return result_reg
+
+        fun: Register = await self.fun.compile(ctx)
+
+        if isinstance(fun_typ.returns, types.Void):
+            ctx.emit(Call(params, fun))
+        else:
+            result_reg = ctx.get_register((await self.size))
+            ctx.emit(Call(params, fun, result_reg))
+            return result_reg
 
 
 class ArrayIndexOp(ExpressionObject):

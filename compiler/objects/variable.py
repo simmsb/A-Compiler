@@ -23,6 +23,9 @@ class Variable:
     stack_offset: Optional[int] = None
     global_offset: Optional[DataReference] = None
 
+    #: are we a function or something where dereferencing doesn't make sense
+    lvalue_is_rvalue: Optional[bool] = False
+
     @property
     def size(self) -> int:
         return self.type.size

@@ -4,8 +4,7 @@ from compiler.objects import types
 from compiler.objects.base import (CompileContext, ExpressionObject,
                                    ObjectRequest, with_ctx)
 from compiler.objects.variable import Variable
-from compiler.objects.ir_object import (Dereference, Immediate, LoadVar, Mov,
-                                        Register)
+from compiler.objects.ir_object import Immediate, LoadVar, Mov, Register
 from typing import List, Tuple, Union, Optional, Coroutine
 
 from tatsu.ast import AST
@@ -86,25 +85,25 @@ class Identifier(ExpressionObject):
         return self.var.type
 
     @coroutine
-    def load_value(self, ctx: CompileContext) -> Coroutine[ObjectRequest, Variable, Tuple[Register, Variable]]:
+    def retrieve_variable(self) -> Coroutine[ObjectRequest, Variable, Tuple[Register, Variable]]:
         if self.var is None:
             self.var = yield ObjectRequest(self.name)
-        reg = ctx.get_register(types.Pointer(self.var.type).size)
-        ctx.emit(LoadVar(self.var, reg, lvalue=True))
-        return reg, self.var
+        return self.var
 
     async def load_lvalue(self, ctx: CompileContext) -> Register:
-        reg, _ = await self.load_value(ctx)
+        var = await self.retrieve_variable()
+
+        reg = ctx.get_register(types.Pointer(self.var.type).size)
+        ctx.emit(LoadVar(var, reg, lvalue=True))
         return reg
 
     @with_ctx
     async def compile(self, ctx: CompileContext) -> Register:
-        reg, var = await self.load_value(ctx)
-        if isinstance(var.type, types.Array):
-            return reg  # array type, value is the pointer
-        reg0 = reg.resize(var.size, var.type.signed)
-        ctx.emit(Mov(reg0, Dereference(reg, var.size)))
-        return reg0
+        var = await self.retrieve_variable()
+        reg = ctx.get_register(types.Pointer(self.var.type).size)
+
+        ctx.emit(LoadVar(var, reg))
+        return reg
 
 
 class ArrayLiteral(ExpressionObject):

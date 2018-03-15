@@ -98,10 +98,6 @@ def pack_instruction(instr: HardWareInstruction) -> bytes:
     """Pack an instruction into bytes."""
     idx = instr.instr
 
-    # FIXME: Some mov instruction is getting a size of zero
-    # if instr.size == 0:
-    #     print(f"INSTR ERR: {instr}")
-
     size = {
         1: 0,
         2: 1,
@@ -233,17 +229,19 @@ class InstructionEncoder(metaclass=Emitter):
 
         arg_len = ir_object.Immediate(instr.argsize, 8)
 
-        yield HardWareInstruction(
-            Manip.mov,
-            arg_len.size,  # just use full size
-            (arg_len,)
-        )
+        # move up the stack pointer to clear off the arguments
 
         yield HardWareInstruction(
-            Manip.mov,
-            instr.result.size,
-            (instr.result, SpecificRegisters.ret)
+            BinaryInstructions.sub,
+            arg_len.size,
+            (SpecificRegisters.stk, arg_len, SpecificRegisters.stk)
         )
+        if instr.result is not None:
+            yield HardWareInstruction(
+                Manip.mov,
+                instr.result.size,
+                (instr.result, SpecificRegisters.ret)
+            )
 
     @emits("Jump")
     def emit_jump(cls, instr: ir_object.Jump):
