@@ -108,13 +108,15 @@ class ReturnStmt(StatementObject):
             raise self.error(f"Return type '{expr_type}' cannot be casted to '{fn_type.returns}'.")
 
         reg = await self.expr.compile(ctx)
-        for i in reversed(ctx.scope_stack):
+
+        # all scopes but the function scope
+        for i in reversed(ctx.scope_stack[1:]):
             ctx.emit(Epilog(i))
         if reg.size != fn_type.returns.size:
             reg0 = reg.resize(fn_type.returns.size, fn_type.returns.signed)
             ctx.emit(Resize(reg, reg0))
             reg = reg0
-        ctx.emit(Return(reg))
+        ctx.emit(Return(ctx.top_function, reg))
 
 
 class IFStmt(StatementObject):

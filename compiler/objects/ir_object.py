@@ -282,6 +282,7 @@ class Return(IRObject):
     This should be placed after preludes to all scopes beforehand.
     """
 
+    scope: Any
     arg: Optional[IRParam] = None
 
     touched_regs = ("arg",)

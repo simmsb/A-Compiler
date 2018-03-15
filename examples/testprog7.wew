@@ -1,5 +1,6 @@
 fn main() {
-  var x := myfn(1);
+  var x := myfn(2);
+  *(1000::*u8) = x;
 }
 
 fn myfn(x: u1) -> u8 {

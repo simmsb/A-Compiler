@@ -1,0 +1,10 @@
+fn main() {
+  var x: u8;
+  write_pls(9, &x);
+
+  *(1000::*u8) = x;
+}
+
+fn write_pls(a: u2, aptr: *u8) {
+  *aptr = a;
+}

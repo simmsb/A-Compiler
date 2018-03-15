@@ -339,15 +339,6 @@ def process_code(compiler: Compiler, reg_count) -> Tuple[Dict[str, int], Any]:
 
     return package_objects(compiler, encoded_functions, encoded_toplevel)
 
-    # TODO: here
-    #
-    # 1. decode instructions and fetch out pre_instruction load/spills 🗹
-    # 2. transform load/spills into Mov's 🗹
-    # 3. !! at some point we need to add register saves/ stores to instructions 🗹
-    # 4. package everything  🗹
-    # 5. spit it out
-    #
-
 
 def assemble_single(obj: Any) -> bytes:
     if isinstance(obj, bytes):

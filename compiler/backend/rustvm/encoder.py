@@ -212,6 +212,19 @@ class InstructionEncoder(metaclass=Emitter):
             (SpecificRegisters.ret, instr.arg)
         )
 
+        for reg in reversed(instr.scope.used_hw_regs):
+            yield HardWareInstruction(
+                Mem.pop,
+                8,
+                (ir_object.AllocatedRegister(8, False, reg), )
+            )
+
+        yield HardWareInstruction(
+            BinaryInstructions.sub,
+            8,
+            (SpecificRegisters.stk, ir_object.Immediate(instr.scope.size, 8), SpecificRegisters.stk)
+        )
+
         yield HardWareInstruction(
             Mem.ret,
             1,  # unused

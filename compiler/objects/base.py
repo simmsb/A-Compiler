@@ -197,8 +197,7 @@ class FunctionDecl(Scope):
             # functions dont have an epilog unless from void function implicit returns
 
             if isinstance(self.type.returns, types.Void):
-                ctx.emit(Epilog(self))
-                ctx.emit(Return(Immediate(0, 1)))
+                ctx.emit(Return(self, Immediate(0, 1)))
 
             # TODO: support return statements with no expression
 
