@@ -111,9 +111,8 @@ def pack_instruction(instr: HardWareInstruction) -> bytes:
 
 def pack_param(param: int, reg: bool=False, deref: bool=False) -> bytes:
     """Packs a single parameter into bytes."""
-    if param < 0:
-        param = 0xffff + param + 1
-    return (param | reg << 15 | deref << 14).to_bytes(2, byteorder="little")
+    signed = param < 0
+    return (param | reg << 15 | deref << 14).to_bytes(2, byteorder="little", signed=signed)
 
 
 class InstructionEncoder(metaclass=Emitter):

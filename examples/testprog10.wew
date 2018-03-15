@@ -1,0 +1,9 @@
+fn retme(x: u8) -> u8 {
+  return x;
+}
+
+fn main() {
+  var y := 1234;
+
+  y = retme(1235);
+}

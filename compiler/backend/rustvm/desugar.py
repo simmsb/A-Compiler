@@ -72,7 +72,11 @@ class DesugarIR_Pre(Desugarer):
         if var.stack_offset is not None:  # load from a stack address
             yield ir_object.Mov(temp_reg, encoder.SpecificRegisters.bas)  # grab base pointer
             # load offset off of the base pointer
-            yield ir_object.Binary.add(temp_reg, ir_object.Immediate(var.stack_offset, temp_reg.size))
+            if var.stack_offset < 0:
+                instr = ir_object.Binary.sub
+            else:
+                instr = ir_object.Binary.add
+            yield instr(temp_reg, ir_object.Immediate(abs(var.stack_offset), temp_reg.size))
         elif var.global_offset is not None:
             yield ir_object.Mov(temp_reg, DataReference(var.identifier))
         else:
@@ -95,7 +99,11 @@ class DesugarIR_Pre(Desugarer):
         if var.stack_offset is not None:  # load from a stack address
             yield ir_object.Mov(temp_reg, encoder.SpecificRegisters.bas)  # grab base pointer
             # load offset off of the base pointer
-            yield ir_object.Binary.add(temp_reg, ir_object.Immediate(var.stack_offset, temp_reg.size))
+            if var.stack_offset < 0:
+                instr = ir_object.Binary.sub
+            else:
+                instr = ir_object.Binary.add
+            yield instr(temp_reg, ir_object.Immediate(abs(var.stack_offset), temp_reg.size))
         elif var.global_offset is not None:
             yield ir_object.Mov(temp_reg, var.global_offset)
         else:

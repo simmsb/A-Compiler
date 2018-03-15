@@ -163,10 +163,19 @@ class FunctionDecl(Scope):
 
         # for my vm:
         # base pointer will be pointing to the first item on the stack
+        # | p1 | p2 | ret | base | l1 | l2
         # first offset is -2 * the size of a pointer, etc, etc
-        offsets = accumulate((2 * types.Pointer.size, *(i.size for i in self.params.values())))
-        for var, offset in zip(self.params.values(), offsets):
-            var.stack_offset = -offset
+
+
+        # reverse params to count offset from right to left
+        params = list(reversed(list(self.params.values())))
+
+        offsets = accumulate(i.size for i in params)
+
+        initial_offset = -types.Pointer.size * 2
+
+        for var, offset in zip(params, offsets):
+            var.stack_offset = initial_offset - offset
         self._type = types.Function(ast.r or types.Void(), [i[2] for i in ast.params], const=True)
 
     @property

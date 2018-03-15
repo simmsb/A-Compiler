@@ -1,0 +1,9 @@
+fn multwo(x: u8, y: u8) -> u8 {
+  return x * y;
+}
+
+fn main() {
+  var x := multwo(9, 123);
+
+  *(1000::*u8) = x;
+}

@@ -436,7 +436,7 @@ class BinMulOp(BinaryExpression):
         res = ctx.get_register(lhs.size)
 
         if self.op == "*":
-            op = "add"
+            op = "mul"
         elif self.op == "/" and rhs.sign:
             op = "idiv"
         else:

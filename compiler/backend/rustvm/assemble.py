@@ -56,19 +56,23 @@ def process_immediates(compiler: Compiler, code: List[StatementObject]):
     global objects for them and referencing them in the arguments."""
     for i in chain.from_iterable(i.code for i in code):
         for attr in i.touched_regs:
-            o = arg = getattr(i, attr)
-            if isinstance(arg, ir_object.Dereference):
-                arg = arg.to
-            if isinstance(arg, ir_object.Register):
+            arg = getattr(i, attr)
+
+            # we just assume that dereferences of literals very large just wont happen lol
+            # If this is a problem this will have to change into another desugar stage to
+            # allow for multiple instructions to be generated
+            #
+            # HACK ALERT HACK ALERT
+
+            if not isinstance(arg, ir_object.Immediate):
                 continue
-            arg: ir_object.Immediate
-            if arg.val.bit_length() > 14:
+
+            # if value more than 14 bits or negative
+            if arg.val > 0x3FFF or arg.val < 0:
                 # bit length wont fit in an argument, we need to allocate a variable and make this point to it
-                var = compiler.add_bytes(arg.val.to_bytes(length=arg.size, byteorder="little"))  # TODO: check this is the correct byteorder
-                if isinstance(o, ir_object.Dereference):
-                    o.to = var.global_offset
-                else:
-                    setattr(i, attr, var.global_offset)
+                signed = arg.val < 0
+                var = compiler.add_bytes(arg.val.to_bytes(length=arg.size, byteorder="little", signed=signed))  # TODO: check this is the correct byteorder
+                setattr(i, attr, ir_object.Dereference(ir_object.Immediate(var.global_offset, 2)))
 
 
 def process_instruction(indexes: Dict[str, int],
@@ -325,6 +329,9 @@ def process_code(compiler: Compiler, reg_count) -> Tuple[Dict[str, int], Any]:
     # NOTE: This mutates the objects contained in 'functions' and 'toplevel' on the line above
     for o in compiler.compiled_objects:
         DesugarIR_Post.desugar(o)
+
+    process_immediates(compiler, toplevel)
+    process_immediates(compiler, functions)
 
     toplevel_instructions = process_toplevel(compiler, toplevel)
 
