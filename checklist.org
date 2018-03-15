@@ -49,7 +49,7 @@
     
 * Code Generator
 - [X] Register allocator
-- [ ] Place register stores before function body is run, place register restores afterwards
+- [X] Place register stores before function body is run, place register restores afterwards
 - [X] IR desugar
 - [X] Assembler
   + [X] Handle placing immediates in memory and making references to them if too large to fit in an instruction
@@ -72,7 +72,7 @@
   + [X] Spill
   + [X] Load
 - [X] Data packer and reference resolver
-- [ ] Final binary emitter
+- [X] Final binary emitter
   
     
     
