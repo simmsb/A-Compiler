@@ -87,3 +87,103 @@ def test_four():
         *(5000::*u8) = arr[6];
     }
     """
+
+
+@expect(1000, 12, 4)
+def test_five():
+    return """
+    fn main() {
+        *(1000::*u4) = x();
+    }
+
+    fn x() -> u4 {
+        return 3 * 4;
+    }
+    """
+
+@expect(1000, 4, 8)
+def test_six():
+    return """
+    var arr: [u8] = {1, 2, 3, 4};
+
+    fn main() {
+        *(1000::*u8) = arr[3];
+    }
+    """
+
+
+@expect(1000, 6, 8)
+def test_seven():
+    return """
+    fn main() {
+        var x := myfn(2);
+        *(1000::*u8) = x;
+    }
+
+    fn myfn(x: u1) -> u8 {
+        return 6;
+    }
+    """
+
+
+@expect(1000, 9, 8)
+def test_eight():
+    return """
+    fn main() {
+        var x: u8 = 4;
+        write_pls(9, &x);
+
+        *(1000::*u8) = x;
+    }
+
+    fn write_pls(a: u2, aptr: *u8) {
+        *(1020::*u2) = a;
+        *(1024::*u8) = aptr;
+
+        *aptr = a;
+    }
+    """
+
+
+@expect(1000, 1234, 8)
+def test_nine():
+    return """
+    fn main() {
+        var x: u8;
+        *&x = 1234;
+
+        *(1000::*u8) = x;
+    }
+    """
+
+
+@expect(1000, 1235, 8)
+def test_ten():
+    return """
+    fn retme(x: u8) -> u8 {
+        return x;
+    }
+
+    fn main() {
+        var y := 1234;
+
+        y = retme(1235);
+
+        *(1000::*u8) = y;
+    }
+    """
+
+
+@expect(1000, 9 * 123, 8)
+def test_eleven():
+    return """
+    fn multwo(x: u8, y: u8) -> u8 {
+        return x * y;
+    }
+
+    fn main() {
+        var x := multwo(9, 123);
+
+        *(1000::*u8) = x;
+    }
+    """
