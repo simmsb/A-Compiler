@@ -2,7 +2,7 @@
 #+EMAIL: ben@bensimms.moe
 #+TITLE: Compiler Checklist
 
-* Compiler Logic [3/5]
+* Compiler Logic [3/6]
 - [X] Type system
 - [X] Function bodies
   + [X] Scopes
@@ -37,15 +37,16 @@
   + [-] Literals
     - [X] Integer literals
       + [X] Char Literals
-    - [-] Array literals
+    - [ ] Array literals
       + [ ] Multi-dimensional array literals
-      + [X] String Literals
+      + [ ] String Literals
         - [ ] Char array Literals  
   + [X] Identifiers
 - [-] Variable declarations
   + [ ] Array initialiser
     - [ ] Multi dimension initialisers
   + [X] Inferred type
+- [ ] Inline assembly (register substitutions, etc) 
     
 * Code Generator
 - [X] Register allocator
@@ -74,6 +75,7 @@
 - [X] Data packer and reference resolver
 - [X] Final binary emitter
   
-    
-    
-    
+*  Optimiser
+- [ ] NOOP deleter (add x 0 y -> Mov x y, add x 0 x -> nop) etc
+- [ ] Mov coelesce (Mov a b, mov b c -> Mov a c)
+- [ ] Multiply by power of two -> bit shift
