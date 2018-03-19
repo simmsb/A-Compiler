@@ -20,6 +20,9 @@ class LiteralObject:
     def byte_length(self) -> int:
         return NotImplemented
 
+    def compile_to_var(self, ctx: CompileContext) -> Variable:
+        return NotImplemented
+
 
 class IntegerLiteral(ExpressionObject, LiteralObject):
     def __init__(self, lit: int, type: Optional[types.Type], ast: Optional[AST]=None):
@@ -55,6 +58,9 @@ class IntegerLiteral(ExpressionObject, LiteralObject):
         :param size: Size to output, if None use size of type"""
         size = self._type.size if size is None else size
         return self.lit.to_bytes(size, "little", signed=self._type.signed)
+
+    def compile_to_var(self, ctx: CompileContext) -> Variable:
+        return ctx.compiler.add_bytes(self.to_bytes())
 
     @with_ctx
     async def compile(self, ctx: CompileContext) -> Register:
@@ -108,142 +114,43 @@ class ArrayLiteral(ExpressionObject, LiteralObject):
     @property
     async def type(self) -> Union[types.Array, types.Pointer]:
         if self._type is None:
-            self._type = types.Pointer((await self.exprs[0].type), const=True)
+            self._type = types.Pointer((await self.first_elem.type), const=True)
         return self._type
 
     @property
-    def byte_length(self):
-        return (self.exprs[0].byte_length) * len(self.exprs)
-
-    async def to_array(self):
-        """Convert type to array object from pointer object.
-
-        :param subtype: The type of the inner element to this array.
-        """
-
-        # traverse down our tree setting to array types, stop when we hit something that isn't an array
-        if isinstance(self.exprs[0], ArrayLiteral):
-            for i in self.exprs:
-                await i.to_array()
-
-        self._type = types.Array(self.exprs[0].type, len(self.exprs))
-
-    async def check_types(self):
-        # used in literals only
-        my_type = (await self.type).to
-        # XXX: this will break in py3.7, change to a manual for loop instead
-        expr_types = [(await i.type) for i in self.exprs]
-        if not all(i.implicitly_casts_to(my_type) for i in expr_types):
-            raise self.error(f"Conflicting array literal types.")
-
-
-    async def build_to_type(self, ctx: CompileContext, type: types.Type, base_address: Register):
-        """Build for a type.
-
-        Used when initialising only
-
-        :param type: The type we should build to,
-            Array means we write our arguments to the base_address
-            Pointer means we should just use the ArrayLiteral compile and do the LoadVar stuff
-
-        If asked to build to an array, we go over the elements and ask them to build to a location.
-        """
-
-        # Building for an array
-        if isinstance(type, types.Array):
-            # if the sub-type is also an array, build that to the underlying type
-            if isinstance(self.exprs[0], ArrayLiteral):
-                for i in self.exprs:
-                    await i.build_to_type(ctx, type.to, base_address)
-                    ctx.emit(Binary.add(base_address, type.to.size))
-            # if the sub-type is not an array, just compile each sub-element and write the value
-            else:
-                for i in self.exprs:
-                    res = await i.compile(ctx)
-                    if res.size != type.to.size:
-                        res0 = res.resize(type.to.size, type.to.signed)
-                        ctx.emit(Resize(res, res0))
-                        res = res0
-                    ctx.emit(Mov(Dereference(base_address, res.size), res))
-                    ctx.emit(Binary.add(base_address, res.size))
-        # Building for a pointer
-        else:
-            res = await self.compile(ctx)
-            ctx.emit(Mov(Dereference(base_address, res.size), res))
-            ctx.emit(Binary.add(base_address, res.size))
-
-
-    # FIXME: Only do this if we are an array type but being pointed to (WHAT???)
-    def to_bytes(self, size: Optional[int]=None) -> bytes:
-        innersize = self.exprs[0].byte_length
-
-        if size and innersize * len(self.exprs) > size:
-            raise self.error(f"Array size too large to fit in: {size}")
-
-        return b"".join(i.to_bytes(innersize) for i in self.exprs)
-
-    @with_ctx
-    async def compile(self, ctx: CompileContext) -> Register:
-        #  this is only run if we're not in the form of a array initialisation.
-        #  check that everything is a constant
-        my_type = (await self.type).to
-        await self.check_types()
-
-
-        # What were we doing???
-        # Working on getting 2d arrays and bytes and stuff working
-        # ARRAYS SHOULD ALLOW FOR VARIABLE REFERENCES DEFAULT TO POINTER TYPE THANKS
-
-
-        for i in self.exprs:
-            if not isinstance(i, LiteralObject):
-                raise i.error("Array literal element is non-constant")
-
-        # if we are an array of arrays, gather out the inner elements
-
-        byts = self.build_bytes()
-        var = ctx.compiler.add_bytes(byts)
-
-        reg = ctx.get_register(var.size)
-        ctx.emit(LoadVar(var, reg))
-        return reg
-
-
-class StringLiteral(ArrayLiteral):
-
-    def __init__(self, lit: str, ast: Optional[AST]=None):
-        super().__init__(ast)
-        self.lit = literal_eval(lit) + "\0"
-        self.exprs = [
-            IntegerLiteral()
-        ]
+    def is_pointer(self):
+        # Are we a pointer type (nested arrays should be referenced)
+        return isinstance(self._type, types.Pointer)
 
     @property
-    async def type(self):
-        return types.string_lit
+    def is_array(self):
+        # Are we an array type (nested arrays should be inlined)
+        return isinstance(self._type, types.Array)
 
     @property
-    def byte_length(self):
-        return len(self.lit)
+    def first_elem(self):
+        return self.exprs[0]
 
-    def to_bytes(self, size: Optional[int]=None) -> bytes:
-        # can't allocate if too small size requested
-        if (size is not None) and (len(self) + 1 > size):
-            raise self.error(f"String literal too large to be placed in buffer of size: {size}")
-        return "{:\0<{size}}".format(self.lit, size=size).encode("utf-8")
+    def fill_types(self, type: types.Type, size: int, length: int):
+        """Fill in the types and size of a nested array."""
+        # TODO: me
+        pass
 
+    def compile_to_list(self, ctx: CompileContext) -> List[Union[Variable, bytes]]:
+        if self.is_array:
+            return list(chain.from_iterable(i.compile_to_list(ctx) for i in self.exprs))
+        if self.is_pointer:
+            return [i.compile_to_var(ctx) for i in self.exprs]
 
-    @with_ctx
-    async def compile(self, ctx: CompileContext) -> Register:
-        var = ctx.compiler.add_string(literal_eval(self.lit))
-        var.lvalue_is_rvalue = True
-        reg = ctx.get_register((await self.size))
-        ctx.emit(LoadVar(var, reg))
-        return reg
+    def compile_to_var(self, ctx: CompileContext) -> Variable:
+        if isinstance(self.first_elem, ArrayLiteral):
+            return ctx.compiler.add_array(self.compile_to_list(ctx))
+        if isinstance(self.first_elem, LiteralObject):
+            return ctx.compiler.add_array([i.to_bytes() for i in self.exprs])
 
+        raise InternalCompileException("Cannot compile this!")
 
+    async def compile_as_array_of_pointer(self, ctx: CompileContext):
+        if isinstance(self.first_elem, LiteralObject):
+            return [i.compile_to_var(ctx) for i in self.exprs]
 
-def char_literal(ast):
-    ast.val = ord(ast.chr)
-    ast.size = types.const_char.size
-    return IntegerLiteral(ast)

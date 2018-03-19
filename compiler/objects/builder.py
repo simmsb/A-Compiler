@@ -1,5 +1,6 @@
 # pylint: disable=no-self-use
 import sys
+from typing import Optional
 
 from compiler.objects.base import FunctionDecl, Scope
 from compiler.objects.literals import (ArrayLiteral, Identifier,
@@ -7,11 +8,15 @@ from compiler.objects.literals import (ArrayLiteral, Identifier,
                                        char_literal)
 from compiler.objects.operations import (AssignOp, BinAddOp, BinMulOp,
                                          BinRelOp, BinShiftOp, BitwiseOp,
-                                         BoolCompOp, unary_postfix,
-                                         unary_prefix, BinaryExpression)
+                                         BoolCompOp, BinaryExpression,
+                                         DereferenceOP, PreincrementOP,
+                                         MemrefOp, UnaryOP, FunctionCallOp,
+                                         ArrayIndexOp, PostIncrementOp,
+                                         CastExprOP)
 from compiler.objects.statements import (IFStmt, LoopStmt, ReturnStmt,
                                          VariableDecl)
 from compiler.objects.types import Array, Function, Int, Pointer, Type, Void
+from compiler.objects.errors import InternalCompileException
 
 from tatsu.ast import AST
 
@@ -36,6 +41,33 @@ def resolve_left_assoc(builder_fun: BinaryExpression, ast):
         node = builder_fun(i.op, node, i.right)
 
     return node
+
+
+def unary_prefix(ast: Optional[AST]=None):
+    """Build a unary prefix op from an ast node."""
+    if ast.op == "*":
+        return DereferenceOP(ast.right, ast)
+    if ast.op in ("++", "--"):
+        return PreincrementOP(ast.op, ast.right, ast)
+    if ast.op == "&":
+        return MemrefOp(ast.expr, ast)
+    if ast.op in ("~", "!", "-", "+"):
+        return UnaryOP(ast.op, ast.right, ast)
+
+    raise InternalCompileException("Invalid unary prefix op")
+
+
+def unary_postfix(ast: Optional[AST]=None):
+    if ast.type == "f":
+        return FunctionCallOp(ast.left, ast.args, ast)
+    if ast.type == "b":
+        return ArrayIndexOp(ast.left, ast.args, ast)
+    if ast.type == "d":
+        return PostIncrementOp(ast.left, ast.op, ast)
+    if ast.type == "c":
+        return CastExprOP(ast.t, ast.left, ast.op, ast)
+
+    raise InternalCompileException("Invalid unary postfix op")
 
 
 class WewSemantics(object):
@@ -72,33 +104,32 @@ class WewSemantics(object):
         return ast
 
     def scope(self, ast):
-        return Scope(ast)
+        return Scope(ast.body, ast)
 
     def if_stmt(self, ast):
         # we build elif's recursively from the right
         node = ast.f
         for i in reversed(ast.elf):
-            i["f"] = node
-            node = IFStmt(i)
+            node = IFStmt(i.e, i.t, node, i)
         if ast.elf:
             del ast["f"]
             ast["f"] = node
-        return IFStmt(ast)
+        return IFStmt(ast.e, ast.t, ast.f, ast)
 
     def loop_stmt(self, ast):
-        return LoopStmt(ast)
+        return LoopStmt(ast.e, ast.t, ast)
 
     def return_stmt(self, ast):
-        return ReturnStmt(ast)
+        return ReturnStmt(ast.e, ast)
 
     def expr(self, ast):
         return ast
 
     def fun_decl(self, ast):
-        return FunctionDecl(ast)
+        return FunctionDecl(ast.name, ast.params, ast)
 
     def var_decl(self, ast):
-        return VariableDecl(ast)
+        return VariableDecl(ast.name, ast.typ, ast.val, ast)
 
     def optional_def(self, ast):
         return ast
@@ -111,10 +142,10 @@ class WewSemantics(object):
         return ast
 
     def assign_expr(self, ast):
-        return AssignOp(ast)
+        return AssignOp(ast.left, ast.right, ast)
 
     def boolean(self, ast):
-        return BoolCompOp(ast)
+        return BoolCompOp(ast.op, ast.left, ast.right)
 
     def bitwise(self, ast):
         return resolve_left_assoc(BitwiseOp, ast)
@@ -168,19 +199,21 @@ class WewSemantics(object):
         return ast
 
     def arr_lit(self, ast):
-        return ArrayLiteral(ast)
+        return ArrayLiteral(ast.obj, ast)
 
     def int_lit(self, ast):
-        return IntegerLiteral(ast)
+        return IntegerLiteral(ast.val, ast.type, ast)
 
     def int(self, ast):
         return int(ast)
 
     def str(self, ast):
-        return StringLiteral(ast)
+        exprs = [IntegerLiteral(i, ast) for i in (ast.str + "\0").encode("utf-8")]
+
+        return ArrayLiteral(exprs, ast)
 
     def chr(self, ast):
-        return char_literal(ast)
+        return IntegerLiteral(ord(ast.chr), ast)
 
     def identifier(self, ast):
-        return Identifier(ast)
+        return Identifier(ast.identifer, ast)

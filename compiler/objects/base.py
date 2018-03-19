@@ -287,8 +287,8 @@ class Compiler(IdentifierScope):
         self.data.append(data)
         return val
 
-    def add_array(self, elems: List[Variable]) -> Variable:
-        """Add an array of vars to the object table.
+    def add_array(self, elems: List[Union[Variable, bytes]]) -> Variable:
+        """Add an array of vars or bytes to the object table.
 
         :param elems: The variables to insert.
         :returns: The variable reference created.

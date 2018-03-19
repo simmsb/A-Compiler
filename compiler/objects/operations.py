@@ -9,20 +9,6 @@ from compiler.objects.ir_object import (Binary, Call, CompType, Compare, Derefer
                                         Register, Resize, SetCmp, Unary)
 
 
-def unary_prefix(ast: Optional[AST]=None):
-    """Build a unary prefix op from an ast node."""
-    return {
-        "*": DereferenceOP,
-        "++": PreincrementOP,
-        "--": PreincrementOP,
-        "&": MemrefOp,
-        "~": UnaryOP,
-        "!": UnaryOP,
-        "-": UnaryOP,
-        "+": UnaryOP
-    }[ast.op](ast)
-
-
 class MemrefOp(ExpressionObject):
 
     def __init__(self, expr: ExpressionObject, ast: Optional[AST]=None):
@@ -42,7 +28,7 @@ class UnaryOP(ExpressionObject):
 
     def __init__(self, op: str, expr: ExpressionObject, ast: Optional[AST]=None):
         super().__init__(ast)
-        self.op = op
+        self.op = p
         self.expr = expr
 
     @property
@@ -69,15 +55,6 @@ class UnaryOP(ExpressionObject):
 
         ctx.emit(Unary(reg, op))
         return reg
-
-
-def unary_postfix(ast: Optional[AST]=None):
-    return {
-        "f": FunctionCallOp,
-        "b": ArrayIndexOp,
-        "d": PostIncrementOp,
-        "c": CastExprOP
-    }[ast.type](ast)
 
 
 class PreincrementOP(ExpressionObject):

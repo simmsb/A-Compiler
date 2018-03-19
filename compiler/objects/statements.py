@@ -15,7 +15,7 @@ from compiler.objects.types import Pointer, Type, Array, Function
 
 class VariableDecl(StatementObject):
 
-    def __init__(self, name: str, type: Type, val: Optional[ExpressionObject]=None, ast: Optional[AST]=None=None):
+    def __init__(self, name: str, type: Type, val: Optional[ExpressionObject]=None, ast: Optional[AST]=None):
         super().__init__(ast)
         self.name = name
         self._type = type
