@@ -1,0 +1,9 @@
+fn last_char(str: *u8) -> u8 {
+  while *str { str++; }
+  return *--str;
+}
+
+fn main() {
+  var string := "test, a";
+  *(5000::*u1) = last_char(string);
+}

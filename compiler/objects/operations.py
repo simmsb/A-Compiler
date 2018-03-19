@@ -1,4 +1,4 @@
-from typing import Iterable, Tuple, Union
+from typing import Iterable, Tuple, Union, Optional
 
 from tatsu.ast import AST
 
@@ -9,7 +9,7 @@ from compiler.objects.ir_object import (Binary, Call, CompType, Compare, Derefer
                                         Register, Resize, SetCmp, Unary)
 
 
-def unary_prefix(ast: AST):
+def unary_prefix(ast: Optional[AST]=None):
     """Build a unary prefix op from an ast node."""
     return {
         "*": DereferenceOP,
@@ -25,9 +25,9 @@ def unary_prefix(ast: AST):
 
 class MemrefOp(ExpressionObject):
 
-    def __init__(self, ast: AST):
+    def __init__(self, expr: ExpressionObject, ast: Optional[AST]=None):
         super().__init__(ast)
-        self.expr: ExpressionObject = ast.right
+        self.expr = expr
 
     @property
     async def type(self):
@@ -40,10 +40,10 @@ class MemrefOp(ExpressionObject):
 
 class UnaryOP(ExpressionObject):
 
-    def __init__(self, ast: AST):
+    def __init__(self, op: str, expr: ExpressionObject, ast: Optional[AST]=None):
         super().__init__(ast)
-        self.op = ast.op
-        self.expr: ExpressionObject = ast.right
+        self.op = op
+        self.expr = expr
 
     @property
     async def type(self) -> types.Type:
@@ -71,7 +71,7 @@ class UnaryOP(ExpressionObject):
         return reg
 
 
-def unary_postfix(ast: AST):
+def unary_postfix(ast: Optional[AST]=None):
     return {
         "f": FunctionCallOp,
         "b": ArrayIndexOp,
@@ -82,14 +82,14 @@ def unary_postfix(ast: AST):
 
 class PreincrementOP(ExpressionObject):
 
-    def __init__(self, ast: AST):
+    def __init__(self, op: str, expr: ExpressionObject, ast: Optional[AST]=None):
         super().__init__(ast)
-        self.expr: ExpressionObject = ast.right
-        self.op = ast.op
+        self.op = op
+        self.expr = expr
 
     @property
     async def type(self):
-        return self.expr.type
+        return await self.expr.type
 
     async def load_lvalue(self, ctx: CompileContext) -> Register:
         return await self.expr.load_lvalue(ctx)
@@ -113,9 +113,9 @@ class PreincrementOP(ExpressionObject):
 
 class DereferenceOP(ExpressionObject):
 
-    def __init__(self, ast: AST):
+    def __init__(self, expr: ExpressionObject, ast: Optional[AST]=None):
         super().__init__(ast)
-        self.expr: ExpressionObject = ast.right
+        self.expr = expr
 
     @property
     async def type(self):
@@ -143,11 +143,11 @@ class DereferenceOP(ExpressionObject):
 
 class CastExprOP(ExpressionObject):
 
-    def __init__(self, ast: AST):
+    def __init__(self, type: types.Type, expr: ExpressionObject, op: str, ast: Optional[AST]=None):
         super().__init__(ast)
-        self._type = ast.t
-        self.expr: ExpressionObject = ast.left
-        self.op = ast.op
+        self._type = type
+        self.expr = expr
+        self.op = op
 
     @property
     async def type(self):
@@ -166,10 +166,10 @@ class CastExprOP(ExpressionObject):
 
 class FunctionCallOp(ExpressionObject):
 
-    def __init__(self, ast: AST):
+    def __init__(self, fun: ExpressionObject, args: List[ExpressionObject], ast: Optional[AST]=None):
         super().__init__(ast)
-        self.fun: ExpressionObject = ast.left
-        self.args: Iterable[ExpressionObject] = ast.args
+        self.fun = fun
+        self.args = args
 
     @property
     async def type(self):
@@ -218,10 +218,10 @@ class FunctionCallOp(ExpressionObject):
 
 class ArrayIndexOp(ExpressionObject):
 
-    def __init__(self, ast: AST):
+    def __init__(self, arg: ExpressionObject, offset: ExpressionObject, ast: Optional[AST]=None):
         super().__init__(ast)
-        self.arg = ast.left
-        self.offset = ast.args
+        self.arg = arg
+        self.offset = offset
 
     @property
     async def type(self):
@@ -268,11 +268,11 @@ class ArrayIndexOp(ExpressionObject):
 
 class PostIncrementOp(ExpressionObject):
 
-    def __init__(self, ast: AST):
+    def __init__(self, arg: ExpressionObject, op: str, ast: Optional[AST]=None):
         super().__init__(ast)
-        self.arg = ast.left
+        self.arg = arg
         self.op = {"++": "add",
-                   "--": "sub"}[ast.op]
+                   "--": "sub"}[op]
 
     @property
     async def type(self):
@@ -315,11 +315,12 @@ class BinaryExpression(ExpressionObject):
         await self.resolve_types()
         return self.ret_type
 
-    def __init__(self, ast: AST):
+    def __init__(self, op: str, left: ExpressionObject,
+                 right: ExpressionObject, ast: Optional[AST]=None):
         super().__init__(ast)
-        self.left: ExpressionObject = ast.left
-        self.op: str = ast.op
-        self.right: ExpressionObject = ast.right
+        self.left = left
+        self.op = op
+        self.right = right
         self.ret_type = None
         self.left_type = None
         self.right_type = None
@@ -377,8 +378,8 @@ class BinaryExpression(ExpressionObject):
 class BinAddOp(BinaryExpression):
 
     _compat_types = (  # maybe follow algebraic rules to reduce repetition
-        ('+', (types.Pointer, types.Int), types.Pointer),
-        ('+', (types.Int, types.Pointer), types.Pointer),
+        (('+', '-'), (types.Pointer, types.Int), types.Pointer),
+        (('+', '-'), (types.Int, types.Pointer), types.Pointer),
         (('+', '-'), (types.Int, types.Int), types.Int),
         ('-', (types.Pointer, types.Pointer), types.Int),
     )
@@ -545,10 +546,11 @@ class BitwiseOp(BinaryExpression):
 class AssignOp(ExpressionObject):
     """Assignment operation."""
 
-    def __init__(self, ast: AST):
+    def __init__(self, left: ExpressionObject,
+                 right: ExpressionObject, ast: Optional[AST]=None):
         super().__init__(ast)
-        self.left: ExpressionObject = ast.left
-        self.right: ExpressionObject = ast.right
+        self.left = left
+        self.right = right
 
     @property
     async def type(self):
@@ -577,11 +579,12 @@ class AssignOp(ExpressionObject):
 class BoolCompOp(ExpressionObject):
     """Short-circuiting boolean comparison operators."""
 
-    def __init__(self, ast: AST):
+    def __init__(self, op: str, left: ExpressionObject,
+                 right: ExpressionObject, ast: Optional[AST]=None):
         super().__init__(ast)
-        self.op = ast.op
-        self.left: ExpressionObject = ast.left
-        self.right: ExpressionObject = ast.right
+        self.op = op
+        self.left = left
+        self.right = right
 
     @property
     async def type(self):
@@ -589,6 +592,20 @@ class BoolCompOp(ExpressionObject):
 
     @with_ctx
     async def compile(self, ctx: CompileContext) -> Register:
+
+        lhs_type, rhs_type = await self.left.type, await self.right.type
+
+        if not rhs_type.implicitly_casts_to(lhs_type):
+            raise self.error(f"Right argument to boolean operator: '{self.right.matched_region}'\n"
+                             f"of type: {rhs_type} cannot be casted to left argument: '{self.left.matched_region}'\n"
+                             f"of type {lhs_type}")
+
+        if isinstance(lhs_type, types.Void):
+            raise self.left.error("Void type argument to boolean operator")
+        if isinstance(rhs_type, types.Void):
+            raise self.right.error("Void type argument to boolean operator")
+
+
         r1: Register = await self.left.compile(ctx)
         ctx.emit(Compare(r1, Immediate(0, r1.size)))
         target = JumpTarget()

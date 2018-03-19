@@ -182,14 +182,14 @@ def test_incompatible_types_to_bitwise_op():
 @for_feature(ss_ops="Short-circuiting")
 def test_types_to_binary_comparison_op():
     """Test types to binary comparison operation."""
-    tests = (
-        "1 or 1",
-        "1 or 1::*u1",
-        "1::*u1 or 1"
-    )
+    compile(emptyfn("1 or 1;"))
 
-    for i in tests:
-        compile(emptyfn(i + ";"))
+
+@for_feature(ss_ops="Short-circuiting")
+def test_types_to_binary_comparison_op_fail():
+    """Test invalid types to binary comparison operation."""
+    with raises(CompileException):
+        compile(emptyfn("1 or 1::*u8;"))
 
 
 @for_feature(variables="Variables")

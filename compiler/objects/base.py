@@ -109,11 +109,11 @@ class IdentifierScope(ABC):
 class Scope(StatementObject, IdentifierScope):
     """A object that contains variables that can be looked up."""
 
-    def __init__(self, ast):
+    def __init__(self, body: List[StatementObject], ast: Optional[AST]=None):
         super().__init__(ast)
         self._vars: Dict[str, Variable] = {}
         self.size = 0
-        self.body = ast.body
+        self.body = body
         self.used_hw_regs = []
 
     @property
@@ -156,10 +156,10 @@ class FunctionDecl(Scope):
                                                               ^
     """
 
-    def __init__(self, ast: AST):
+    def __init__(self, name: str, params: List[List[str, types.Type]], ast: Optional[AST]=None):
         super().__init__(ast)
-        self.name = ast.name
-        self.params = {i[0]: Variable(i[0], i[2]) for i in ast.params}
+        self.name = name
+        self.params = {name: Variable(name, type) for (name, type) in params}
 
         # for my vm:
         # base pointer will be pointing to the first item on the stack

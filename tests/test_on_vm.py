@@ -20,9 +20,22 @@ def run_code_on_vm(location: int, value: int, size: int, program: str, binary_lo
 
 
 def expect(location: int, value: int, size: int = 2):
+    """Wrapper for testing some source on the VM.
+
+    The substring '{dest}' in the source is replaced with the string '*({location}::*u{size})'
+    Where {location} is the provided memory location and {size} is the size to read.
+
+    For example:
+    @expect(1000, 1234, 8)
+    def test_mytest():
+        return \"\"\"
+        fn main() {
+            {dest} = 1234
+        \"\"\"
+    """
     def wrapper(func):
         def more_wrappers(binloc):
-            program = func()
+            program = func().replace("{dest}", f"*({location}::*u{size})")
             run_code_on_vm(location, value, size, program, binloc)
         return pytest.mark.usefixtures("binloc")(more_wrappers)
     return wrapper
@@ -43,9 +56,9 @@ def test_two():
     return """
     fn main() {
         if 0 {
-            *(500::*u8) = 100;
+            {dest} = 100;
         } else {
-            *(500::*u8) = 123;
+            {dest} = 123;
         }
     }
     """
@@ -84,7 +97,7 @@ def test_four():
 
         test(arr, 7);
 
-        *(5000::*u8) = arr[6];
+        {dest} = arr[6];
     }
     """
 
@@ -93,7 +106,7 @@ def test_four():
 def test_five():
     return """
     fn main() {
-        *(1000::*u4) = x();
+        {dest} = x();
     }
 
     fn x() -> u4 {
@@ -107,7 +120,7 @@ def test_six():
     var arr: [u8] = {1, 2, 3, 4};
 
     fn main() {
-        *(1000::*u8) = arr[3];
+        {dest} = arr[3];
     }
     """
 
@@ -117,7 +130,7 @@ def test_seven():
     return """
     fn main() {
         var x := myfn(2);
-        *(1000::*u8) = x;
+        {dest} = x;
     }
 
     fn myfn(x: u1) -> u8 {
@@ -133,12 +146,12 @@ def test_eight():
         var x: u8 = 4;
         write_pls(9, &x);
 
-        *(1000::*u8) = x;
+        {dest} = x;
     }
 
     fn write_pls(a: u2, aptr: *u8) {
-        *(1020::*u2) = a;
-        *(1024::*u8) = aptr;
+        {dest} = a;
+        {dest} = aptr;
 
         *aptr = a;
     }
@@ -152,7 +165,7 @@ def test_nine():
         var x: u8;
         *&x = 1234;
 
-        *(1000::*u8) = x;
+        {dest} = x;
     }
     """
 
@@ -169,7 +182,7 @@ def test_ten():
 
         y = retme(1235);
 
-        *(1000::*u8) = y;
+        {dest} = y;
     }
     """
 
@@ -184,6 +197,132 @@ def test_eleven():
     fn main() {
         var x := multwo(9, 123);
 
-        *(1000::*u8) = x;
+        {dest} = x;
+    }
+    """
+
+@expect(5000, 1000 - 100 * (4 // 2) + 10 - 5 + 1 << 3, 8)
+def test_arithmetic():
+    return """
+    fn main() {
+        {dest} = 1000 - 100 * (4 / 2) + 10 - 5 + 1 << 3;
+    }
+    """
+
+@expect(5000, 1, 8)
+def test_comparison_ops_le_t():
+    return """
+    fn main() {
+        {dest} = 1 < 2;
+    }
+    """
+
+@expect(5000, 0, 8)
+def test_comparison_ops_le_f():
+    return """
+    fn main() {
+        {dest} = 2 < 1;
+    }
+    """
+
+@expect(5000, 1, 8)
+def test_comparison_ops_eq_t():
+    return """
+    fn main() {
+        {dest} = 1 == 1;
+    }
+    """
+
+@expect(5000, 0, 8)
+def test_comparison_ops_eq_f():
+    return """
+    fn main() {
+        {dest} = 1 == 2;
+    }
+    """
+
+@expect(5000, 1, 8)
+def test_bool_op_or_first():
+    return """
+    fn write() -> u1 {
+        {dest} = 0;
+        return 1;
+    }
+
+    fn main() {
+        {dest} = 1;
+        1 or write();
+    }
+    """
+
+@expect(5000, 1, 8)
+def test_bool_op_or_second():
+    return """
+    fn write() -> u1 {
+        {dest} = 1;
+        return 1;
+    }
+
+    fn main() {
+        {dest} = 0;
+        0 or write();
+    }
+    """
+
+@expect(5000, 1, 8)
+def test_bool_op_and_first():
+    return """
+    fn write() -> u1 {
+        {dest} = 1;
+        return 1;
+    }
+
+    fn main() {
+        {dest} = 0;
+        1 and write();
+    }
+    """
+
+@expect(5000, 1, 8)
+def test_bool_op_and_second():
+    return """
+    fn write() -> u1 {
+        {dest} = 0;
+        return 1;
+    }
+
+    fn main() {
+        {dest} = 1;
+        0 and write();
+    }
+    """
+
+@expect(5000, 10, 8)
+def test_function_pointers():
+    return """
+    fn run_fun(fun: (u8) -> u8, arg: u8) -> u8 {
+        return fun(arg);
+    }
+
+    fn mul_two(x: u8) -> u8 {
+        return x * 2;
+    }
+
+    fn main() {
+        {dest} = run_fun(mul_two, 5);
+    }
+    """
+
+@expect(5000, ord('a'), 1)
+def test_string():
+    return """
+    fn last_char(str: *u8) -> u8 {
+        while *str { str++; }
+        return *(str - 1);
+    }
+
+    fn main() {
+        var string := "test, a";
+        {dest} = last_char(string);
     }
     """

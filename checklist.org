@@ -75,7 +75,7 @@
 - [X] Data packer and reference resolver
 - [X] Final binary emitter
   
-*  Optimiser
+* Optimiser
 - [ ] NOOP deleter (add x 0 y -> Mov x y, add x 0 x -> nop) etc
 - [ ] Mov coelesce (Mov a b, mov b c -> Mov a c)
 - [ ] Multiply by power of two -> bit shift

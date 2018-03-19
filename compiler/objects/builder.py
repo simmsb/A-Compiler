@@ -8,7 +8,7 @@ from compiler.objects.literals import (ArrayLiteral, Identifier,
 from compiler.objects.operations import (AssignOp, BinAddOp, BinMulOp,
                                          BinRelOp, BinShiftOp, BitwiseOp,
                                          BoolCompOp, unary_postfix,
-                                         unary_prefix)
+                                         unary_prefix, BinaryExpression)
 from compiler.objects.statements import (IFStmt, LoopStmt, ReturnStmt,
                                          VariableDecl)
 from compiler.objects.types import Array, Function, Int, Pointer, Type, Void
@@ -19,7 +19,7 @@ from tatsu.ast import AST
 sys.setrecursionlimit(10000)  # this goes deep
 
 
-def resolve_left_assoc(builder_fun, ast):
+def resolve_left_assoc(builder_fun: BinaryExpression, ast):
     # we end up with an ast looking like:
     # {'left': expr, 'rest': [{'op': ..., 'right': expr}, ...]}
     #
@@ -33,8 +33,7 @@ def resolve_left_assoc(builder_fun, ast):
     node = ast.left
 
     for i in operations:
-        i['left'] = node
-        node = builder_fun(i)
+        node = builder_fun(i.op, node, i.right)
 
     return node
 

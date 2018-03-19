@@ -15,11 +15,11 @@ from compiler.objects.types import Pointer, Type, Array, Function
 
 class VariableDecl(StatementObject):
 
-    def __init__(self, ast: AST):
+    def __init__(self, name: str, type: Type, val: Optional[ExpressionObject]=None, ast: Optional[AST]=None=None):
         super().__init__(ast)
-        self.name = ast.name
-        self._type = ast.typ
-        self.val: Optional[ExpressionObject] = ast.val
+        self.name = name
+        self._type = type
+        self.val = val
 
     @property
     async def type(self) -> Type:
@@ -35,21 +35,20 @@ class VariableDecl(StatementObject):
 
     @with_ctx
     async def compile(self, ctx: CompileContext):
-        if isinstance(self.val, ArrayLiteral):
-            # convert the array literal from pointer type to array type
+        if isinstance(self.val, ArrayLiteral) and isinstance(self._type, Array):
+            # convert the array literal from pointer type to array type we have been declared as an array
             await self.val.to_array()
 
         my_type: Union[Pointer, Array] = await self.type
-        if self.val is None:
-            val_type = my_type
+        if self.val is None:  # just a declaration, no initialiser so exit here
+            ctx.declare_variable(self.name, my_type)
         else:
             val_type = await self.val.type
 
         if not val_type.implicitly_casts_to(my_type):
             raise self.error(f"Specified type {my_type} does not match value type {val_type}")
 
-        # TODO: but what about M u l t i - d i m e n s i o n a l arrays?
-        if isinstance(self.val, ArrayLiteral):
+        if isinstance(self.val, ArrayLiteral) and isinstance(my_type, Array):
 
             # if the declared type has no size info, copy it across
             if my_type.length is None:
@@ -60,23 +59,26 @@ class VariableDecl(StatementObject):
                 raise self.error(f"Array literal length {val_type.length} does "
                                  f"not match specified type length {my_type.length}")
 
-            # hold off declaring the variable here until we get our length information
+            # we hold off declaring the variable here until we get our length information
             var = ctx.declare_variable(self.name, my_type)
-            var.lvalue_is_rvalue = True
+            var.lvalue_is_rvalue = True  # we are an array, references to this identifer will get the stack position
+
+
+            # as we are an array type we need to descend into our type
+            # to find when we should stop building the multi-dimensional array
+            #
+            # IE: if our type is [[u8]] then we should expand {{1, 2, 3}, {1, 2, 3}} into {1, 2, 3, 1, 2, 3}
+            # but if we have [*u8] then we should only be {ptr0, ptr1} but then ptr0 and ptr1 should be build aswell
+            # to do this we find our size, declare a variable of that and then just go through our items and ask for
+            # an array to be build for a type
 
             await self.val.check_types()
             ptr = ctx.get_register(Pointer(my_type.to).size)
-            ctx.emit(LoadVar(var, ptr))
-            for i in self.val.exprs:
-                res: Register = await i.compile(ctx)
-                if res.size != my_type.cellsize:
-                    res0 = res.resize(my_type.cellsize, my_type.to.signed)
-                    ctx.emit(Resize(res, res0))
-                    res = res0
-                ctx.emit(Mov(Dereference(ptr, res.size), res))
-                ctx.emit(Binary.add(ptr, Immediate(
-                    my_type.cellsize,
-                    Pointer(my_type).size)))
+            ctx.emit(LoadVar(var, ptr))  # load start of the array
+
+            # this builds the array and writes each element
+            await self.val.build_to_type(ctx, my_type, ptr)
+
 
         elif isinstance(self.val, ExpressionObject):
             var = ctx.declare_variable(self.name, my_type)
@@ -87,17 +89,13 @@ class VariableDecl(StatementObject):
                 reg = reg0
             ctx.emit(SaveVar(var, reg))
 
-        else:
-            ctx.declare_variable(self.name, my_type)
-
-        # otherwise just create the variable and do nothing
 
 
 class ReturnStmt(StatementObject):
 
-    def __init__(self, ast: AST):
+    def __init__(self, expr: ExpressionObject, ast: Optional[AST]=None):
         super().__init__(ast)
-        self.expr: ExpressionObject = ast.e
+        self.expr: expr
 
     @with_ctx
     async def compile(self, ctx: CompileContext):
@@ -121,11 +119,11 @@ class ReturnStmt(StatementObject):
 
 class IFStmt(StatementObject):
 
-    def __init__(self, ast: AST):
+    def __init__(self, cond: ExpressionObject, body: Scope, else_: Optional[Scope]=None, ast: Optional[AST]=None):
         super().__init__(ast)
-        self.cond: ExpressionObject = ast.e
-        self.body: Scope = ast.t
-        self.else_: Optional[Scope] = ast.f
+        self.cond = cond
+        self.body = body
+        self.else_ = else_
 
     @with_ctx
     async def compile(self, ctx: CompileContext):
@@ -152,23 +150,26 @@ class IFStmt(StatementObject):
 
 class LoopStmt(StatementObject):
 
-    def __init__(self, ast: AST):
+    def __init__(self, cond: ExpressionObject, body: Scope, ast: Optional[AST]=None):
         super().__init__(ast)
-        self.cond: ExpressionObject = ast.e
-        self.body: Scope = ast.t
+        self.cond = cond
+        self.body = body
 
     @with_ctx
     async def compile(self, ctx: CompileContext):
-        test = JumpTarget()
-        end = JumpTarget()
-        ctx.emit(test)
-        cond: Register = await self.cond.compile(ctx)
+        test_jump = JumpTarget()
+        continue_jump = JumpTarget()
+        end_jump = JumpTarget()
 
-        ctx.emit(Compare(cond, Immediate(0, cond.size)))
-        cond = cond.resize(1)
-        ctx.emit(SetCmp(cond, CompType.neq))
+        # the start of the loop (test the condition)
+        ctx.emit(test_jump)
+        cond: Register = await self.cond.compile(ctx)  # evaluate condition
 
-        ctx.emit(Jump(end, cond))
+        # if nonzero, jump over the jump to the end
+        # (Alternatively, test for zero and jump to end if zero, but this is 1 op (Jump), vs 3 (Test, Set, Jump))
+        ctx.emit(Jump(continue_jump, cond))
+        ctx.emit(Jump(end_jump))
+        ctx.emit(continue_jump)
         await self.body.compile(ctx)
-        ctx.emit(Jump(test))
-        ctx.emit(end)
+        ctx.emit(Jump(test_jump))
+        ctx.emit(end_jump)

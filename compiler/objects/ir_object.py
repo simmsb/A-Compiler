@@ -5,9 +5,30 @@ from dataclasses import dataclass, field
 from compiler.objects.variable import Variable, DataReference
 from compiler.objects.astnode import BaseObject
 
+# 0 => true,
+# 1 => self.flags.contains(CpuFlags::LE),
+# 2 => self.flags.intersects(CpuFlags::LE | CpuFlags::EQ),
+# 3 => self.flags.contains(CpuFlags::EQ),
+# 4 => self.flags.contains(CpuFlags::LS),
+# 5 => self.flags.intersects(CpuFlags::LS | CpuFlags::EQ),
+# 6 => !self.flags.contains(CpuFlags::LE),
+# 7 => !self.flags.contains(CpuFlags::LE | CpuFlags::EQ),
+# 8 => !self.flags.contains(CpuFlags::EQ),
+# 9 => !self.flags.contains(CpuFlags::LS),
+# 10 => !self.flags.intersects(CpuFlags::LS | CpuFlags::EQ),
 
 class CompType(IntEnum):
-    (leq, lt, eq, neq, gt, geq, uncond) = range(7)
+    (uncond,  # unconditional (set to 1)
+     lt,  # less than
+     leq,  # less than or equal
+     eq,  # equal to
+     les,  # less than signed
+     leqs,  # less than or equal signed
+     geq,  # greater than or equal
+     gt,  # greater than
+     neq,  # not equal to
+     geqs,  # greather than or equal signed
+     gts) = range(11)  # greater than signed
 
 
 @dataclass
