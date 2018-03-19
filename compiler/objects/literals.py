@@ -1,5 +1,4 @@
 from types import coroutine
-from ast import literal_eval
 from itertools import chain
 
 from compiler.objects import types
@@ -12,22 +11,10 @@ from typing import List, Tuple, Union, Optional, Coroutine
 from tatsu.ast import AST
 
 
-class LiteralObject:
-    def to_bytes(self, size: Optional[int]=None) -> bytes:
-        return NotImplemented
-
-    @property
-    def byte_length(self) -> int:
-        return NotImplemented
-
-    def compile_to_var(self, ctx: CompileContext) -> Variable:
-        return NotImplemented
-
-
-class IntegerLiteral(ExpressionObject, LiteralObject):
+class IntegerLiteral(ExpressionObject):
     def __init__(self, lit: int, type: Optional[types.Type], ast: Optional[AST]=None):
         super().__init__(ast)
-        self.lit lit
+        self.lit = lit
         if type:
             self._type = type
         else:
@@ -104,28 +91,87 @@ class Identifier(ExpressionObject):
         return reg
 
 
-class ArrayLiteral(ExpressionObject, LiteralObject):
+class ArrayLiteral(ExpressionObject):
     def __init__(self, exprs: List[ExpressionObject], ast: Optional[AST]=None):
         super().__init__(ast)
         self.exprs = exprs
-
         self._type = None
 
+        # For arrays we have to be special
+        # When used on the right hand side of a variable declaration
+        # the declaration will set the location for the array to be created.
+        # if this is not set (and the array is not on the right hand side of a variable declaration)
+        # then the array will allocate a hidden local for itself and that will be the location
+        #
+        # As a consequence of this, all arrays are built at runtime
+        # In the future we could do some static analysis on the contents of the array and see if we can
+        # pull out the contents into a static value.
+        #
+        # To make sure that this stuff is safe arrays default to being const type at all levels so that
+        # assigning to elements of a literal array is not possible
+        # ( `({1, 2}[0] = 3)` will be a compile time error)
+        self.var: Variable = None
+
     @property
-    async def type(self) -> Union[types.Array, types.Pointer]:
+    async def type(self) -> types.Array:
         if self._type is None:
-            self._type = types.Pointer((await self.first_elem.type), const=True)
+            self._type = types.Array((await self.first_elem.type), len(self.exprs), const=True)
         return self._type
 
-    @property
-    def is_pointer(self):
-        # Are we a pointer type (nested arrays should be referenced)
-        return isinstance(self._type, types.Pointer)
+    def to_ptr(self):
+        """Convert this array to a pointer type.
 
-    @property
-    def is_array(self):
-        # Are we an array type (nested arrays should be inlined)
-        return isinstance(self._type, types.Array)
+        The logic of this is that something of type [*u8] is array of pointer to char,
+        but should be able to be declared like: {"aaa", "bbb", "ccc"}.
+
+        Ofcourse this only works in declarations where we can edit the types on the right hand side.
+
+        When being compiled, we look at ourselves to see if we're pointer type or array type.
+
+        If we're pointer type we allocate an array of size to fit each element and
+        compile each of our elements and emit writes for them.
+
+        If we're an array we pull out the inside array elements to the outer level
+        """
+        self._type = types.Pointer(self._type.to, const=True)
+
+
+    def insert_type(self, type: types.Type):
+        # this inserts a nested type into a nested initialiser.
+        # this should be done before type checking the array so that
+        # `var a: [[[u8]]] = {some_variable, some_other_variable}` can't be valid
+        # but `var a: [*[u8]] = {some_variable, some_other_variable}` can be
+
+        if not isinstance(self.first_elem, ArrayLiteral):
+            return  # got to end of array literals
+
+        if not isinstance(type, (types.Array, types.Pointer)):
+            raise self.error("Cannot transmit non-array/pointer type to array.")
+
+        if isinstance(type, types.Pointer):
+            self.to_ptr()
+
+        # we default to array so we wont have a to_array case
+
+        for i in self.exprs:
+            i.insert_type(type.to)
+
+
+    # TODO:
+    #
+    #  Build if we're the outermost array (this is when we use the 'var' variable)
+    #  Build if we're an inner array where we get a location to write pointers to.
+    #  We dont need a 'inner array fn' where we are an array since the outer array
+    #    *will* gather our elements for us.
+    #
+
+    #
+    #   given {"aaa", "bbb"}
+    #
+    #   char *x[] = [*u8], {*ptr, *ptr}, size = 2 * ptr
+    #   char x[][] = {"aaa\0" "bbb\0"}, size = 2 * 4 * u8
+    #
+
 
     @property
     def first_elem(self):
@@ -135,22 +181,4 @@ class ArrayLiteral(ExpressionObject, LiteralObject):
         """Fill in the types and size of a nested array."""
         # TODO: me
         pass
-
-    def compile_to_list(self, ctx: CompileContext) -> List[Union[Variable, bytes]]:
-        if self.is_array:
-            return list(chain.from_iterable(i.compile_to_list(ctx) for i in self.exprs))
-        if self.is_pointer:
-            return [i.compile_to_var(ctx) for i in self.exprs]
-
-    def compile_to_var(self, ctx: CompileContext) -> Variable:
-        if isinstance(self.first_elem, ArrayLiteral):
-            return ctx.compiler.add_array(self.compile_to_list(ctx))
-        if isinstance(self.first_elem, LiteralObject):
-            return ctx.compiler.add_array([i.to_bytes() for i in self.exprs])
-
-        raise InternalCompileException("Cannot compile this!")
-
-    async def compile_as_array_of_pointer(self, ctx: CompileContext):
-        if isinstance(self.first_elem, LiteralObject):
-            return [i.compile_to_var(ctx) for i in self.exprs]
 

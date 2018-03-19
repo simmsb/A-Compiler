@@ -39,6 +39,9 @@ class VariableDecl(StatementObject):
             # convert the array literal from pointer type to array type we have been declared as an array
             await self.val.to_array()
 
+
+        # TODO: This entire thing needs to be nuked and rebuild
+
         my_type: Union[Pointer, Array] = await self.type
         if self.val is None:  # just a declaration, no initialiser so exit here
             ctx.declare_variable(self.name, my_type)
