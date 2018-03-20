@@ -71,6 +71,7 @@ class Pointer(Type):
 
     def __init__(self, to: Type, const: bool=False, ast: Optional[AST]=None):
         super().__init__(ast)
+        assert isinstance(to, Type)
         self.to = to
         self.const = const
 
@@ -96,8 +97,10 @@ class Pointer(Type):
 
 class Array(Type):
 
-    def __init__(self, to: Type, l: int=None, const: bool=False, ast: Optional[AST]=None):
+    def __init__(self, to: Type, l: Optional[int]=None,
+                 const: Optional[bool]=False, ast: Optional[AST]=None):
         super().__init__(ast)
+        assert isinstance(to, Type)
         self.to = to
         self.length = l
         self.const = const
@@ -136,10 +139,6 @@ class Array(Type):
             raise self.error(f"Array {self} has negative size.")
 
         return self.to.size * self.length
-
-    @property
-    def cellsize(self) -> int:
-        return self.to.size
 
     def implicitly_casts_to(self, other: Type) -> bool:
         if isinstance(other, (Array, Pointer)):

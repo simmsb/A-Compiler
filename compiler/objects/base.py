@@ -156,8 +156,9 @@ class FunctionDecl(Scope):
                                                               ^
     """
 
-    def __init__(self, name: str, params: List[List[str, types.Type]], ast: Optional[AST]=None):
-        super().__init__(ast)
+    def __init__(self, name: str, params: List[Tuple[str, types.Type]],
+                 body: List[StatementObject], ast: Optional[AST]=None):
+        super().__init__(body, ast)
         self.name = name
         self.params = {name: Variable(name, type) for (name, type) in params}
 
@@ -220,6 +221,9 @@ class Compiler(IdentifierScope):
         self.data: List[Union[bytes, List[Variable]]] = []
         self.identifiers: Dict[str, int] = {}
         self.spill_size = 0
+
+        #: counter for generating unique identifiers
+        self.unique_counter = 0
 
     @property
     def vars(self) -> Dict[str, Variable]:
@@ -460,6 +464,11 @@ class CompileContext:
         if isinstance(self.current_scope, Scope):
             return self.current_scope.declare_variable(name, typ)
         return self.compiler.declare_variable(name, typ)
+
+    def declare_unique_variable(self, typ: types.Type) -> Variable:
+        name = f"unique-var-{self.compiler.unique_counter}"
+        self.compiler.unique_counter += 1
+        return self.declare_variable(name, typ)
 
     def lookup_variable(self, name: str) -> Optional[Variable]:
         """Lookup a identifier in parent scope stack."""

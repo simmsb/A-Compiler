@@ -130,7 +130,7 @@ int = /-?\d+/ ;
 int_lit = val:(>int) ['/' type:base_type] ;
 
 
-str = str:/".+"/ ;
+str = str:/"[^"]+"/ ;
 
 
 chr = chr:/'.'/ ;

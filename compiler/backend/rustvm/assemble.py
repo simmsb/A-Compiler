@@ -72,7 +72,7 @@ def process_immediates(compiler: Compiler, code: List[StatementObject]):
                 # bit length wont fit in an argument, we need to allocate a variable and make this point to it
                 signed = arg.val < 0
                 var = compiler.add_bytes(arg.val.to_bytes(length=arg.size, byteorder="little", signed=signed))  # TODO: check this is the correct byteorder
-                setattr(i, attr, ir_object.Dereference(ir_object.Immediate(var.global_offset, 2)))
+                setattr(i, attr, ir_object.Dereference(ir_object.Immediate(var.global_offset, 2), arg.size))
 
 
 def process_instruction(indexes: Dict[str, int],
