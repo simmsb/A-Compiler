@@ -1,4 +1,4 @@
-from typing import Iterable, Tuple, Union, Optional
+from typing import Iterable, Tuple, Union, Optional, List
 
 from tatsu.ast import AST
 

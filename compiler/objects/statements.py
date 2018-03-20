@@ -23,7 +23,7 @@ class VariableDecl(StatementObject):
 
     @property
     async def type(self) -> Type:
-        if self._type == "infer":
+        if self._type is None or self._type == "infer":
             if self.val is None:
                 raise self.error(f"Variable {self.name} has no initialiser or type.")
             self._type = await self.val.type
@@ -35,55 +35,29 @@ class VariableDecl(StatementObject):
 
     @with_ctx
     async def compile(self, ctx: CompileContext):
-        if isinstance(self.val, ArrayLiteral) and isinstance(self._type, Array):
-            # convert the array literal from pointer type to array type we have been declared as an array
-            await self.val.to_array()
-
-
-        # TODO: This entire thing needs to be nuked and rebuild
-
-        my_type: Union[Pointer, Array] = await self.type
-        if self.val is None:  # just a declaration, no initialiser so exit here
+        my_type = await self.type
+        if self.val is None:  # just a declaration, no types so exit here
             ctx.declare_variable(self.name, my_type)
-        else:
-            val_type = await self.val.type
+            return
 
-        if not val_type.implicitly_casts_to(my_type):
-            raise self.error(f"Specified type {my_type} does not match value type {val_type}")
+        val_type = await self.val.type
 
         if isinstance(self.val, ArrayLiteral) and isinstance(my_type, Array):
+            await self.val.insert_type(my_type)
+            await self.val.check_types(my_type)
 
-            # if the declared type has no size info, copy it across
-            if my_type.length is None:
-                my_type.length = val_type.length
-
-            # now check that the sizes are correct
-            if my_type.length != val_type.length:
-                raise self.error(f"Array literal length {val_type.length} does "
-                                 f"not match specified type length {my_type.length}")
-
-            # we hold off declaring the variable here until we get our length information
+            # setup storage location for the array
             var = ctx.declare_variable(self.name, my_type)
-            var.lvalue_is_rvalue = True  # we are an array, references to this identifer will get the stack position
+            var.lvalue_is_rvalue = True
+            self.val.var = var
 
-
-            # as we are an array type we need to descend into our type
-            # to find when we should stop building the multi-dimensional array
-            #
-            # IE: if our type is [[u8]] then we should expand {{1, 2, 3}, {1, 2, 3}} into {1, 2, 3, 1, 2, 3}
-            # but if we have [*u8] then we should only be {ptr0, ptr1} but then ptr0 and ptr1 should be build aswell
-            # to do this we find our size, declare a variable of that and then just go through our items and ask for
-            # an array to be build for a type
-
-            await self.val.check_types()
-            ptr = ctx.get_register(Pointer(my_type.to).size)
-            ctx.emit(LoadVar(var, ptr))  # load start of the array
-
-            # this builds the array and writes each element
-            await self.val.build_to_type(ctx, my_type, ptr)
-
+            await self.val.compile(ctx)
 
         elif isinstance(self.val, ExpressionObject):
+
+            if not val_type.implicitly_casts_to(my_type):
+                raise self.error(f"Specified type {my_type} does not match value type {val_type}")
+
             var = ctx.declare_variable(self.name, my_type)
             reg: Register = await self.val.compile(ctx)
             if reg.size != var.size:
@@ -98,7 +72,7 @@ class ReturnStmt(StatementObject):
 
     def __init__(self, expr: ExpressionObject, ast: Optional[AST]=None):
         super().__init__(ast)
-        self.expr: expr
+        self.expr = expr
 
     @with_ctx
     async def compile(self, ctx: CompileContext):

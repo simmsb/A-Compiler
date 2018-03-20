@@ -4,8 +4,7 @@ from typing import Optional
 
 from compiler.objects.base import FunctionDecl, Scope
 from compiler.objects.literals import (ArrayLiteral, Identifier,
-                                       IntegerLiteral, StringLiteral,
-                                       char_literal)
+                                       IntegerLiteral)
 from compiler.objects.operations import (AssignOp, BinAddOp, BinMulOp,
                                          BinRelOp, BinShiftOp, BitwiseOp,
                                          BoolCompOp, BinaryExpression,
@@ -96,6 +95,9 @@ class WewSemantics(object):
         return Function(ast.r, ast.t, ast=ast)
 
     def type(self, ast):
+        if isinstance(ast, list):
+            _, t, _ = ast
+            return t
         return ast
 
     def statement(self, ast):
@@ -126,7 +128,8 @@ class WewSemantics(object):
         return ast
 
     def fun_decl(self, ast):
-        return FunctionDecl(ast.name, ast.params, ast)
+        params = [(name, type) for (name, _, type) in ast.params]
+        return FunctionDecl(ast.name, params, ast.body, ast)
 
     def var_decl(self, ast):
         return VariableDecl(ast.name, ast.typ, ast.val, ast)
@@ -202,13 +205,13 @@ class WewSemantics(object):
         return ArrayLiteral(ast.obj, ast)
 
     def int_lit(self, ast):
-        return IntegerLiteral(ast.val, ast.type, ast)
+        return IntegerLiteral(int(ast.val), ast.type, ast)
 
     def int(self, ast):
         return int(ast)
 
     def str(self, ast):
-        exprs = [IntegerLiteral(i, ast) for i in (ast.str + "\0").encode("utf-8")]
+        exprs = [IntegerLiteral(i, Int('u1'), ast) for i in (ast.str + "\0").encode("utf-8")]
 
         return ArrayLiteral(exprs, ast)
 
@@ -216,4 +219,4 @@ class WewSemantics(object):
         return IntegerLiteral(ord(ast.chr), ast)
 
     def identifier(self, ast):
-        return Identifier(ast.identifer, ast)
+        return Identifier(ast.identifier, ast)

@@ -71,6 +71,7 @@ class Pointer(Type):
 
     def __init__(self, to: Type, const: bool=False, ast: Optional[AST]=None):
         super().__init__(ast)
+        assert isinstance(to, Type)
         self.to = to
         self.const = const
 
@@ -98,6 +99,7 @@ class Array(Type):
 
     def __init__(self, to: Type, l: int=None, const: bool=False, ast: Optional[AST]=None):
         super().__init__(ast)
+        assert isinstance(to, Type)
         self.to = to
         self.length = l
         self.const = const
