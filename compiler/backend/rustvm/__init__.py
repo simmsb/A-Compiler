@@ -29,7 +29,8 @@ def compile(input, out, print_ir, print_hwin, print_offsets):
     (offsets, code), compiler = compile_and_pack(input.read())
 
     if print_ir:
-        print("\n\n".join(i.pretty_print() for i in compiler.compiled_objects))
+        print("\n\n".join("{}\n{}".format(i.identifier, i.pretty_print())
+                          for i in compiler.compiled_objects))
 
     if print_hwin:
         print("\n".join(map(str, code)))

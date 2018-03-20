@@ -354,7 +354,7 @@ def test_array_init_num():
 @for_feature(variables="Variables", arrays="Arrays", string_literals="String literals")
 def test_array_init_str():
     """Test array initialisation."""
-    decl = emptyfn("var a := {\"string\", \"morestring\", \"lessstring\"};")
+    decl = emptyfn("var a: [*u8] = {\"string\", \"morestring\", \"lessstring\"};")
     compile(decl)
 
 
@@ -421,11 +421,10 @@ def test_array_lit_str():
 
 @for_feature(arrays="Arrays")
 def test_array_lit_no_const():
-    """Test that non-constant expressions are illegal in array lits."""
+    """Test that non-constant expressions work in array lits."""
     decl = emptyfn("var a := 3;"
                    "{a, a * 2};")
-    with raises(CompileException):
-        compile(decl)
+    compile(decl)
 
 
 @for_feature(variables="Variables")
@@ -443,8 +442,9 @@ def test_var_decl():
     decl = emptyfn("var a: [u1@4] = {1, 2, 3, 4};")
     compile(decl)
 
-    # we dont have string literal -> string array yet.
-    # TODO: string lit -> string arr
+    decl = emptyfn("var a: [u1@4] = {1, 2, 3};")
+    compile(decl)
+
     decl = emptyfn("var a: [*u1] = \"test\";")
     with raises(CompileException):
         compile(decl)
@@ -453,7 +453,7 @@ def test_var_decl():
     with raises(CompileException):
         compile(decl)
 
-    decl = emptyfn("var a: [u1@4] = {1, 2, 3};")
+    decl = emptyfn("var a: [u1@4] = {1, 2, 3, 4, 5};")
     with raises(CompileException):
         compile(decl)
 

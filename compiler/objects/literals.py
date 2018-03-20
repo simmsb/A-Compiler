@@ -79,6 +79,9 @@ class Identifier(ExpressionObject):
     async def load_lvalue(self, ctx: CompileContext) -> Register:
         var = await self.retrieve_variable()
 
+        # if we load the lvalue when requested, error here since this is disallowed
+        if var.lvalue_is_rvalue:
+            raise self.error(f"Variable has no lvalue information.")
         reg = ctx.get_register(types.Pointer(self.var.type).size)
         ctx.emit(LoadVar(var, reg, lvalue=True))
         return reg
@@ -149,6 +152,9 @@ class ArrayLiteral(ExpressionObject):
         if not self_type.implicitly_casts_to(type):
             raise self.error(f"Cannot typecheck {self_type} to {type}")
 
+        if isinstance(self_type, types.Array) and self_type.length < len(self.exprs):
+            raise self.error(f"Length of this array is constrained to {self_type.length}")
+
         if isinstance(self.first_elem, ArrayLiteral):
             first_elem_size = (await self.first_elem.type).size
 
@@ -164,7 +170,7 @@ class ArrayLiteral(ExpressionObject):
 
 
     async def broadcast_length(self, length: Optional[int] = None):
-        """Broadcast lengths to internal arrays.
+        """Broadcast fill lengths to internal arrays.
 
         This should be done after inserting array types and also after typechecking.
         """
@@ -172,7 +178,7 @@ class ArrayLiteral(ExpressionObject):
         if length is not None:
             self.float_size = length - len(self.exprs)
 
-        if (not isinstance(self.first_elem, ArrayLiteral)) or (not isinstance(self.first_elem, types.Array)):
+        if (not isinstance(self.first_elem, ArrayLiteral)) or (not isinstance((await self.type).to, types.Array)):
             return
 
         first_elem_len = len(self.first_elem.exprs)
@@ -187,16 +193,25 @@ class ArrayLiteral(ExpressionObject):
         # `var a: [[[u8]]] = {some_variable, some_other_variable}` can't be valid
         # but `var a: [*[u8]] = {some_variable, some_other_variable}` can be
 
-        if not isinstance(self.first_elem, ArrayLiteral):
-            return  # got to end of array literals
-
         if not isinstance(type, (types.Array, types.Pointer)):
             raise self.error("Cannot transmit non-array/pointer type to array.")
 
         if isinstance(type, types.Pointer):
             await self.to_ptr()
 
-        # we default to array so we wont have a to_array case
+        elif type.length is not None:
+            # TODO: FIXME: we also need to insert the TYPE aswell so that [u8]{1, 2, 3} does not think it's a [u1]
+            # insert the outer length as out own
+            (await self.type).length = type.length
+
+        my_type = await self.type
+
+        if not isinstance(self.first_elem, ArrayLiteral):
+            if my_type.to.implicitly_casts_to(type.to):
+                # if we can cast the inner elements of the array:
+                # set our 'to' value so that they are resized correctly
+                my_type.to = type.to
+            return  # got to end of array literals
 
         for i in self.exprs:
             await i.insert_type(type.to)
@@ -214,7 +229,7 @@ class ArrayLiteral(ExpressionObject):
             self.var.lvalue_is_rvalue = True
 
         if (isinstance(self.first_elem, ArrayLiteral) and
-                (not isinstance(await self.first_elem.type, types.Pointer))):
+                (not isinstance((await self.type).to, types.Pointer))):
             raise self.error("Cannot compile to references if internal array type is an array and not a pointer")
 
         base = ctx.get_register(types.Pointer.size)
@@ -223,13 +238,13 @@ class ArrayLiteral(ExpressionObject):
         ctx.emit(LoadVar(self.var, base))
         ctx.emit(Mov(index, base))
 
-        elem_type = await self.first_elem.type
+        elem_type = (await self.type).to
 
         for i in self.exprs:
             r = await i.compile(ctx)
 
             if r.size != elem_type.size:
-                r0 = r.resize(elem_type.size, elem_type.sign)
+                r0 = r.resize(elem_type.size, elem_type.signed)
                 ctx.emit(Resize(r, r0))
                 r = r0
 
@@ -238,14 +253,14 @@ class ArrayLiteral(ExpressionObject):
 
         if self.float_size:
             # fill in missing values
-            ctx.emit(Binary.add(index, Immediate(elem_type.size * self.float_size)))
+            ctx.emit(Binary.add(index, Immediate(elem_type.size * self.float_size, index.size)))
 
         return base
 
     async def compile_as_arr(self, ctx: CompileContext) -> Register:
         """Compile an array literal but inline the inner values."""
 
-        if (isinstance(await self.first_elem.type, types.Array) and
+        if (isinstance((await self.type).to, types.Array) and
                 (not isinstance(self.first_elem, ArrayLiteral))):
             # TODO: Maybe just cast the internal type to a pointer.
             raise self.error("Internal type is of array type but is not a literal.")
@@ -254,13 +269,13 @@ class ArrayLiteral(ExpressionObject):
             self.var = ctx.declare_unique_variable(await self.type)
             self.var.lvalue_is_rvalue = True
 
-        base = ctx.get_register(type.Pointer.size)
+        base = ctx.get_register(types.Pointer.size)
         index = ctx.get_register(types.Pointer.size)
 
         ctx.emit(LoadVar(self.var, base))
         ctx.emit(Mov(index, base))
 
-        elem_size = (await self.first_elem.type).size
+        elem_size = (await self.type).to.size
 
         for i in self.exprs:
             await i.compile_as_arr_helper(ctx, index)
@@ -277,14 +292,26 @@ class ArrayLiteral(ExpressionObject):
             for i in self.exprs:
                 await i.compile_as_arr_helper(ctx, base)
         else:
+            elem_type = (await self.type).to
             for i in self.exprs:
                 r = await i.compile(ctx)
+                if r.size != elem_type.size:
+                    r0 = r.resize(elem_type.size, elem_type.signed)
+                    ctx.emit(Resize(r, r0))
+                    r = r0
                 ctx.emit(Mov(Dereference(base, r.size), r))
                 ctx.emit(Binary.add(base, Immediate(r.size, types.Pointer.size)))
 
     async def compile(self, ctx: CompileContext) -> Register:
-        await self.broadcast_length()
+        my_type = await self.type
 
-        if isinstance(await self.first_elem.type, types.Array):
+        if isinstance(my_type, types.Array):
+            length = my_type.length
+        else:
+            length = None
+
+        await self.broadcast_length(length)
+
+        if isinstance(my_type.to, types.Array):
             return await self.compile_as_arr(ctx)
         return await self.compile_as_ref(ctx)

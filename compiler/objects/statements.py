@@ -40,11 +40,12 @@ class VariableDecl(StatementObject):
             ctx.declare_variable(self.name, my_type)
             return
 
-        val_type = await self.val.type
-
         if isinstance(self.val, ArrayLiteral) and isinstance(my_type, Array):
             await self.val.insert_type(my_type)
             await self.val.check_types(my_type)
+
+            # copy back the type of the literal to retrieve the size info
+            my_type = await self.val.type
 
             # setup storage location for the array
             var = ctx.declare_variable(self.name, my_type)
@@ -54,6 +55,7 @@ class VariableDecl(StatementObject):
             await self.val.compile(ctx)
 
         elif isinstance(self.val, ExpressionObject):
+            val_type = await self.val.type
 
             if not val_type.implicitly_casts_to(my_type):
                 raise self.error(f"Specified type {my_type} does not match value type {val_type}")

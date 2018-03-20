@@ -1,6 +1,7 @@
 # pylint: disable=no-self-use
 import sys
 from typing import Optional
+from ast import literal_eval
 
 from compiler.objects.base import FunctionDecl, Scope
 from compiler.objects.literals import (ArrayLiteral, Identifier,
@@ -49,7 +50,7 @@ def unary_prefix(ast: Optional[AST]=None):
     if ast.op in ("++", "--"):
         return PreincrementOP(ast.op, ast.right, ast)
     if ast.op == "&":
-        return MemrefOp(ast.expr, ast)
+        return MemrefOp(ast.right, ast)
     if ast.op in ("~", "!", "-", "+"):
         return UnaryOP(ast.op, ast.right, ast)
 
@@ -211,7 +212,10 @@ class WewSemantics(object):
         return int(ast)
 
     def str(self, ast):
-        exprs = [IntegerLiteral(i, Int('u1'), ast) for i in (ast.str + "\0").encode("utf-8")]
+
+        string = literal_eval(ast.str)
+
+        exprs = [IntegerLiteral(i, Int('u1'), ast) for i in (string + "\0").encode("utf-8")]
 
         return ArrayLiteral(exprs, ast)
 

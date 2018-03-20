@@ -316,7 +316,7 @@ def test_function_pointers():
 @expect(5000, ord('a'), 1)
 def test_string():
     return """
-    fn last_char(str: *u8) -> u8 {
+    fn last_char(str: *u1) -> u1 {
         while *str { str++; }
         return *(str - 1);
     }
@@ -324,5 +324,14 @@ def test_string():
     fn main() {
         var string := "test, a";
         {dest} = last_char(string);
+    }
+    """
+
+@expect(5000, 123, 8)
+def test_multidimension_arr():
+    return """
+    fn main() {
+        var arr: [[u8]] = {{1, 2}, {123, 4}};
+        {dest} = arr[1][0];
     }
     """

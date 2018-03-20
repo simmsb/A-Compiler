@@ -78,12 +78,14 @@ class PreincrementOP(ExpressionObject):
         ptr: Register = (await self.load_lvalue(ctx))
         tmp = ctx.get_register((await self.size))
 
-        value = 1
+        increment = 1
+
+        # in the case of pointer increments, increment by the size of the pointer's underlying type
         if isinstance(my_type, (types.Array, types.Pointer)):
-            value = my_type.to.size
+            increment = my_type.to.size
 
         ctx.emit(Mov(tmp, Dereference(ptr, tmp.size)))
-        ctx.emit(Binary.add(tmp, Immediate(value, tmp.size)))
+        ctx.emit(Binary.add(tmp, Immediate(increment, tmp.size)))
         ctx.emit(Mov(Dereference(ptr, tmp.size), tmp))
         return tmp
 
@@ -132,8 +134,10 @@ class CastExprOP(ExpressionObject):
 
     @with_ctx
     async def compile(self, ctx: CompileContext) -> Register:
-        reg: Register = (await self.expr.compile(ctx))
-        res = reg.resize(self._type.size, self._type.signed)
+        reg = await self.expr.compile(ctx)
+        my_type = await self.type
+
+        res = reg.resize(my_type.size, my_type.signed)
         if self.op == "::":
             ctx.emit(Resize(reg, res))  # emit resize operation
         else:
@@ -207,28 +211,40 @@ class ArrayIndexOp(ExpressionObject):
             raise self.error("Operand to index operator is not of pointer or array type.")
         return ptr.to
 
-    # Our lvalue is the memory to dereference
     async def load_lvalue(self, ctx: CompileContext) -> Register:
         atype = await self.arg.type
+
         if not isinstance(atype, (types.Pointer, types.Array)):
             raise self.error(f"Incompatible type to array index base {atype}")
 
-        if isinstance(atype.to, types.Array):  # if we are indexing a multi-dimensional array, don't dereference
-            argres: Register = (await self.arg.load_lvalue(ctx))
-        else:
-            argres: Register = (await self.arg.compile(ctx))
-        offres: Register = (await self.offset.compile(ctx))
+        argument = await self.arg.compile(ctx)
+        offset = await self.offset.compile(ctx)
 
-        size = await self.size  # if type.to is an array, this will be the size of the internal array
 
-        offres0 = offres.resize(argres.size)  # resize pointer correctly
-        ctx.emit(Resize(offres, offres0))
-        offres = offres0
+        # get the size of the inner type if type.to is an array,
+        # this will be the size of the internal array
+        size = await self.size
 
-        res = ctx.get_register(size)
-        ctx.emit(Binary.mul(offres, Immediate(size, offres.size)))
-        ctx.emit(Binary.add(argres, offres, res))
-        return res
+
+        # make sure both the offset and the arguments are the correct size (size of a pointer)
+        if argument.size != types.Pointer.size:
+            argument0 = argument.resize(types.Pointer.size)
+            ctx.emit(Resize(argument, argument0))
+            argument = argument0
+
+
+        if offset.size != types.Pointer.size:
+            offset0 = offset.resize(types.Pointer.size)
+            ctx.emit(Resize(offset, offset0))
+            offset = offset0
+
+
+        result = ctx.get_register(types.Pointer.size)
+        # multiply to the size of the inner type of the pointer/ array
+        ctx.emit(Binary.mul(offset, Immediate(size, offset.size)))
+        ctx.emit(Binary.add(argument, offset, result))
+
+        return result
 
     @with_ctx
     async def compile(self, ctx: CompileContext) -> Register:
@@ -238,7 +254,12 @@ class ArrayIndexOp(ExpressionObject):
             ctx.emit(Resize(ptr, ptr0))
             ptr = ptr0
 
-        res = ctx.get_register((await self.size))
+
+        # indexes that leave an array type dont dereference
+        if isinstance(await self.type, types.Array):
+            return ptr
+
+        res = ctx.get_register(await self.size)
         ctx.emit(Mov(res, Dereference(ptr, res.size)))
         return res
 
@@ -535,8 +556,8 @@ class AssignOp(ExpressionObject):
 
     @with_ctx
     async def compile(self, ctx: CompileContext) -> Register:
-        lhs: Register = (await self.left.load_lvalue(ctx))
         rhs: Register = (await self.right.compile(ctx))
+        lhs: Register = (await self.left.load_lvalue(ctx))
 
         lhs_type = await self.left.type
         lhs_sign = lhs_type.signed
