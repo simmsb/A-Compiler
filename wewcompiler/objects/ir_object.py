@@ -107,7 +107,7 @@ IRParam = Union[Register, AllocatedRegister, Dereference, Immediate, DataReferen
 
 def filter_reg(reg: IRParam) -> Optional[Register]:
     """Filters a possible register object. returns None if not a register."""
-    if isinstance(reg, Dereference):
+    if isinstance(reg, Dereference) and isinstance(reg.to, Register):
         return reg.to
     if isinstance(reg, Register):
         return reg
@@ -379,3 +379,19 @@ class Resize(IRObject):
     to: IRParam
 
     touched_regs = "from_", "to"
+
+
+@dataclass
+class MachineInstr(IRObject):
+    """Special machine instruction IR type to allow for inline ASM."""
+
+    instr: str
+    size: int
+    args: List[IRParam]
+
+    @property
+    def touched_registers(self) -> Iterable[Register]:
+        """Get the registers that this instruction reads from and writes to."""
+
+        regs = map(filter_reg, self.args)
+        return list(filter(None, regs))

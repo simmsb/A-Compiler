@@ -15,6 +15,7 @@ from wewcompiler.objects.operations import (AssignOp, BinAddOp, BinMulOp,
                                             CastExprOP)
 from wewcompiler.objects.statements import (IFStmt, LoopStmt, ReturnStmt,
                                             VariableDecl)
+from wewcompiler.objects.inlnasm import ASMStmt, ASMInstruction, asm_expr_build
 from wewcompiler.objects.types import Array, Function, Int, Pointer, Type, Void
 from wewcompiler.objects.errors import InternalCompileException
 
@@ -198,6 +199,18 @@ class WewSemantics(object):
 
     def subexpr(self, ast):
         return ast
+
+    def asm_instruction(self, ast):
+        return ASMInstruction(ast.name, int(ast.size), ast.params)
+
+    def asm_expr(self, ast):
+        return asm_expr_build(ast.index_register,
+                              ast.int_immediate,
+                              ast.expr_index,
+                              ast.deref, ast.size, ast.dsize)
+
+    def asm(self, ast):
+        return ASMStmt(ast.body, ast.captures)
 
     def literal(self, ast):
         return ast

@@ -286,3 +286,19 @@ class InstructionEncoder(metaclass=Emitter):
             instr.from_.size,
             (instr.from_, size, instr.to)
         )
+
+    @emits("MachineInstr")
+    def emit_machine_instr(cls, instr: ir_object.MachineInstr):
+
+        for group in (BinaryInstructions, UnaryInstructions, Manip, Mem, IO):
+            hwin = getattr(group, instr.instr, None)
+            if hwin is not None:
+                break
+        else:
+            raise InternalCompileException(f"Could not find instruction by name: {instr.instr}")
+
+        yield HardWareInstruction(
+            hwin,
+            instr.size,
+            tuple(instr.args)
+        )

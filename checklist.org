@@ -2,7 +2,7 @@
 #+EMAIL: ben@bensimms.moe
 #+TITLE: Compiler Checklist
 
-* Compiler Logic [3/6]
+* Compiler Logic [5/6]
 - [X] Type system
 - [X] Function bodies
   + [X] Scopes
@@ -10,7 +10,7 @@
   + [X] Loops
   + [X] If statements
   + [X] Return Statement
-- [-] Expressions
+- [X] Expressions
   + [X] Binary Expressions
     - [X] Addition/ subtraction
     - [X] Multiplication/ Division
@@ -34,17 +34,17 @@
       + [X] Postincrement / Decrement
       + [X] Reinterpret/ const cast
       + [X] Function calling
-  + [-] Literals
+  + [X] Literals
     - [X] Integer literals
       + [X] Char Literals
-    - [ ] Array literals
-      + [ ] Multi-dimensional array literals
-      + [ ] String Literals
-        - [ ] Char array Literals  
+    - [X] Array literals
+      + [X] Multi-dimensional array literals
+      + [X] String Literals
+        - [X] Char array Literals  
   + [X] Identifiers
-- [-] Variable declarations
-  + [ ] Array initialiser
-    - [ ] Multi dimension initialisers
+- [X] Variable declarations
+  + [X] Array initialiser
+    - [X] Multi dimension initialisers
   + [X] Inferred type
 - [ ] Inline assembly (register substitutions, etc) 
     

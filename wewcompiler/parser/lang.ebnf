@@ -118,6 +118,21 @@ singular = literal | identifier | subexpr ;
 subexpr = '(' @:expr ')' ;
 
 
+asm_instruction = name:name ':' size:int params:','.{asm_expr} ;
+asm_sub_expr = 
+    | '%' index_register:int '@' size:int
+    | '#' int_immediate:int '@' size:int
+    | '<' expr_index:int '>'
+    ;
+
+asm_expr =
+    [deref:'*' '@' dsize:int] >asm_sub_expr
+    ;
+    
+asm = '_asm' '[' body:{asm_instruction ';'} ']' '{' captures:','.{expr} ;
+
+
+
 literal = int_lit | str | chr | arr_lit ;
 
 
@@ -140,3 +155,4 @@ name = /[A-Za-z]\w*/ ;
 
 
 identifier = identifier:name ;
+

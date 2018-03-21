@@ -28,7 +28,7 @@ class UnaryOP(ExpressionObject):
 
     def __init__(self, op: str, expr: ExpressionObject, ast: Optional[AST]=None):
         super().__init__(ast)
-        self.op = p
+        self.op = op
         self.expr = expr
 
     @property
