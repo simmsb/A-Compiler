@@ -1,7 +1,4 @@
-   fn main() {
-        *(5000::*u4) = takes_args(1);
-    }
-
-    fn takes_args(b: u1) -> u4 {
-         return b;
-    }
+fn main() {
+    var x: **u8 = {{1, 2}, {3, 4}};
+    *(5000::*u8) = x[1][0];
+}

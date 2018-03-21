@@ -122,7 +122,7 @@ class DereferenceOP(ExpressionObject):
 
 class CastExprOP(ExpressionObject):
 
-    def __init__(self, type: types.Type, expr: ExpressionObject, op: str, ast: Optional[AST]=None):
+    def __init__(self, type: types.Type, expr: ExpressionObject, op: str='::', ast: Optional[AST]=None):
         super().__init__(ast)
         self._type = type
         self.expr = expr
@@ -224,7 +224,6 @@ class ArrayIndexOp(ExpressionObject):
         # get the size of the inner type if type.to is an array,
         # this will be the size of the internal array
         size = await self.size
-
 
         # make sure both the offset and the arguments are the correct size (size of a pointer)
         if argument.size != types.Pointer.size:

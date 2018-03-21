@@ -1,7 +1,7 @@
 from types import coroutine
 from itertools import chain
 
-from wewcompiler.objects import types
+from wewcompiler.objects import types, operations
 from wewcompiler.objects.base import (CompileContext, ExpressionObject,
                                       ObjectRequest, with_ctx)
 from wewcompiler.objects.variable import Variable
@@ -114,14 +114,15 @@ class ArrayLiteral(ExpressionObject):
         # assigning to elements of a literal array is not possible
         # ( `({1, 2}[0] = 3)` will be a compile time error)
         self.var: Variable = None
+        self._ptr = False
         self.float_size = 0
 
     @property
     async def type(self) -> types.Array:
-        if self._type is None:
-            elem_type = await self.first_elem.type
-            self._type = types.Array(elem_type, len(self.exprs), const=True)
-        return self._type
+        elem_type = await self.first_elem.type
+        if self._ptr:
+            return types.Pointer(elem_type, const=True)
+        return types.Array(elem_type, len(self.exprs), const=True)
 
     @property
     def first_elem(self):
@@ -142,15 +143,14 @@ class ArrayLiteral(ExpressionObject):
 
         If we're an array we pull out the inside array elements to the outer level
         """
-        self._type = types.Pointer((await self.type).to, const=True)
-
+        self._ptr = True
 
     async def check_types(self, type: types.Type):
         self_type = await self.type
         if not self_type.implicitly_casts_to(type):
             raise self.error(f"Cannot typecheck {self_type} to {type}")
 
-        if isinstance(self_type, types.Array) and self_type.length < len(self.exprs):
+        if isinstance(type, types.Array) and type.length is not None and type.length < len(self.exprs):
             raise self.error(f"Length of this array is constrained to {self_type.length}")
 
         if isinstance(self.first_elem, ArrayLiteral):
@@ -198,17 +198,22 @@ class ArrayLiteral(ExpressionObject):
             await self.to_ptr()
 
         elif type.length is not None:
-            # TODO: FIXME: we also need to insert the TYPE aswell so that [u8]{1, 2, 3} does not think it's a [u1]
-            # insert the outer length as out own
             (await self.type).length = type.length
 
-        my_type = await self.type
-
         if not isinstance(self.first_elem, ArrayLiteral):
-            if my_type.to.implicitly_casts_to(type.to):
-                # if we can cast the inner elements of the array:
-                # set our 'to' value so that they are resized correctly
-                my_type.to = type.to
+
+            for i in self.exprs:
+                if not (await i.type).implicitly_casts_to(type.to):
+                    return
+
+            # if we can cast the inner elements of the array:
+            # wrap our expressions inside casts
+            # otherwise fail and let an error be emitted from the type check stage
+            self.exprs = [
+                operations.CastExprOP(type.to, i, ast=i.ast)
+                for i in self.exprs
+            ]
+
             return  # got to end of array literals
 
         for i in self.exprs:

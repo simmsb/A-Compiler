@@ -40,19 +40,27 @@ class VariableDecl(StatementObject):
             ctx.declare_variable(self.name, my_type)
             return
 
-        if isinstance(self.val, ArrayLiteral) and isinstance(my_type, Array):
+        if isinstance(self.val, ArrayLiteral):
             await self.val.insert_type(my_type)
             await self.val.check_types(my_type)
 
             # copy back the type of the literal to retrieve the size info
             my_type = await self.val.type
 
-            # setup storage location for the array
             var = ctx.declare_variable(self.name, my_type)
-            var.lvalue_is_rvalue = True
-            self.val.var = var
+            if isinstance(my_type, Array):
+                # setup storage location for the array
+                var.lvalue_is_rvalue = True
+                self.val.var = var
+                await self.val.compile(ctx)
+            else:
+                reg: Register = await self.val.compile(ctx)
+                if reg.size != var.size:
+                    reg0 = reg.resize(var.size, var.type.signed)
+                    ctx.emit(Resize(reg, reg0))
+                    reg = reg0
+                ctx.emit(SaveVar(var, reg))
 
-            await self.val.compile(ctx)
 
         elif isinstance(self.val, ExpressionObject):
             val_type = await self.val.type

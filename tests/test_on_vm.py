@@ -356,3 +356,12 @@ def test_call_fuzz():
         return 1;
     }
     """
+
+@expect(5000, 3, 8)
+def test_ptr_arr():
+    return """
+    fn main() {
+        var x: **u8 = {{1, 2}, {3, 4}};
+        {dest} = x[1][0];
+    }
+    """
