@@ -2,8 +2,8 @@ from enum import Enum, auto
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 from dataclasses import dataclass
 
-from compiler.objects import ir_object
-from compiler.objects.ir_object import Register
+from wewcompiler.objects import ir_object
+from wewcompiler.objects.ir_object import Register
 
 
 @dataclass

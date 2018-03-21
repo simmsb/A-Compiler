@@ -1,6 +1,6 @@
 from typing import List, Tuple, Optional
 
-from compiler.objects.astnode import BaseObject
+from wewcompiler.objects.astnode import BaseObject
 
 from tatsu.ast import AST
 

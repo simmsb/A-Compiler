@@ -1,11 +1,11 @@
 from typing import Iterable
 
-from compiler.backend.rustvm import encoder
-from compiler.objects import ir_object, types
-from compiler.objects.variable import DataReference
-from compiler.objects.base import StatementObject, CompileContext
-from compiler.objects.errors import InternalCompileException
-from compiler.utils.emitterclass import Emitter, emits
+from wewcompiler.backend.rustvm import encoder
+from wewcompiler.objects import ir_object, types
+from wewcompiler.objects.variable import DataReference
+from wewcompiler.objects.base import StatementObject, CompileContext
+from wewcompiler.objects.errors import InternalCompileException
+from wewcompiler.utils.emitterclass import Emitter, emits
 
 
 class Desugarer(metaclass=Emitter):

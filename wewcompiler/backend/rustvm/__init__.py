@@ -3,9 +3,9 @@ from typing import Tuple, Dict, Any
 import click
 import pprint
 
-from compiler.objects import compile_source, base
-from compiler.backend.rustvm.register_allocate import allocate
-from compiler.backend.rustvm.assemble import process_code, assemble_instructions
+from wewcompiler.objects import compile_source, base
+from wewcompiler.backend.rustvm.register_allocate import allocate
+from wewcompiler.backend.rustvm.assemble import process_code, assemble_instructions
 
 
 def compile_and_allocate(inp: str, debug: bool=False, reg_count: int = 10) -> base.Compiler:

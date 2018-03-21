@@ -2,8 +2,8 @@ from enum import IntEnum
 from typing import Optional, Union, Iterable, List, Set, Any
 from dataclasses import dataclass, field
 
-from compiler.objects.variable import Variable, DataReference
-from compiler.objects.astnode import BaseObject
+from wewcompiler.objects.variable import Variable, DataReference
+from wewcompiler.objects.astnode import BaseObject
 
 # 0 => true,
 # 1 => self.flags.contains(CpuFlags::LE),

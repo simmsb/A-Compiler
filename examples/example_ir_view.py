@@ -1,7 +1,7 @@
 import sys
 sys.path.append("")  # lookup modules in the cwd
 
-from compiler.backend.rustvm import compile_and_pack, assemble
+from wewcompiler.backend.rustvm import compile_and_pack, assemble
 
 decl = (
     "fn ap(y: u8, z: u8, testfn: (u8, u8) -> u8) -> u8 {"

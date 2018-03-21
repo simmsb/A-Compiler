@@ -1,7 +1,7 @@
 from typing import Optional, Tuple
 
-from compiler.utils.formatter import format_lines
-from compiler.objects.errors import CompileException, InternalCompileException
+from wewcompiler.utils.formatter import format_lines
+from wewcompiler.objects.errors import CompileException, InternalCompileException
 
 from tatsu.ast import AST
 from tatsu.infos import ParseInfo

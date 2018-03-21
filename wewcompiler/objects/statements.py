@@ -2,15 +2,15 @@ from typing import Optional, Union
 
 from tatsu.ast import AST
 
-from compiler.objects.base import (CompileContext, ExpressionObject,
-                                   Scope, StatementObject,
-                                   with_ctx)
-from compiler.objects.ir_object import (Binary, Dereference,
-                                        Immediate, Jump, JumpTarget, LoadVar,
-                                        Mov, Register, Resize, Return, SaveVar,
-                                        Compare, SetCmp, CompType, Epilog)
-from compiler.objects.literals import ArrayLiteral
-from compiler.objects.types import Pointer, Type, Array, Function
+from wewcompiler.objects.base import (CompileContext, ExpressionObject,
+                                      Scope, StatementObject,
+                                      with_ctx)
+from wewcompiler.objects.ir_object import (Binary, Dereference,
+                                           Immediate, Jump, JumpTarget, LoadVar,
+                                           Mov, Register, Resize, Return, SaveVar,
+                                           Compare, SetCmp, CompType, Epilog)
+from wewcompiler.objects.literals import ArrayLiteral
+from wewcompiler.objects.types import Pointer, Type, Array, Function
 
 
 class VariableDecl(StatementObject):

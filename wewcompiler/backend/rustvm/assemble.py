@@ -1,14 +1,14 @@
 from itertools import chain
 from typing import Tuple, List, Dict, Union, Optional, Iterable, Any
 
-from compiler.backend.rustvm.desugar import DesugarIR_Pre, DesugarIR_Post
-from compiler.backend.rustvm import encoder
-from compiler.backend.rustvm.register_allocate import allocate, Spill, Load
-from compiler.objects.base import FunctionDecl, StatementObject, Compiler, CompileContext, Scope
-from compiler.objects.astnode import BaseObject
-from compiler.objects.errors import InternalCompileException
-from compiler.objects.variable import Variable, DataReference
-from compiler.objects import ir_object
+from wewcompiler.backend.rustvm.desugar import DesugarIR_Pre, DesugarIR_Post
+from wewcompiler.backend.rustvm import encoder
+from wewcompiler.backend.rustvm.register_allocate import allocate, Spill, Load
+from wewcompiler.objects.base import FunctionDecl, StatementObject, Compiler, CompileContext, Scope
+from wewcompiler.objects.astnode import BaseObject
+from wewcompiler.objects.errors import InternalCompileException
+from wewcompiler.objects.variable import Variable, DataReference
+from wewcompiler.objects import ir_object
 
 
 def group_fns_toplevel(code: List[StatementObject]) -> Tuple[List[FunctionDecl],

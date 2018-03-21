@@ -2,10 +2,10 @@ from typing import Union, Tuple, Iterable
 from enum import IntEnum
 from dataclasses import dataclass, field
 
-from compiler.objects.ir_object import Register, Dereference, DataReference, JumpTarget
-from compiler.objects.errors import InternalCompileException
-from compiler.objects import ir_object
-from compiler.utils.emitterclass import Emitter, emits
+from wewcompiler.objects.ir_object import Register, Dereference, DataReference, JumpTarget
+from wewcompiler.objects.errors import InternalCompileException
+from wewcompiler.objects import ir_object
+from wewcompiler.utils.emitterclass import Emitter, emits
 
 class BinaryInstructions(IntEnum):
     """Binary instructions."""

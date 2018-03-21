@@ -1,4 +1,4 @@
-from compiler.backend.rustvm import compile_and_pack, assemble
+from wewcompiler.backend.rustvm import compile_and_pack, assemble
 
 src = """
 fn main() {

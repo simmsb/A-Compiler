@@ -1,11 +1,11 @@
 from types import coroutine
 from itertools import chain
 
-from compiler.objects import types
-from compiler.objects.base import (CompileContext, ExpressionObject,
-                                   ObjectRequest, with_ctx)
-from compiler.objects.variable import Variable
-from compiler.objects.ir_object import Immediate, LoadVar, Mov, Register, Binary, Resize, Dereference
+from wewcompiler.objects import types
+from wewcompiler.objects.base import (CompileContext, ExpressionObject,
+                                      ObjectRequest, with_ctx)
+from wewcompiler.objects.variable import Variable
+from wewcompiler.objects.ir_object import Immediate, LoadVar, Mov, Register, Binary, Resize, Dereference
 from typing import List, Tuple, Union, Optional, Coroutine
 
 from tatsu.ast import AST

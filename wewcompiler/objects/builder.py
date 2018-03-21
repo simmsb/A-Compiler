@@ -3,20 +3,20 @@ import sys
 from typing import Optional
 from ast import literal_eval
 
-from compiler.objects.base import FunctionDecl, Scope
-from compiler.objects.literals import (ArrayLiteral, Identifier,
-                                       IntegerLiteral)
-from compiler.objects.operations import (AssignOp, BinAddOp, BinMulOp,
-                                         BinRelOp, BinShiftOp, BitwiseOp,
-                                         BoolCompOp, BinaryExpression,
-                                         DereferenceOP, PreincrementOP,
-                                         MemrefOp, UnaryOP, FunctionCallOp,
-                                         ArrayIndexOp, PostIncrementOp,
-                                         CastExprOP)
-from compiler.objects.statements import (IFStmt, LoopStmt, ReturnStmt,
-                                         VariableDecl)
-from compiler.objects.types import Array, Function, Int, Pointer, Type, Void
-from compiler.objects.errors import InternalCompileException
+from wewcompiler.objects.base import FunctionDecl, Scope
+from wewcompiler.objects.literals import (ArrayLiteral, Identifier,
+                                          IntegerLiteral)
+from wewcompiler.objects.operations import (AssignOp, BinAddOp, BinMulOp,
+                                            BinRelOp, BinShiftOp, BitwiseOp,
+                                            BoolCompOp, BinaryExpression,
+                                            DereferenceOP, PreincrementOP,
+                                            MemrefOp, UnaryOP, FunctionCallOp,
+                                            ArrayIndexOp, PostIncrementOp,
+                                            CastExprOP)
+from wewcompiler.objects.statements import (IFStmt, LoopStmt, ReturnStmt,
+                                            VariableDecl)
+from wewcompiler.objects.types import Array, Function, Int, Pointer, Type, Void
+from wewcompiler.objects.errors import InternalCompileException
 
 from tatsu.ast import AST
 

@@ -2,8 +2,8 @@ from typing import Optional
 
 from dataclasses import dataclass
 
-from compiler.objects.types import Type
-from compiler.objects.astnode import BaseObject
+from wewcompiler.objects.types import Type
+from wewcompiler.objects.astnode import BaseObject
 
 
 @dataclass

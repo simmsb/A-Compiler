@@ -1,5 +1,5 @@
-from compiler import objects
-from compiler.objects import parse_source
+from wewcompiler import objects
+from wewcompiler.objects import parse_source
 
 from pytest import raises
 from tatsu.exceptions import FailedParse

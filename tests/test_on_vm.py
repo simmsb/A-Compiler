@@ -1,7 +1,7 @@
 import subprocess
 import pytest
 
-from compiler.backend.rustvm import compile_and_pack, assemble_instructions
+from wewcompiler.backend.rustvm import compile_and_pack, assemble_instructions
 
 
 def run_code_on_vm(location: int, value: int, size: int, program: str, binary_location: str):

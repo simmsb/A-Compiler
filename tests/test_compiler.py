@@ -1,5 +1,5 @@
-from compiler.backend.rustvm import compile_and_pack
-from compiler.objects.errors import CompileException
+from wewcompiler.backend.rustvm import compile_and_pack
+from wewcompiler.objects.errors import CompileException
 
 from pytest import raises
 from tests.helpers import emptyfn, for_feature

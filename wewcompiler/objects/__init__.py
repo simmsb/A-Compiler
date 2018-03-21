@@ -1,8 +1,8 @@
 from typing import List
 
-from compiler.objects import builder
-from compiler.objects import base
-from compiler.parser import lang
+from wewcompiler.objects import builder
+from wewcompiler.objects import base
+from wewcompiler.parser import lang
 
 
 def parse_with_semantics(text: str, semantics: type=None) -> List[base.StatementObject]:

@@ -2,11 +2,11 @@ from typing import Iterable, Tuple, Union, Optional, List
 
 from tatsu.ast import AST
 
-from compiler.objects import types
-from compiler.objects.base import (CompileContext, ExpressionObject, with_ctx)
-from compiler.objects.ir_object import (Binary, Call, CompType, Compare, Dereference,
-                                        Immediate, Jump, JumpTarget, Mov,
-                                        Register, Resize, SetCmp, Unary)
+from wewcompiler.objects import types
+from wewcompiler.objects.base import (CompileContext, ExpressionObject, with_ctx)
+from wewcompiler.objects.ir_object import (Binary, Call, CompType, Compare, Dereference,
+                                           Immediate, Jump, JumpTarget, Mov,
+                                           Register, Resize, SetCmp, Unary)
 
 
 class MemrefOp(ExpressionObject):

@@ -12,16 +12,17 @@ with open("requirements.txt") as f:
     requirements = f.read().splitlines()
 
 setup(
-    name="A-Compiler",
+    name="wewcompiler",
     version="0.1.0",
     description="My Compiler",
     author="ben simms",
     packages=find_packages(exclude=("examples", "tests")),
     install_requires=requirements,
-    package_data={"": ["*.ebnf"]},
+    package_data={"": ["wewcompiler/parser/*.ebnf"]},
+    include_package_data=True,
     entry_points={
         "console_scripts": [
-            "wewcompile=compiler.backend.rustvm:compile"
+            "wewcompile=wewcompiler.backend.rustvm:compile"
         ]
     }
 )
