@@ -1,0 +1,7 @@
+   fn main() {
+        *(5000::*u4) = takes_args(1);
+    }
+
+    fn takes_args(b: u1) -> u4 {
+         return b;
+    }

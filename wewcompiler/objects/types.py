@@ -10,6 +10,14 @@ class Type(BaseObject):
     const = False
     signed = False
 
+    @property
+    def value_size(self):
+        """The value size of this type.
+
+        The same as the .size attribute except for arrays
+        """
+        return self.size
+
     can_cast_to: Tuple['Type'] = ()
 
     def implicitly_casts_to(self, other: 'Type') -> bool:
@@ -139,6 +147,10 @@ class Array(Type):
             raise self.error(f"Array {self} has negative size.")
 
         return self.to.size * self.length
+
+    @property
+    def value_size(self) -> int:
+        return Pointer.size
 
     def implicitly_casts_to(self, other: Type) -> bool:
         if isinstance(other, (Array, Pointer)):

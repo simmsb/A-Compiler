@@ -336,16 +336,16 @@ def test_multidimension_arr():
     }
     """
 
-@expect(5000, 11, 4)
+@expect(5000, 12, 4)
 def test_call_fuzz():
     return """
     fn main() {
         {dest} = takes_args(fuzz(), fuzz(), fuzz());
     }
 
-    fn takes_args(a: u8, b: u1, c: u2) -> u4 {
+    fn takes_args(a: u8, b: u1, c: u4) -> u4 {
          write_value(&b, 10);
-         return a * b + c;
+         return a + b + c;
     }
 
     fn write_value(ptr: *u1, val: u1) {

@@ -31,6 +31,10 @@ class Variable:
         return self.type.size
 
     @property
+    def value_size(self) -> int:
+        return self.type.value_size
+
+    @property
     def identifier(self) -> str:
         return self.name
 

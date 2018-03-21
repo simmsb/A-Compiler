@@ -64,12 +64,10 @@ class Identifier(ExpressionObject):
         self.var = None
 
     @property
-    @coroutine  # these have to be coroutines since we 'yield' inside them and return a value
-    def type(self):
-        if self.var is None:
-            self.var = yield ObjectRequest(self.name)
-        return self.var.type
+    async def type(self):
+        return (await self.retrieve_variable()).type
 
+    # these have to be coroutines since we 'yield' inside them and return a value
     @coroutine
     def retrieve_variable(self) -> Coroutine[ObjectRequest, Variable, Tuple[Register, Variable]]:
         if self.var is None:
@@ -89,7 +87,7 @@ class Identifier(ExpressionObject):
     @with_ctx
     async def compile(self, ctx: CompileContext) -> Register:
         var = await self.retrieve_variable()
-        reg = ctx.get_register(types.Pointer(self.var.type).size)
+        reg = ctx.get_register(var.value_size)
 
         ctx.emit(LoadVar(var, reg))
         return reg

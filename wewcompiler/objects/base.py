@@ -167,7 +167,6 @@ class FunctionDecl(Scope):
         # | p1 | p2 | ret | base | l1 | l2
         # first offset is -2 * the size of a pointer, etc, etc
 
-
         # reverse params to count offset from right to left
         params = list(reversed(list(self.params.values())))
 
