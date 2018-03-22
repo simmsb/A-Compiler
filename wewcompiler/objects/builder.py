@@ -21,9 +21,7 @@ from wewcompiler.objects.errors import InternalCompileException
 
 from tatsu.ast import AST
 
-
-sys.setrecursionlimit(10000)  # this goes deep
-
+sys.setrecursionlimit(50000)  # this goes deep
 
 def resolve_left_assoc(builder_fun: BinaryExpression, ast):
     # we end up with an ast looking like:

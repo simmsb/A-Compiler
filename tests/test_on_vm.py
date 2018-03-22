@@ -365,3 +365,15 @@ def test_ptr_arr():
         {dest} = x[1][0];
     }
     """
+
+
+@expect(5000, 50, 8)
+def test_force_spills_to_happen():
+    x = "1"
+    for _ in range(49):
+        x = f"(1 + {x})"
+    return """
+    fn main() {
+        {dest} = {x};
+    }
+    """.replace('{x}', x)

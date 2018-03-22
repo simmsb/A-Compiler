@@ -1,0 +1,34 @@
+mod std {
+    fn putchar(c: u1) {
+        _asm[ putc:1, <0>;] {c};
+    }
+
+    fn putstr(s: *u1) {
+        while *s {
+            putchar(*s++);
+        }
+    }
+    
+    fn putint(i: s8) {
+        var r: [u1@40];
+        var z: u2 = 0;
+        var d: u8 = 10;
+        var inp := i;
+
+        while i {
+            r[z] = '0' + (i % d);
+        z++;
+        d = d * 10;
+        i = i / 10;
+        }
+        
+        if inp < 0 {
+            putchar('-');
+        }
+
+        while z-- {
+            putchar(r[z]);
+        }
+        putchar('\n');
+    }
+}

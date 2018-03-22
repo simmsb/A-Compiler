@@ -1,1 +1,2 @@
 include wewcompiler/parser/*.ebnf
+include wewcompiler/backend/rustvm/stdlib.wew

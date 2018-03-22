@@ -18,7 +18,6 @@ setup(
     author="ben simms",
     packages=find_packages(exclude=("examples", "tests")),
     install_requires=requirements,
-    package_data={"": ["wewcompiler/parser/*.ebnf"]},
     include_package_data=True,
     entry_points={
         "console_scripts": [

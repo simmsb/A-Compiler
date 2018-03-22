@@ -11,3 +11,23 @@ eventually.
 
 [[file:compiler/parser]] contains the language definition of my language
 [[file:compiler/objects]] contains the AST nodes and IR generator
+
+* Running
+
+To run programs, install this package and run the program ~wewcompile~.
+
+Use pip to install rather than running setup.py as I've found ~python setup.py install~ to not copy necessary non-python files
+#+BEGIN_SRC bash
+pip install -U .
+#+END_SRC
+
+#+begin_example
+wewcompile examples/fibonacci.wew program.bin
+#+end_example
+
+To run a program, use the [[https://github.com/nitros12/A-VM][virtual machine]] to execute the program.
+
+#+begin_example
+cargo run -- program.bin
+#+end_example
+

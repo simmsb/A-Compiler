@@ -4,8 +4,7 @@ fn putchar(c: u1) {
 
 fn putstr(s: *u1) {
     while *s {
-        putchar(*s);
-	s++;
+        putchar(*s++);
     }
 }
 
