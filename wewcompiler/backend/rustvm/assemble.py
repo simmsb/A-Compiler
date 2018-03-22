@@ -139,7 +139,7 @@ def package_objects(compiler: Compiler,
     indexes["toplevel-code"] = size
 
     pre_instr = encoder.HardWareInstruction(encoder.Mem.stks, 2, (None,))
-    packaged.append(pre_instr) # this will be filled at the end of allocating sizes
+    packaged.append(pre_instr)  # this will be filled at the end of allocating sizes
     size += pre_instr.code_size
 
     # add in startup code
@@ -162,55 +162,39 @@ def package_objects(compiler: Compiler,
     # set stack position
     pre_instr.args = (ir_object.Immediate(size + 2, 2),)
 
-    # begin replacing identifiers
-    while True:  # pylint: disable=too-many-nested-blocks;  no go away they're not that bad
-        # did we replace any references
-        replaced = False
+    missing = []
 
-        # did we visit any references
-        visited = False
+    for obj in packaged:
+        if isinstance(obj, encoder.HardWareInstruction):
+            args = list(obj.args)  # create list from args to allow us to mutate indexes
+            for position, arg in enumerate(args):
+                # resolve data reference
+                # we dont need to process dereferences as they can only be applied to registers or immediates
+                if isinstance(arg, ir_object.DataReference):
+                    if arg.name in indexes:  # replace reference to actual location
+                        args[position] = encoder.HardwareMemoryLocation(indexes[arg.name])
+                    else:
+                        missing.append(arg.name)
 
-        # If we visited some nodes but made no replacements,
-        # we cannot make any replacements in the future and so must fail
-        #
-        # If we made some replacements then we should make another pass
-        # (OPTIMISATION: maybe take note if we replaced all the references and can exit without checking)
+                # resolve jump target
+                if isinstance(arg, ir_object.JumpTarget):
+                    if arg.identifier in indexes:
+                        args[position] = encoder.HardwareMemoryLocation(indexes[arg.identifier])
+                    else:
+                        missing.append(arg.identifier)
+            obj.args = tuple(args)
 
-        for obj in packaged:
+        if isinstance(obj, list):
+            for index, elem in enumerate(obj):
+                if isinstance(elem, Variable):
+                    if elem.name in indexes:
+                        obj[index] = encoder.HardwareMemoryLocation(indexes[elem.name])
+                    else:
+                        missing.append(elem.name)
 
-            if isinstance(obj, encoder.HardWareInstruction):
-                args = list(obj.args)  # create list from args to allow us to mutate indexes
-                for position, arg in enumerate(args):
-                    # resolve data reference
-                    # we dont need to process dereferences as they can only be applied to registers or immediates
-                    if isinstance(arg, ir_object.DataReference):
-                        visited = True
-                        if arg.name in indexes:  # replace reference to actual location
-                            replaced = True
-                            args[position] = encoder.HardwareMemoryLocation(indexes[arg.name])
-
-                    # resolve jump target
-                    if isinstance(arg, ir_object.JumpTarget):
-                        visited = True
-                        if arg.identifier in indexes:
-                            replaced = True
-                            args[position] = encoder.HardwareMemoryLocation(indexes[arg.identifier])
-                obj.args = tuple(args)
-
-            if isinstance(obj, list):
-                for index, elem in enumerate(obj):
-                    if isinstance(elem, Variable):
-                        visited = True
-                        if elem.name in indexes:
-                            replaced = True
-                            obj[index] = encoder.HardwareMemoryLocation(indexes[elem.name])
-
-        if visited and not replaced:
-            # FEATURE: keep track of what we're missing and display it
-            raise InternalCompileException("Failed to resolve references!")
-
-        if not replaced:
-            break
+    if missing:
+        # FEATURE: keep track of what we're missing and display it
+        raise InternalCompileException(f"Failed to resolve references: {missing}")
 
     return indexes, packaged
 

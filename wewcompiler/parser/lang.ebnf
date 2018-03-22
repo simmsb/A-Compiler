@@ -28,7 +28,7 @@ fun_type = '(' t:','.{type} ')' '->' r:type ;
 type = base_type | ptr_type | array_type | const_type | fun_type | void_type | '(' type ')' ;
 
 
-statement = (var_decl | scope | return_stmt | asm) ';' | if_stmt | loop_stmt | expr ';' ;
+statement = (var_decl | return_stmt | asm) ';' | scope | if_stmt | loop_stmt | expr ';' ;
 
 
 scope = '{' body:{statement} '}' ;
@@ -52,8 +52,9 @@ optional_def = ':=' ~ val:expr typ:`'infer'` | ':' typ:type ['=' val:expr] ;
 
 var_decl = 'var' ~ name:name >optional_def ;
 
+mod_decl = 'mod' ~ name:name '{' body:{decl}+ '}' ;
 
-decl = (fun_decl | var_decl) [';'] ;
+decl = (fun_decl | var_decl | mod_decl) [';'] ;
 
 expr = assign_expr | boolean_pre ;
 
@@ -154,5 +155,5 @@ chr = chr:/'\\?[^']'/ ;
 name = /[A-Za-z]\w*/ ;
 
 
-identifier = identifier:name ;
+identifier = [r:'..'] i:'.'%{name}+ ;
 

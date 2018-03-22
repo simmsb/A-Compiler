@@ -368,7 +368,7 @@ def test_array_decl():
     decl = emptyfn("var a: [u1@5];")
     compile(decl)
 
-    decl = emptyfn("var a: [u1@-4]")
+    decl = emptyfn("var a: [u1@-4];")
     with raises(CompileException):
         compile(decl)
 
@@ -500,5 +500,41 @@ def test_function_void():
 def test_void_function_usage():
     decl = ("fn isvoid() {}"
             "var x := isvoid() * 3;")
+    with raises(CompileException):
+        compile(decl)
+
+
+@for_feature(modules="Modules")
+def test_modules():
+    decl = """
+    mod test {
+        fn in_test() {
+            ..in_outer();
+        }
+
+        fn also_in_test() {
+            in_test();
+        }
+    }
+
+    fn in_outer() {
+        test.in_test();
+    }
+    """
+    compile(decl)
+
+
+@for_feature(modules="Modules")
+def test_modules_fail():
+    decl = """
+    mod test {
+        fn in_test() {
+        }
+    }
+
+    fn in_outer() {
+        in_test();
+    }
+    """
     with raises(CompileException):
         compile(decl)

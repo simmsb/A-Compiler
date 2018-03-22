@@ -10,7 +10,7 @@ from tatsu.ast import AST
 
 from wewcompiler.objects import types
 from wewcompiler.objects.astnode import BaseObject
-from wewcompiler.objects.errors import CompileException
+from wewcompiler.objects.errors import CompileException, InternalCompileException
 from wewcompiler.objects.ir_object import Epilog, IRObject, Prelude, Register, Return, Immediate
 from wewcompiler.objects.variable import Variable, DataReference
 
@@ -106,6 +106,31 @@ class IdentifierScope(ABC):
         return NotImplemented
 
 
+class ModDecl(StatementObject):
+    """Module declaration."""
+
+    def __init__(self, name: str, body: List[StatementObject], ast: Optional[AST]=None):
+        super().__init__(ast)
+        self.name = name
+        self.body = body
+
+    @with_ctx
+    async def compile(self, ctx: 'CompileContext'):
+
+        # add in our namespace
+        name = f"{self.namespace}{self.name}"
+
+        for i in self.body:
+            i.namespace = f"{name}.{i.namespace}"
+            ctx.compiler.add_object(i)
+
+
+def fully_qualified_name(obj: BaseObject, name: str) -> str:
+    if name.startswith('..'):
+        return name[2:]
+    return f"{obj.namespace}{name}"
+
+
 class Scope(StatementObject, IdentifierScope):
     """A object that contains variables that can be looked up."""
 
@@ -184,7 +209,7 @@ class FunctionDecl(Scope):
 
     @property
     def identifier(self) -> str:
-        return self.name
+        return f"{self.namespace}{self.name}"
 
     def lookup_variable(self, name: str) -> Optional[Variable]:
         var = super().lookup_variable(name)
@@ -195,7 +220,7 @@ class FunctionDecl(Scope):
     @with_ctx
     async def compile(self, ctx: 'CompileContext'):
         with ctx.scope(self):
-            var = ctx.compiler.make_variable(self.name, self.type, self)
+            var = ctx.make_variable(self.name, self.type, self, global_only=True)
             var.global_offset = DataReference(self.identifier)  # set to our name
             var.lvalue_is_rvalue = True
 
@@ -221,6 +246,8 @@ class Compiler(IdentifierScope):
         self.identifiers: Dict[str, int] = {}
         self.spill_size = 0
 
+        self._objects: List[Tuple[StatementObject, Any]] = []
+
         #: counter for generating unique identifiers
         self.unique_counter = 0
 
@@ -238,6 +265,9 @@ class Compiler(IdentifierScope):
             elif isinstance(i, Variable):
                 total += i.size
         return total
+
+    def lookup_variable(self, name: str) -> Variable:
+        return self.vars.get(name)
 
     def add_spill_vars(self, n: int):
         self.spill_size = 8 * n
@@ -310,10 +340,19 @@ class Compiler(IdentifierScope):
 
         :param name: The name to wait on.
         :param obj: The object that should sleep.
-        :param from_: The object that made the request (current top of stack)
+        :param from_: The object that made the request.
         """
         coros = self.waiting_coros.setdefault(name, [])
         coros.append((obj, from_))
+
+    def add_object(self, obj: BaseObject):
+        """Add an object to be compiled by the current compilation.
+
+        :param obj: The object to add to the compile queue.
+
+        If the compilation has finished this will have no effect.
+        """
+        self._objects.append((obj, None))
 
     def run_over(self, obj: StatementObject, to_send: Variable = None) -> bool:
         """Run over a compile coro. Returns true if finished, false if not.
@@ -332,6 +371,7 @@ class Compiler(IdentifierScope):
         else:
             coro = obj.compile(ctx)
             obj._coro = coro  # pylint: disable=protected-access
+
         while True:
             try:
                 r = coro.send(to_send)
@@ -345,22 +385,25 @@ class Compiler(IdentifierScope):
                 to_send = var
                 continue
 
-            var = self.lookup_variable(r.name)
+            # when looking in globals add to the namespace
+            name = fully_qualified_name(obj, r.name)
+
+            var = self.lookup_variable(name)
             if var is not None:
                 to_send = var
                 continue
 
             # if nothing was found place coro on waiting list and start compiling something else.
 
-            self.add_waiting(r.name, obj, ctx.current_object)
+            self.add_waiting(name, obj, ctx.current_object)
             return False
 
-    def compile(self, objects: List[StatementObject]):
-        """Compile a list of objects."""
-        # list of objects to compile and any objects to be sent to them.
-        objects: List[Tuple[StatementObject, Any]] = [(o, None) for o in objects]
-        while objects:
-            obj, to_send = objects.pop()
+    def compile(self, objects: Optional[List[StatementObject]]=None):
+        """Compile a list of objects or restart compilation of any lasting objects."""
+        if objects:
+            self._objects.extend((o, None) for o in objects)
+        while self._objects:
+            obj, to_send = self._objects.pop()
             if self.run_over(obj, to_send):
                 # after completing a compilation, run over the waiting list,
                 # adding any objects that are satisfied back on to the compilation list
@@ -369,7 +412,7 @@ class Compiler(IdentifierScope):
                     if var is None:
                         continue
                     to_wake = self.waiting_coros.pop(name)
-                    objects.extend((o, var) for (o, _) in to_wake)
+                    self._objects.extend((o, var) for (o, _) in to_wake)
                 self.compiled_objects.append(obj)
         if self.waiting_coros:
             errs = []
@@ -403,11 +446,17 @@ class CompileContext:
         self.regs_used = 0
 
     @property
-    def current_object(self) -> Optional[BaseObject]:
+    def current_object(self) -> BaseObject:
         """Get the current object being compiled."""
         if self.object_stack:
             return self.object_stack[-1]
-        return None
+        raise InternalCompileException("Context's object stack is empty")
+
+    @property
+    def top_object(self) -> BaseObject:
+        if self.object_stack:
+            return self.object_stack[0]
+        raise InternalCompileException("Context's object stack is empty")
 
     @property
     def top_function(self) -> Optional[FunctionDecl]:
@@ -454,14 +503,19 @@ class CompileContext:
         self.regs_used += 1
         return reg
 
-    def make_variable(self, name: str, typ: types.Type, obj: BaseObject) -> Variable:
-        if isinstance(self.current_scope, Scope):
+    def make_variable(self, name: str, typ: types.Type, obj: BaseObject, global_only: bool=False) -> Variable:
+        if isinstance(self.current_scope, Scope) and not global_only:
             return self.current_scope.make_variable(name, typ, obj)
+
+        name = f"{self.top_object.namespace}{name}"
+        print(f"Making global with name: {name}")
         return self.compiler.make_variable(name, typ, obj)
 
     def declare_variable(self, name: str, typ: types.Type) -> Variable:
         if isinstance(self.current_scope, Scope):
             return self.current_scope.declare_variable(name, typ)
+
+        name = f"{self.top_object.namespace}{name}"
         return self.compiler.declare_variable(name, typ)
 
     def declare_unique_variable(self, typ: types.Type) -> Variable:
