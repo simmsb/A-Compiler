@@ -119,20 +119,23 @@ class IFStmt(StatementObject):
         # if we have an else clause we rearrange to jump over that
         # instead of inverting the condition to jump over the truth case
         if self.else_:
-            body = self.else_
-            else_ = self.body
-        else:
-            body = self.else_
+            end_jump, else_jump = JumpTarget(), JumpTarget()
 
-        end_jmp = JumpTarget()
-        else_jmp = end_jmp if self.else_ is None else JumpTarget()
-        ctx.emit(Jump(else_jmp, cond))
-        await body.compile(ctx)
-        if self.else_:  # if there is no else body, else_jmp = end_jmp so no need to emit anything but the end marker.
+            ctx.emit(Jump(else_jump, cond))
+            await self.else_.compile(ctx)
             ctx.emit(Jump(end_jmp))
-            ctx.emit(else_jmp)
-            await else_.compile(ctx)
-        ctx.emit(end_jmp)
+            ctx.emit(else_jump)
+            await self.else_.compile(ctx)
+            ctx.emit(end_jump)
+
+        else:
+            if_body, end_jump = JumpTarget(), JumpTarget()
+
+            ctx.emit(Jump(if_body, cond))
+            ctx.emit(Jump(end_jump))
+            ctx.emit(if_body)
+            await self.body.compile(ctx)
+            ctx.emit(end_jump)
 
 
 class LoopStmt(StatementObject):

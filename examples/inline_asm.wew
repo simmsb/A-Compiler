@@ -1,0 +1,14 @@
+fn putchar(c: u1) {
+    _asm[ putc:1, <0>;] {c};
+}
+
+fn putstr(s: *u1) {
+    while *s {
+        putchar(*s);
+	s++;
+    }
+}
+
+fn main() {
+    putstr("hello world!\n");
+}

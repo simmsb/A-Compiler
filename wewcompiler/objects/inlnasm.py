@@ -31,7 +31,7 @@ def asm_expr_build(index=None,
                    int_imm=None, expr_idx=None,
                    deref=False, size=None, dsize=None):
     deref = deref is not None
-    size = int(dsize) if dsize is not None else int(size)
+    size = int(dsize or size or 0)
 
     if index is not None:
         return ASMExpr(ASMExprType.index_register, int(index), deref, size)
@@ -56,23 +56,25 @@ class ASMInstruction:
             elif i.operation is ASMExprType.int_immediate:
                 i.set_val = Immediate(i.val, i.size)
             elif i.operation is ASMExprType.expr_index:
-                if i.val not in expr_registers:
-                    raise InternalCompileException(f"Missing expression index for asm instruction {i}")
+                if i.val not in range(len(expr_registers)):
+                    raise InternalCompileException(f"Missing expression index for asm instruction {i.val}. regs: {expr_registers}")
                 i.set_val = expr_registers[i.val].copy()  # make sure to copy the register object
             if i.deref:
                 i.set_val = Dereference(i.set_val, i.size)
 
+        return [i.set_val for i in self.params]
+
 
 class ASMStmt(StatementObject):
     def __init__(self, body: List[ASMInstruction],
-                 exprs: ExpressionObject, ast: Optional[AST]=None):
+                 exprs: Optional[List[ExpressionObject]]=None, ast: Optional[AST]=None):
         super().__init__(ast)
         self.body = body
-        self.exprs = exprs
+        self.exprs = exprs or ()
 
     @with_ctx
     async def compile(self, ctx: CompileContext):
         registers = [await i.compile(ctx) for i in self.exprs]
         for i in self.body:
-            i.resolve_params(registers)
-            ctx.emit(MachineInstr(i.name, i.size, i.params))
+            params = i.resolve_params(registers)
+            ctx.emit(MachineInstr(i.name, i.size, params))

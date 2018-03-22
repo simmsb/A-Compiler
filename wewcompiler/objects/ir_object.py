@@ -239,7 +239,8 @@ class Binary(IRObject, metaclass=BinaryMeta):
             self.to = self.left
 
     valid_ops = ("add", "sub", "mul", "udiv", "idiv",
-                 "shr", "sar", "shl", "and", "or", "xor")
+                 "shr", "sar", "shl", "and", "or", "xor",
+                 "imod", "umod")
 
     touched_regs = "left", "right", "to"
 

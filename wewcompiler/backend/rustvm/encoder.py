@@ -10,7 +10,8 @@ from wewcompiler.utils.emitterclass import Emitter, emits
 class BinaryInstructions(IntEnum):
     """Binary instructions."""
     (add, sub, mul, udiv, idiv, shl,
-     shr, sar, and_, or_, xor) = range(11)
+     shr, sar, and_, or_, xor, imod,
+     umod) = range(13)
 
     @property
     def group(self):

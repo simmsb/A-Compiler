@@ -47,26 +47,26 @@ def resolve_left_assoc(builder_fun: BinaryExpression, ast):
 def unary_prefix(ast: Optional[AST]=None):
     """Build a unary prefix op from an ast node."""
     if ast.op == "*":
-        return DereferenceOP(ast.right, ast)
+        return DereferenceOP(ast.right, ast=ast)
     if ast.op in ("++", "--"):
-        return PreincrementOP(ast.op, ast.right, ast)
+        return PreincrementOP(ast.op, ast.right, ast=ast)
     if ast.op == "&":
-        return MemrefOp(ast.right, ast)
+        return MemrefOp(ast.right, ast=ast)
     if ast.op in ("~", "!", "-", "+"):
-        return UnaryOP(ast.op, ast.right, ast)
+        return UnaryOP(ast.op, ast.right, ast=ast)
 
     raise InternalCompileException("Invalid unary prefix op")
 
 
 def unary_postfix(ast: Optional[AST]=None):
     if ast.type == "f":
-        return FunctionCallOp(ast.left, ast.args, ast)
+        return FunctionCallOp(ast.left, ast.args, ast=ast)
     if ast.type == "b":
-        return ArrayIndexOp(ast.left, ast.args, ast)
+        return ArrayIndexOp(ast.left, ast.args, ast=ast)
     if ast.type == "d":
-        return PostIncrementOp(ast.left, ast.op, ast)
+        return PostIncrementOp(ast.left, ast.op, ast=ast)
     if ast.type == "c":
-        return CastExprOP(ast.t, ast.left, ast.op, ast)
+        return CastExprOP(ast.t, ast.left, ast.op, ast=ast)
 
     raise InternalCompileException("Invalid unary postfix op")
 
@@ -108,7 +108,7 @@ class WewSemantics(object):
         return ast
 
     def scope(self, ast):
-        return Scope(ast.body, ast)
+        return Scope(ast.body, ast=ast)
 
     def if_stmt(self, ast):
         # we build elif's recursively from the right
@@ -118,23 +118,23 @@ class WewSemantics(object):
         if ast.elf:
             del ast["f"]
             ast["f"] = node
-        return IFStmt(ast.e, ast.t, ast.f, ast)
+        return IFStmt(ast.e, ast.t, ast.f, ast=ast)
 
     def loop_stmt(self, ast):
-        return LoopStmt(ast.e, ast.t, ast)
+        return LoopStmt(ast.e, ast.t, ast=ast)
 
     def return_stmt(self, ast):
-        return ReturnStmt(ast.e, ast)
+        return ReturnStmt(ast.e, ast=ast)
 
     def expr(self, ast):
         return ast
 
     def fun_decl(self, ast):
         params = [(name, type) for (name, _, type) in ast.params]
-        return FunctionDecl(ast.name, params, ast.body, ast)
+        return FunctionDecl(ast.name, params, ast.body, ast=ast)
 
     def var_decl(self, ast):
-        return VariableDecl(ast.name, ast.typ, ast.val, ast)
+        return VariableDecl(ast.name, ast.typ, ast.val, ast=ast)
 
     def optional_def(self, ast):
         return ast
@@ -147,28 +147,28 @@ class WewSemantics(object):
         return ast
 
     def assign_expr(self, ast):
-        return AssignOp(ast.left, ast.right, ast)
+        return AssignOp(ast.left, ast.right, ast=ast)
 
     def boolean(self, ast):
         return BoolCompOp(ast.op, ast.left, ast.right)
 
     def bitwise(self, ast):
-        return resolve_left_assoc(BitwiseOp, ast)
+        return resolve_left_assoc(BitwiseOp, ast=ast)
 
     def equality(self, ast):
         return resolve_left_assoc(BinRelOp, ast)
 
     def relation(self, ast):
-        return resolve_left_assoc(BinRelOp, ast)
+        return resolve_left_assoc(BinRelOp, ast=ast)
 
     def bitshift(self, ast):
-        return resolve_left_assoc(BinShiftOp, ast)
+        return resolve_left_assoc(BinShiftOp, ast=ast)
 
     def additive(self, ast):
-        return resolve_left_assoc(BinAddOp, ast)
+        return resolve_left_assoc(BinAddOp, ast=ast)
 
     def multiply(self, ast):
-        return resolve_left_assoc(BinMulOp, ast)
+        return resolve_left_assoc(BinMulOp, ast=ast)
 
     def prefix(self, ast):
         # negation operator applied to an integer literal makes it negative and signed
@@ -210,16 +210,18 @@ class WewSemantics(object):
                               ast.deref, ast.size, ast.dsize)
 
     def asm(self, ast):
-        return ASMStmt(ast.body, ast.captures)
+        body = [i for i, *_ in ast.body]
+
+        return ASMStmt(body, ast.captures)
 
     def literal(self, ast):
         return ast
 
     def arr_lit(self, ast):
-        return ArrayLiteral(ast.obj, ast)
+        return ArrayLiteral(ast.obj, ast=ast)
 
     def int_lit(self, ast):
-        return IntegerLiteral(int(ast.val), ast.type, ast)
+        return IntegerLiteral(int(ast.val), ast.type, ast=ast)
 
     def int(self, ast):
         return int(ast)
@@ -228,12 +230,14 @@ class WewSemantics(object):
 
         string = literal_eval(ast.str)
 
-        exprs = [IntegerLiteral(i, Int('u1'), ast) for i in (string + "\0").encode("utf-8")]
+        exprs = [IntegerLiteral(i, Int('u1'), ast=ast) for i in (string + "\0").encode("utf-8")]
 
         return ArrayLiteral(exprs, ast)
 
     def chr(self, ast):
-        return IntegerLiteral(ord(ast.chr), ast)
+        char = literal_eval(ast.chr)
+
+        return IntegerLiteral(ord(char), ast=ast)
 
     def identifier(self, ast):
-        return Identifier(ast.identifier, ast)
+        return Identifier(ast.identifier, ast=ast)

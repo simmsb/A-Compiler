@@ -1,0 +1,37 @@
+fn fib(i: u8) -> u8 {
+  if i < 2 {
+    return 1;
+  }
+
+  return fib(i-1) + fib(i-2);
+}
+
+
+fn putint(i: u8) {
+    var r: [u1@40];
+    var z: u2 = 0;
+    var d: u8 = 10;
+
+    while i {
+        r[z] = '0' + (i % d);
+	z++;
+	d = d * 10;
+	i = i / 10;
+    }
+
+    while z-- {
+        putchar(r[z]);
+    }
+    putchar('\n');
+}
+
+
+fn putchar(c: u1) {
+    _asm[ putc:1, <0>;] {c};
+}
+
+
+fn main() {
+  var x := fib(10);
+  putint(x);
+}

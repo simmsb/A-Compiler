@@ -418,7 +418,7 @@ class BinMulOp(BinaryExpression):
     Emits a signed operation of the rhs of a division is signed."""
 
     _compat_types = (
-        (('*', '/'), (types.Int, types.Int), types.Int),
+        (('*', '/', '%'), (types.Int, types.Int), types.Int),
     )
 
     @property
@@ -435,6 +435,11 @@ class BinMulOp(BinaryExpression):
 
         if self.op == "*":
             op = "mul"
+        elif self.op == "%":
+            if rhs.sign:
+                op = "imod"
+            else:
+                op = "umod"
         elif self.op == "/" and rhs.sign:
             op = "idiv"
         else:

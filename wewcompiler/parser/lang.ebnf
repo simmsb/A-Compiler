@@ -28,7 +28,7 @@ fun_type = '(' t:','.{type} ')' '->' r:type ;
 type = base_type | ptr_type | array_type | const_type | fun_type | void_type | '(' type ')' ;
 
 
-statement = (var_decl | scope | if_stmt | loop_stmt | return_stmt) [';'] | expr ';' ;
+statement = (var_decl | scope | return_stmt | asm) ';' | if_stmt | loop_stmt | expr ';' ;
 
 
 scope = '{' body:{statement} '}' ;
@@ -90,7 +90,7 @@ additive_rep = op:('+' | '-') right:multiply_pre ;
 
 multiply_pre = multiply | unop_pre ;
 multiply = left:unop_pre rest:{multiply_rep}+ ;
-multiply_rep = op:('*' | '/') right:unop_pre ;
+multiply_rep = op:('*' | '/' | '%') right:unop_pre ;
 
 
 unop_pre = prefix | postop ;
@@ -129,7 +129,7 @@ asm_expr =
     [deref:'*' '@' dsize:int] >asm_sub_expr
     ;
     
-asm = '_asm' '[' body:{asm_instruction ';'} ']' '{' captures:','.{expr} ;
+asm = '_asm' '[' body:{asm_instruction ';'} ']' ['{' captures:','.{expr} '}'] ;
 
 
 
@@ -148,7 +148,7 @@ int_lit = val:(>int) ['/' type:base_type] ;
 str = str:/"[^"]+"/ ;
 
 
-chr = chr:/'.'/ ;
+chr = chr:/'\\?[^']'/ ;
 
 
 name = /[A-Za-z]\w*/ ;

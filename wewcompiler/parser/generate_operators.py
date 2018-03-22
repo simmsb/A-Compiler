@@ -7,7 +7,7 @@ bin_ops = (
     ("relation", ("<=", ">=", "<", ">"), "<"),
     ("bitshift", (">>", "<<"),           "<"),
     ("additive", ("+", "-"),             "<"),
-    ("multiply", ("*", "/"),             "<")
+    ("multiply", ("*", "/", "%"),        "<")
 )
 
 def generate(op_table: Tuple[str, Tuple[str, ...]]):

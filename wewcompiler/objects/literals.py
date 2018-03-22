@@ -12,7 +12,7 @@ from tatsu.ast import AST
 
 
 class IntegerLiteral(ExpressionObject):
-    def __init__(self, lit: int, type: Optional[types.Type], ast: Optional[AST]=None):
+    def __init__(self, lit: int, type: Optional[types.Type]=None, ast: Optional[AST]=None):
         super().__init__(ast)
         self.lit = lit
         if type:
