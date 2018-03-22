@@ -21,13 +21,13 @@ Use pip to install rather than running setup.py as I've found ~python setup.py i
 pip install -U .
 #+END_SRC
 
-#+begin_example
+#+BEGIN_SRC bash
 wewcompile examples/fibonacci.wew program.bin
-#+end_example
+#+END_SRC
 
 To run a program, use the [[https://github.com/nitros12/A-VM][virtual machine]] to execute the program.
 
-#+begin_example
+#+BEGIN_SRC bash
 cargo run -- program.bin
-#+end_example
+#+END_SRC
 
