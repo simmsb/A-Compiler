@@ -106,6 +106,22 @@ class IdentifierScope(ABC):
         return NotImplemented
 
 
+class ModDecl(StatementObject):
+    """Module declaration."""
+
+    def __init__(self, name: str, body: List[StatementObject], ast: Optional[AST]=None):
+        super().__init__(ast)
+        self.name = name
+        self.body = body
+
+    @with_ctx
+    async def compile(self, ctx: 'CompileContext'):
+        with ctx.compiler.namespace(self.name):
+            for i in self.body:
+                await i.compile(ctx)
+
+
+
 class Scope(StatementObject, IdentifierScope):
     """A object that contains variables that can be looked up."""
 
@@ -220,6 +236,7 @@ class Compiler(IdentifierScope):
         self.data: List[Union[bytes, List[Variable]]] = []
         self.identifiers: Dict[str, int] = {}
         self.spill_size = 0
+        self.namespace = ""
 
         #: counter for generating unique identifiers
         self.unique_counter = 0
@@ -238,6 +255,23 @@ class Compiler(IdentifierScope):
             elif isinstance(i, Variable):
                 total += i.size
         return total
+
+    @contextmanager
+    def enter_namespace(self, name: str):
+        """Enter a namespace for the compiler, allowing non-clashing modularisation."""
+        last_namespace = self.namespace
+        self.namespace = name + "."
+        yield
+        self.namespace = last_namespace
+
+    def lookup_variable(self, name: str) -> Variable:
+        if not name.startswith(".."):
+            name = self.namespace + name
+        return self.vars.get(name)
+
+    def make_variable(self, name: str, typ: types.Type, obj: Optional[BaseObject] = None) -> Variable:
+        name = self.namespace + name
+        return super().make_variable(name, typ, obj)
 
     def add_spill_vars(self, n: int):
         self.spill_size = 8 * n

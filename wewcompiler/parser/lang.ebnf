@@ -52,6 +52,7 @@ optional_def = ':=' ~ val:expr typ:`'infer'` | ':' typ:type ['=' val:expr] ;
 
 var_decl = 'var' ~ name:name >optional_def ;
 
+mod_decl = 'mod' ~ name:str '{' body:{decl}+ '}' ;
 
 decl = (fun_decl | var_decl) [';'] ;
 

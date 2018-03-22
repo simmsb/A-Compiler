@@ -3,7 +3,7 @@ import sys
 from typing import Optional
 from ast import literal_eval
 
-from wewcompiler.objects.base import FunctionDecl, Scope
+from wewcompiler.objects.base import FunctionDecl, Scope, ModDecl
 from wewcompiler.objects.literals import (ArrayLiteral, Identifier,
                                           IntegerLiteral)
 from wewcompiler.objects.operations import (AssignOp, BinAddOp, BinMulOp,
@@ -139,6 +139,9 @@ class WewSemantics(object):
     def optional_def(self, ast):
         return ast
 
+    def mod_decl(self, ast):
+        return ModDecl(ast.name, ast.body, ast=ast)
+
     def decl(self, ast):
         # 'decl ;' results in [<decl>, ';']
         # but 'decl' results in <decl>
@@ -150,13 +153,13 @@ class WewSemantics(object):
         return AssignOp(ast.left, ast.right, ast=ast)
 
     def boolean(self, ast):
-        return BoolCompOp(ast.op, ast.left, ast.right)
+        return BoolCompOp(ast.op, ast.left, ast.right, ast=ast)
 
     def bitwise(self, ast):
         return resolve_left_assoc(BitwiseOp, ast=ast)
 
     def equality(self, ast):
-        return resolve_left_assoc(BinRelOp, ast)
+        return resolve_left_assoc(BinRelOp, ast=ast)
 
     def relation(self, ast):
         return resolve_left_assoc(BinRelOp, ast=ast)
