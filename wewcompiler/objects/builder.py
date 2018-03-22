@@ -243,4 +243,6 @@ class WewSemantics(object):
         return IntegerLiteral(ord(char), ast=ast)
 
     def identifier(self, ast):
-        return Identifier(ast.identifier, ast=ast)
+        ident = (ast.r or "") + "".join(ast.i)
+
+        return Identifier(ident, ast=ast)

@@ -13,6 +13,9 @@ class BaseObject:
     def __init__(self, ast: Optional[AST]=None):
         self.context: 'CompileContext' = None
         self.ast = ast
+
+        self.namespace = ""
+
         if ast is not None:
             assert isinstance(ast, AST)
             self._info: ParseInfo = ast.parseinfo

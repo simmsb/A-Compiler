@@ -1,4 +1,4 @@
-from typing import Union, Tuple, Iterable
+from typing import Union, Tuple, Iterable, Optional
 from enum import IntEnum
 from dataclasses import dataclass, field
 
