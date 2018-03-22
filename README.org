@@ -5,7 +5,7 @@
 * Description
 This is the repo of my programming language.
 
-The main target of the compiler is my [[https://github.com/nitros12/A-VM][virtual machine]] but I plan to also use
+The main target of the compiler is my [[https://github.com/nitros12/vm-rust][virtual machine]] but I plan to also use
 [[https://github.com/Maratyszcza/PeachPy][PeachPy]] at some point to produce x86_64 binaries and also a LLVM backend
 eventually.
 
@@ -25,7 +25,7 @@ pip install -U .
 wewcompile examples/fibonacci.wew program.bin
 #+END_SRC
 
-To run a program, use the [[https://github.com/nitros12/A-VM][virtual machine]] to execute the program.
+To run a program, use the [[https://github.com/nitros12/vm-rust][virtual machine]] to execute the program.
 
 #+BEGIN_SRC bash
 cargo run -- program.bin
