@@ -1,0 +1,11 @@
+fn main() {
+  test_va(5::u8);
+}
+
+fn test_va(...) -> u8 {
+  return *(var_args::*u8 - 1);
+}
+
+fn test_fn(x: u8) -> u8 {
+  return x;
+}

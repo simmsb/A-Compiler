@@ -109,8 +109,8 @@ class IdentifierScope(ABC):
 class ModDecl(StatementObject):
     """Module declaration."""
 
-    def __init__(self, name: str, body: List[StatementObject], ast: Optional[AST]=None):
-        super().__init__(ast)
+    def __init__(self, name: str, body: List[StatementObject], *, ast: Optional[AST]=None):
+        super().__init__(ast=ast)
         self.name = name
         self.body = body
 
@@ -134,8 +134,8 @@ def fully_qualified_name(obj: BaseObject, name: str) -> str:
 class Scope(StatementObject, IdentifierScope):
     """A object that contains variables that can be looked up."""
 
-    def __init__(self, body: List[StatementObject], ast: Optional[AST]=None):
-        super().__init__(ast)
+    def __init__(self, body: List[StatementObject], *, ast: Optional[AST]=None):
+        super().__init__(ast=ast)
         self._vars: Dict[str, Variable] = {}
         self.size = 0
         self.body = body
@@ -177,23 +177,24 @@ class FunctionDecl(Scope):
 
     Stack shape: (not that it matters in this stage of the compiler)
 
-    | p1 | p2 | p3 | p4 | return_addr | stored_base_pointer | v1 | v2 | v3 |
+    | p4 | p3 | p2 | p1 | return_addr | stored_base_pointer | v1 | v2 | v3 |
                                                               ^
     """
 
     def __init__(self, name: str, params: List[Tuple[str, types.Type]],
-                 body: List[StatementObject], ast: Optional[AST]=None):
-        super().__init__(body, ast)
+                 has_varargs: bool, body: List[StatementObject], *, ast: Optional[AST]=None):
+        super().__init__(body, ast=ast)
         self.name = name
         self.params = {name: Variable(name, type) for (name, type) in params}
 
+        self.has_varargs = has_varargs
+
         # for my vm:
         # base pointer will be pointing to the first item on the stack
-        # | p1 | p2 | ret | base | l1 | l2
+        # | p2 | p1 | ret | base | l1 | l2
         # first offset is -2 * the size of a pointer, etc, etc
 
-        # reverse params to count offset from right to left
-        params = list(reversed(list(self.params.values())))
+        params = list(self.params.values())
 
         offsets = accumulate(i.size for i in params)
 
@@ -201,7 +202,20 @@ class FunctionDecl(Scope):
 
         for var, offset in zip(params, offsets):
             var.stack_offset = initial_offset - offset
-        self._type = types.Function(ast.r or types.Void(), [i[2] for i in ast.params], const=True)
+
+        self._type = types.Function(ast.r or types.Void(), [p.type for p in params], has_varargs, const=True)
+
+        # set the var_args 'param' to point to the location of the last parameter
+        if params:
+            last_offset = params[-1].stack_offset
+        else:
+            last_offset = initial_offset
+
+
+        if has_varargs:
+            self.params["var_args"] = Variable("var_args", types.Pointer(types.Void()),
+                                               stack_offset=last_offset, lvalue_is_rvalue=True)
+
 
     @property
     def type(self) -> types.Type:
@@ -231,9 +245,7 @@ class FunctionDecl(Scope):
             # functions dont have an epilog unless from void function implicit returns
 
             if isinstance(self.type.returns, types.Void):
-                ctx.emit(Return(self, Immediate(0, 1)))
-
-            # TODO: support return statements with no expression
+                ctx.emit(Return(self))
 
 
 class Compiler(IdentifierScope):
@@ -508,7 +520,6 @@ class CompileContext:
             return self.current_scope.make_variable(name, typ, obj)
 
         name = f"{self.top_object.namespace}{name}"
-        print(f"Making global with name: {name}")
         return self.compiler.make_variable(name, typ, obj)
 
     def declare_variable(self, name: str, typ: types.Type) -> Variable:

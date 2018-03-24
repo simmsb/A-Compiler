@@ -1,3 +1,4 @@
+from typing import List, Tuple, Union, Optional, Coroutine
 from types import coroutine
 from itertools import chain
 
@@ -6,14 +7,32 @@ from wewcompiler.objects.base import (CompileContext, ExpressionObject,
                                       ObjectRequest, with_ctx)
 from wewcompiler.objects.variable import Variable
 from wewcompiler.objects.ir_object import Immediate, LoadVar, Mov, Register, Binary, Resize, Dereference
-from typing import List, Tuple, Union, Optional, Coroutine
 
 from tatsu.ast import AST
 
 
+class SizeOf(ExpressionObject):
+    def __init__(self, obj: Union[types.Type, ExpressionObject], *, ast: Optional[AST]=None):
+        super().__init__(ast=ast)
+        self.obj = obj
+
+    @property
+    async def type(self):
+        return types.Int.fromsize(8)  # maybe someone will make a massive array
+
+    @with_ctx
+    async def compile(self, ctx: CompileContext) -> Variable:
+        if isinstance(self.obj, ExpressionObject):
+            size = await self.obj.size
+        else:
+            size = self.obj.size
+        ex = IntegerLiteral(size, types.Int.fromsize(8), ast=self.ast)
+        return await ex.compile(ctx)
+
+
 class IntegerLiteral(ExpressionObject):
-    def __init__(self, lit: int, type: Optional[types.Type]=None, ast: Optional[AST]=None):
-        super().__init__(ast)
+    def __init__(self, lit: int, type: Optional[types.Type]=None, *, ast: Optional[AST]=None):
+        super().__init__(ast=ast)
         self.lit = lit
         if type:
             self._type = type
@@ -57,8 +76,8 @@ class IntegerLiteral(ExpressionObject):
 
 
 class Identifier(ExpressionObject):
-    def __init__(self, name: str, ast: Optional[AST]=None):
-        super().__init__(ast)
+    def __init__(self, name: str, *, ast: Optional[AST]=None):
+        super().__init__(ast=ast)
         assert isinstance(name, str)
         self.name = name
         self.var = None
@@ -94,8 +113,8 @@ class Identifier(ExpressionObject):
 
 
 class ArrayLiteral(ExpressionObject):
-    def __init__(self, exprs: List[ExpressionObject], ast: Optional[AST]=None):
-        super().__init__(ast)
+    def __init__(self, exprs: List[ExpressionObject], *, ast: Optional[AST]=None):
+        super().__init__(ast=ast)
         assert isinstance(exprs, list)
         self.exprs = exprs
         self._type = None

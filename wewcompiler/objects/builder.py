@@ -5,7 +5,7 @@ from ast import literal_eval
 
 from wewcompiler.objects.base import FunctionDecl, Scope, ModDecl
 from wewcompiler.objects.literals import (ArrayLiteral, Identifier,
-                                          IntegerLiteral)
+                                          IntegerLiteral, SizeOf)
 from wewcompiler.objects.operations import (AssignOp, BinAddOp, BinMulOp,
                                             BinRelOp, BinShiftOp, BitwiseOp,
                                             BoolCompOp, BinaryExpression,
@@ -92,7 +92,8 @@ class WewSemantics(object):
         return Array(ast.t, ast.s, ast=ast)
 
     def fun_type(self, ast):
-        return Function(ast.r, ast.t, ast=ast)
+        params = ast.t or ()
+        return Function(ast.r, params, ast.va is not None, ast=ast)
 
     def type(self, ast):
         if isinstance(ast, list):
@@ -112,7 +113,7 @@ class WewSemantics(object):
         # we build elif's recursively from the right
         node = ast.f
         for i in reversed(ast.elf):
-            node = IFStmt(i.e, i.t, node, i)
+            node = IFStmt(i.e, i.t, node, ast=i)
         if ast.elf:
             del ast["f"]
             ast["f"] = node
@@ -128,8 +129,11 @@ class WewSemantics(object):
         return ast
 
     def fun_decl(self, ast):
-        params = [(name, type) for (name, _, type) in ast.params]
-        return FunctionDecl(ast.name, params, ast.body, ast=ast)
+        params = ast.params or ()
+        va = ast.va is not None
+
+        params = [(name, type) for (name, _, type) in params]
+        return FunctionDecl(ast.name, params, va, ast.body, ast=ast)
 
     def var_decl(self, ast):
         return VariableDecl(ast.name, ast.typ, ast.val, ast=ast)
@@ -201,6 +205,9 @@ class WewSemantics(object):
     def subexpr(self, ast):
         return ast
 
+    def sizeof(self, ast):
+        return SizeOf(ast.t, ast=ast)
+
     def asm_instruction(self, ast):
         return ASMInstruction(ast.name, int(ast.size), ast.params)
 
@@ -233,7 +240,7 @@ class WewSemantics(object):
 
         exprs = [IntegerLiteral(i, Int('u1'), ast=ast) for i in (string + "\0").encode("utf-8")]
 
-        return ArrayLiteral(exprs, ast)
+        return ArrayLiteral(exprs, ast=ast)
 
     def chr(self, ast):
         char = literal_eval(ast.chr)

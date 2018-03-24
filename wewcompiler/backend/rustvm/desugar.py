@@ -114,7 +114,7 @@ class DesugarIR_Pre(Desugarer):
 
     @emits("Call")
     def emit_call(cls, ctx: CompileContext, call: ir_object.Call):  # pylint: disable=unused-argument
-        for i in call.args:
+        for i in reversed(call.args):
             yield ir_object.Push(i)
         # retain the call here, but we dont care about the arguments because they've been pushed
         yield call

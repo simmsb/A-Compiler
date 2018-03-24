@@ -1,3 +1,4 @@
+from itertools import zip_longest
 from typing import Iterable, Tuple, Union, Optional, List
 
 from tatsu.ast import AST
@@ -11,8 +12,8 @@ from wewcompiler.objects.ir_object import (Binary, Call, CompType, Compare, Dere
 
 class MemrefOp(ExpressionObject):
 
-    def __init__(self, expr: ExpressionObject, ast: Optional[AST]=None):
-        super().__init__(ast)
+    def __init__(self, expr: ExpressionObject, *, ast: Optional[AST]=None):
+        super().__init__(ast=ast)
         self.expr = expr
 
     @property
@@ -26,8 +27,8 @@ class MemrefOp(ExpressionObject):
 
 class UnaryOP(ExpressionObject):
 
-    def __init__(self, op: str, expr: ExpressionObject, ast: Optional[AST]=None):
-        super().__init__(ast)
+    def __init__(self, op: str, expr: ExpressionObject, *, ast: Optional[AST]=None):
+        super().__init__(ast=ast)
         self.op = op
         self.expr = expr
 
@@ -59,8 +60,8 @@ class UnaryOP(ExpressionObject):
 
 class PreincrementOP(ExpressionObject):
 
-    def __init__(self, op: str, expr: ExpressionObject, ast: Optional[AST]=None):
-        super().__init__(ast)
+    def __init__(self, op: str, expr: ExpressionObject, *, ast: Optional[AST]=None):
+        super().__init__(ast=ast)
         self.op = op
         self.expr = expr
 
@@ -92,15 +93,16 @@ class PreincrementOP(ExpressionObject):
 
 class DereferenceOP(ExpressionObject):
 
-    def __init__(self, expr: ExpressionObject, ast: Optional[AST]=None):
-        super().__init__(ast)
+    def __init__(self, expr: ExpressionObject, *, ast: Optional[AST]=None):
+        super().__init__(ast=ast)
         self.expr = expr
 
     @property
     async def type(self):
-        ptr: Union[types.Pointer, types.Array] = (await self.expr.type)
+        ptr: Union[types.Pointer, types.Array] = await self.expr.type
         if not isinstance(ptr, (types.Pointer, types.Array)):
             raise self.error(f"Operand to dereference is of type {ptr}, not of pointer or array type.")
+
         return ptr.to
 
     async def load_lvalue(self, ctx: CompileContext) -> Register:
@@ -113,8 +115,8 @@ class DereferenceOP(ExpressionObject):
 
     @with_ctx
     async def compile(self, ctx: CompileContext) -> Register:
-        ptr: Register = (await self.load_lvalue(ctx))
-        assert isinstance(ptr, Register)
+        ptr = await self.load_lvalue(ctx)
+
         reg = ctx.get_register((await self.size))
         ctx.emit(Mov(reg, Dereference(ptr, reg.size)))
         return reg
@@ -122,8 +124,8 @@ class DereferenceOP(ExpressionObject):
 
 class CastExprOP(ExpressionObject):
 
-    def __init__(self, type: types.Type, expr: ExpressionObject, op: str='::', ast: Optional[AST]=None):
-        super().__init__(ast)
+    def __init__(self, type: types.Type, expr: ExpressionObject, op: str='::', *, ast: Optional[AST]=None):
+        super().__init__(ast=ast)
         self._type = type
         self.expr = expr
         self.op = op
@@ -138,17 +140,15 @@ class CastExprOP(ExpressionObject):
         my_type = await self.type
 
         res = reg.resize(my_type.size, my_type.signed)
-        if self.op == "::":
+        if self.op == "::" and reg.size != res.size:
             ctx.emit(Resize(reg, res))  # emit resize operation
-        else:
-            ctx.emit(Mov(res, reg))  # standard move, no extension
         return res
 
 
 class FunctionCallOp(ExpressionObject):
 
-    def __init__(self, fun: ExpressionObject, args: List[ExpressionObject], ast: Optional[AST]=None):
-        super().__init__(ast)
+    def __init__(self, fun: ExpressionObject, args: List[ExpressionObject], *, ast: Optional[AST]=None):
+        super().__init__(ast=ast)
         self.fun = fun
         self.args = args
 
@@ -166,11 +166,17 @@ class FunctionCallOp(ExpressionObject):
         if not isinstance(fun_typ, types.Function):
             raise self.error("Called object is not a function.")
 
-        if len(self.args) != len(fun_typ.args):
+        if fun_typ.varargs:
+            invalid_len = len(self.args) < len(fun_typ.args)
+        else:
+            invalid_len = len(self.args) != len(fun_typ.args)
+
+        if invalid_len:
             raise self.error("Incorrect number of args to function.\n"
                              f"Expected {len(fun_typ.args)} got {len(self.args)}")
 
         # check that the argument types are valid
+        # If this is a varargs function then the extra args wont be typechecked
         arg_types = [(i, (await i.type)) for i in self.args]
         for arg_n, (lhs_type, (rhs_obj, rhs_type)) in enumerate(zip(fun_typ.args, arg_types)):
             if not rhs_type.implicitly_casts_to(lhs_type):
@@ -179,12 +185,15 @@ class FunctionCallOp(ExpressionObject):
                     f"type {rhs_type} instead of expected {lhs_type} and cannot be casted.")
 
         params = []
-        for arg, typ in zip(self.args, fun_typ.args):
-            arg_reg: Register = (await arg.compile(ctx))
-            if arg_reg.size != typ.size:
+
+        for arg, typ in zip_longest(self.args, fun_typ.args):
+            arg_reg = await arg.compile(ctx)
+
+            if typ is not None and arg_reg.size != typ.size:
                 arg_reg0 = arg_reg.resize(typ.size, typ.signed)
                 ctx.emit(Resize(arg_reg, arg_reg0))
                 arg_reg = arg_reg0
+
             params.append(arg_reg)
 
         fun: Register = await self.fun.compile(ctx)
@@ -192,15 +201,15 @@ class FunctionCallOp(ExpressionObject):
         if isinstance(fun_typ.returns, types.Void):
             ctx.emit(Call(params, fun))
         else:
-            result_reg = ctx.get_register((await self.size))
+            result_reg = ctx.get_register(await self.size)
             ctx.emit(Call(params, fun, result_reg))
             return result_reg
 
 
 class ArrayIndexOp(ExpressionObject):
 
-    def __init__(self, arg: ExpressionObject, offset: ExpressionObject, ast: Optional[AST]=None):
-        super().__init__(ast)
+    def __init__(self, arg: ExpressionObject, offset: ExpressionObject, *, ast: Optional[AST]=None):
+        super().__init__(ast=ast)
         self.arg = arg
         self.offset = offset
 
@@ -265,8 +274,8 @@ class ArrayIndexOp(ExpressionObject):
 
 class PostIncrementOp(ExpressionObject):
 
-    def __init__(self, arg: ExpressionObject, op: str, ast: Optional[AST]=None):
-        super().__init__(ast)
+    def __init__(self, arg: ExpressionObject, op: str, *, ast: Optional[AST]=None):
+        super().__init__(ast=ast)
         self.arg = arg
         self.op = {"++": "add",
                    "--": "sub"}[op]
@@ -313,8 +322,8 @@ class BinaryExpression(ExpressionObject):
         return self.ret_type
 
     def __init__(self, op: str, left: ExpressionObject,
-                 right: ExpressionObject, ast: Optional[AST]=None):
-        super().__init__(ast)
+                 right: ExpressionObject, *, ast: Optional[AST]=None):
+        super().__init__(ast=ast)
         self.left = left
         self.op = op
         self.right = right
@@ -549,8 +558,8 @@ class AssignOp(ExpressionObject):
     """Assignment operation."""
 
     def __init__(self, left: ExpressionObject,
-                 right: ExpressionObject, ast: Optional[AST]=None):
-        super().__init__(ast)
+                 right: ExpressionObject, *, ast: Optional[AST]=None):
+        super().__init__(ast=ast)
         self.left = left
         self.right = right
 
@@ -582,8 +591,8 @@ class BoolCompOp(ExpressionObject):
     """Short-circuiting boolean comparison operators."""
 
     def __init__(self, op: str, left: ExpressionObject,
-                 right: ExpressionObject, ast: Optional[AST]=None):
-        super().__init__(ast)
+                 right: ExpressionObject, *, ast: Optional[AST]=None):
+        super().__init__(ast=ast)
         self.op = op
         self.left = left
         self.right = right

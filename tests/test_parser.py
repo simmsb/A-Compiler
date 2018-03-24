@@ -39,7 +39,7 @@ def test_multiple_advanced():
 @for_feature(functions="Functions")
 def test_function_decl():
     """Test function declarations and check the type of the parsed fn."""
-    decl = "fn func(a: u1, b: *u2) -> u4 {};"
+    decl = "fn func(a: u1, b: *u2, ...) -> u4 {};"
     body, = parse_source(decl)
 
     assert isinstance(body, objects.base.FunctionDecl)
@@ -49,6 +49,7 @@ def test_function_decl():
         (objects.types.Int('u1'),
          objects.types.Pointer(
              objects.types.Int('u2'))),
+        True,
         True)
 
 

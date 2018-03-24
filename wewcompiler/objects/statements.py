@@ -10,13 +10,13 @@ from wewcompiler.objects.ir_object import (Binary, Dereference,
                                            Mov, Register, Resize, Return, SaveVar,
                                            Compare, SetCmp, CompType, Epilog)
 from wewcompiler.objects.literals import ArrayLiteral
-from wewcompiler.objects.types import Pointer, Type, Array, Function
+from wewcompiler.objects.types import Pointer, Type, Array, Function, Void
 
 
 class VariableDecl(StatementObject):
 
-    def __init__(self, name: str, type: Type, val: Optional[ExpressionObject]=None, ast: Optional[AST]=None):
-        super().__init__(ast)
+    def __init__(self, name: str, type: Type, val: Optional[ExpressionObject]=None, *, ast: Optional[AST]=None):
+        super().__init__(ast=ast)
         self.name = name
         self._type = type
         self.val = val
@@ -80,34 +80,45 @@ class VariableDecl(StatementObject):
 
 class ReturnStmt(StatementObject):
 
-    def __init__(self, expr: ExpressionObject, ast: Optional[AST]=None):
-        super().__init__(ast)
+    def __init__(self, expr: Optional[ExpressionObject]=None, *, ast: Optional[AST]=None):
+        super().__init__(ast=ast)
         self.expr = expr
 
     @with_ctx
     async def compile(self, ctx: CompileContext):
         fn_type: Function = ctx.top_function.type
-        expr_type: Type = await self.expr.type
+        if self.expr is None:
+            if not isinstance(fn_type.returns, Void):
+                raise self.error(f"Cannot return value in function of type {fn_type.returns}")
 
-        if not fn_type.returns.implicitly_casts_to(expr_type):
-            raise self.error(f"Return type '{expr_type}' cannot be casted to '{fn_type.returns}'.")
+            # all scopes but the function scope
+            for i in reversed(ctx.scope_stack[1:]):
+                ctx.emit(Epilog(i))
 
-        reg = await self.expr.compile(ctx)
+            ctx.emit(Return(ctx.top_function))
+        else:
+            expr_type = await self.expr.type
 
-        # all scopes but the function scope
-        for i in reversed(ctx.scope_stack[1:]):
-            ctx.emit(Epilog(i))
-        if reg.size != fn_type.returns.size:
-            reg0 = reg.resize(fn_type.returns.size, fn_type.returns.signed)
-            ctx.emit(Resize(reg, reg0))
-            reg = reg0
-        ctx.emit(Return(ctx.top_function, reg))
+            if not fn_type.returns.implicitly_casts_to(expr_type):
+                raise self.error(f"Return type '{expr_type}' cannot be casted to '{fn_type.returns}'.")
+
+            reg = await self.expr.compile(ctx)
+
+            # all scopes but the function scope
+            for i in reversed(ctx.scope_stack[1:]):
+                ctx.emit(Epilog(i))
+
+            if reg.size != fn_type.returns.size:
+                reg0 = reg.resize(fn_type.returns.size, fn_type.returns.signed)
+                ctx.emit(Resize(reg, reg0))
+                reg = reg0
+            ctx.emit(Return(ctx.top_function, reg))
 
 
 class IFStmt(StatementObject):
 
-    def __init__(self, cond: ExpressionObject, body: Scope, else_: Optional[Scope]=None, ast: Optional[AST]=None):
-        super().__init__(ast)
+    def __init__(self, cond: ExpressionObject, body: Scope, else_: Optional[Scope]=None, *, ast: Optional[AST]=None):
+        super().__init__(ast=ast)
         self.cond = cond
         self.body = body
         self.else_ = else_
@@ -140,8 +151,8 @@ class IFStmt(StatementObject):
 
 class LoopStmt(StatementObject):
 
-    def __init__(self, cond: ExpressionObject, body: Scope, ast: Optional[AST]=None):
-        super().__init__(ast)
+    def __init__(self, cond: ExpressionObject, body: Scope, *, ast: Optional[AST]=None):
+        super().__init__(ast=ast)
         self.cond = cond
         self.body = body
 

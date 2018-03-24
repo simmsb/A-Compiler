@@ -28,6 +28,7 @@ class Type(BaseObject):
 
 
 class Void(Type):
+    size = 1
 
     def __str__(self):
         return "()"
@@ -38,8 +39,8 @@ class Void(Type):
 
 class Int(Type):
 
-    def __init__(self, t: str, const: bool=False, ast: Optional[AST]=None):
-        super().__init__(ast)
+    def __init__(self, t: str, const: bool=False, *, ast: Optional[AST]=None):
+        super().__init__(ast=ast)
         self.signed = t[0] == "s"
         self.size = int(t[1])
         self.const = const
@@ -69,7 +70,7 @@ class Int(Type):
         return Int,
 
     @classmethod
-    def fromsize(cls, size: int, sign: bool=False, ast: Optional[AST]=None):
+    def fromsize(cls, size: int, sign: bool=False, *, ast: Optional[AST]=None):
         return cls(f"{'s' if sign else 'u'}{size}", ast=ast)
 
 
@@ -77,8 +78,8 @@ class Pointer(Type):
 
     size = 2  # 16 bit pointers ?
 
-    def __init__(self, to: Type, const: bool=False, ast: Optional[AST]=None):
-        super().__init__(ast)
+    def __init__(self, to: Type, const: bool=False, *, ast: Optional[AST]=None):
+        super().__init__(ast=ast)
         assert isinstance(to, Type)
         self.to = to
         self.const = const
@@ -106,8 +107,8 @@ class Pointer(Type):
 class Array(Type):
 
     def __init__(self, to: Type, l: Optional[int]=None,
-                 const: Optional[bool]=False, ast: Optional[AST]=None):
-        super().__init__(ast)
+                 const: Optional[bool]=False, *, ast: Optional[AST]=None):
+        super().__init__(ast=ast)
         assert isinstance(to, Type)
         self.to = to
         self.length = l
@@ -162,14 +163,17 @@ class Function(Type):
 
     size = 2  # we are pointers aswell
 
-    def __init__(self, returns: Type, args: List[Type], const: bool=False, ast: Optional[AST]=None):
-        super().__init__(ast)
+    def __init__(self, returns: Type, args: List[Type], varargs: bool, const: bool=False, *, ast: Optional[AST]=None):
+        super().__init__(ast=ast)
         self.returns = returns
         self.args = args
+        self.varargs = varargs
         self.const = const
 
     def __str__(self):
         types = ", ".join(map(str, self.args))
+        if self.varargs:
+            types += ", ..."
         fns = f"({types}) -> {self.returns}"
         if self.const:
             fns = f"|{fns}|"

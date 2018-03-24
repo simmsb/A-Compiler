@@ -10,7 +10,7 @@ from tatsu.infos import ParseInfo
 class BaseObject:
     """Base class of compilables."""
 
-    def __init__(self, ast: Optional[AST]=None):
+    def __init__(self, *, ast: Optional[AST]=None):
         self.context: 'CompileContext' = None
         self.ast = ast
 
@@ -42,9 +42,9 @@ class BaseObject:
             return source[0][startp:endp]
 
         return "\n".join(
-            source[0][startp:],
-            *source[1:-1],
-            source[-1][:endp]
+            (source[0][startp:],
+             *source[1:-1],
+             source[-1][:endp])
         )
 
     def get_text_positions(self) -> Tuple[int, int]:

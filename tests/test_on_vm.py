@@ -377,3 +377,42 @@ def test_force_spills_to_happen():
         {dest} = {x};
     }
     """.replace('{x}', x)
+
+@expect(5000, 5, 8)
+def test_varargs():
+    return """
+    fn main() {
+        {dest} = test_va(5::u8);
+    }
+
+    fn test_va(...) -> u8 {
+        return *(var_args::*u8 - 1);
+    }
+    """
+
+@expect(5000, 1 + 2 + 3, 8)
+def test_varargs_complex():
+    return """
+    fn main() {
+        {dest} = test_va(1::u8, 2::u2, 3::u4);
+    }
+
+    fn test_va(...) -> u8 {
+        var a: *u8;
+        var b: *u2;
+        var c: *u4;
+
+        var ptr := var_args::*u1;
+
+        ptr = ptr - sizeof<u8>;
+        a = ptr;
+
+        ptr = ptr - sizeof<u2>;
+        b = ptr;
+
+        ptr = ptr - sizeof<u4>;
+        c = ptr;
+
+        return *a + *b + *c;
+    }
+    """

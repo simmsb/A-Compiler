@@ -22,7 +22,13 @@ const_type = '|' t:type '|' ;
 array_type = '[' t:type ['@' s:int] ']' ;
 
 
-fun_type = '(' t:','.{type} ')' '->' r:type ;
+fun_type_args_pre = (@+:type {',' @+:type}) ;
+fun_type_args =
+    | va:'...'
+    | t:fun_type_args_pre [',' va:'...']
+    | {}
+    ;
+fun_type = '(' >fun_type_args ')' '->' r:type ;
 
 
 type = base_type | ptr_type | array_type | const_type | fun_type | void_type | '(' type ')' ;
@@ -33,6 +39,18 @@ statement = (var_decl | return_stmt | asm) ';' | scope | if_stmt | loop_stmt | e
 
 scope = '{' body:{statement} '}' ;
 
+asm_instruction = name:name ':' size:int params:','.{asm_expr} ;
+asm_sub_expr = 
+    | '%' index_register:int '@' size:int
+    | '#' int_immediate:int '@' size:int
+    | '<' expr_index:int '>'
+    ;
+
+asm_expr =
+    [deref:'*' '@' dsize:int] >asm_sub_expr
+    ;
+    
+asm = '_asm' '[' body:{asm_instruction ';'} ']' ['{' captures:','.{expr} '}'] ;
 
 elif = 'elif' e:expr t:scope ;
 if_stmt = 'if' ~ e:expr t:scope elf:{elif} ['else' f:scope] ;
@@ -41,10 +59,15 @@ if_stmt = 'if' ~ e:expr t:scope elf:{elif} ['else' f:scope] ;
 loop_stmt = 'while' ~ e:expr t:scope ;
 
 
-return_stmt = 'return' ~ e:expr ;
+return_stmt = 'return' ~ [e:expr] ;
 
-
-fun_decl = 'fn' ~ name:name '(' params:','.{name ':' type} ')' ['->' r:type] >scope ;
+fun_args_pre = @+:(name ':' type) {',' @+:(name ':' type)} ;
+fun_args = 
+    | va:'...'
+    | params:fun_args_pre [',' va:'...']
+    | {}
+    ;
+fun_decl = 'fn' name:name '(' >fun_args ')' ['->' r:type] >scope ;
 
 
 optional_def = ':=' ~ val:expr typ:`'infer'` | ':' typ:type ['=' val:expr] ;
@@ -113,25 +136,13 @@ postfixexpr = | '(' args:','.{expr} ')' type:`'f'`
 postfix = left:singular exprs:{postfixexpr} ;
 
 
-singular = literal | identifier | subexpr ;
+singular = sizeof | literal | identifier | subexpr ;
 
 
 subexpr = '(' @:expr ')' ;
 
 
-asm_instruction = name:name ':' size:int params:','.{asm_expr} ;
-asm_sub_expr = 
-    | '%' index_register:int '@' size:int
-    | '#' int_immediate:int '@' size:int
-    | '<' expr_index:int '>'
-    ;
-
-asm_expr =
-    [deref:'*' '@' dsize:int] >asm_sub_expr
-    ;
-    
-asm = '_asm' '[' body:{asm_instruction ';'} ']' ['{' captures:','.{expr} '}'] ;
-
+sizeof = 'sizeof' '<' t:(type | expr) '>' ;
 
 
 literal = int_lit | str | chr | arr_lit ;

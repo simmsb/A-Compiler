@@ -206,11 +206,12 @@ class InstructionEncoder(metaclass=Emitter):
 
     @emits("Return")
     def emit_return(cls, instr: ir_object.Return):
-        yield HardWareInstruction(
-            Manip.mov,
-            instr.arg.size,
-            (SpecificRegisters.ret, instr.arg)
-        )
+        if instr.arg is not None:
+            yield HardWareInstruction(
+                Manip.mov,
+                instr.arg.size,
+                (SpecificRegisters.ret, instr.arg)
+            )
 
         for reg in reversed(instr.scope.used_hw_regs):
             yield HardWareInstruction(

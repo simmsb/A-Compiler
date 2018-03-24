@@ -67,8 +67,9 @@ class ASMInstruction:
 
 class ASMStmt(StatementObject):
     def __init__(self, body: List[ASMInstruction],
-                 exprs: Optional[List[ExpressionObject]]=None, ast: Optional[AST]=None):
-        super().__init__(ast)
+                 exprs: Optional[List[ExpressionObject]]=None,
+                 *, ast: Optional[AST]=None):
+        super().__init__(ast=ast)
         self.body = body
         self.exprs = exprs or ()
 
