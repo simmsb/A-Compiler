@@ -114,10 +114,7 @@ class WewSemantics(object):
         node = ast.f
         for i in reversed(ast.elf):
             node = IFStmt(i.e, i.t, node, ast=i)
-        if ast.elf:
-            del ast["f"]
-            ast["f"] = node
-        return IFStmt(ast.e, ast.t, ast.f, ast=ast)
+        return IFStmt(ast.e, ast.t, node, ast=ast)
 
     def loop_stmt(self, ast):
         return LoopStmt(ast.e, ast.t, ast=ast)

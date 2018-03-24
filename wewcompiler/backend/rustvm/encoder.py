@@ -47,7 +47,7 @@ class Mem(IntEnum):
 
 class IO(IntEnum):
     """IO instructions."""
-    (getc, putc) = range(2)
+    (getc, putc, putint) = range(3)
 
     @property
     def group(self):

@@ -136,7 +136,7 @@ class IFStmt(StatementObject):
             await self.else_.compile(ctx)
             ctx.emit(Jump(end_jump))
             ctx.emit(else_jump)
-            await self.else_.compile(ctx)
+            await self.body.compile(ctx)
             ctx.emit(end_jump)
 
         else:

@@ -1,0 +1,3 @@
+fn main() {
+  std.printf("some number: %d8, some char: %c, some string: %s, %% \n", 123/u8, 'a', "hello world");
+}

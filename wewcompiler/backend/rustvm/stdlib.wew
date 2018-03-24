@@ -1,6 +1,17 @@
 mod std {
     fn putchar(c: u1) {
-        _asm[ putc:1, <0>;] {c};
+        _asm[ putc:1, <0>; ] {c};
+    }
+
+    fn putint_debug(a: u8) {
+        _asm[ putint:8, <0>; ] {a};
+    }
+
+    fn error(msg: *u1) {
+        putstr("ABORT: ");
+        putstr(msg);
+        putstr("\n");
+        _asm[ halt:1 ;];
     }
 
     fn putstr(s: *u1) {
@@ -8,20 +19,22 @@ mod std {
             putchar(*s++);
         }
     }
-    
+
+    fn println(s: *u1) {
+        putstr(s);
+        putchar('\n');
+    }
+
     fn putint(i: s8) {
         var r: [u1@40];
         var z: u2 = 0;
-        var d: u8 = 10;
         var inp := i;
 
         while i {
-            r[z] = '0' + (i % d);
-        z++;
-        d = d * 10;
-        i = i / 10;
+            r[z++] = '0' + (i % 10);
+            i = i / 10;
         }
-        
+
         if inp < 0 {
             putchar('-');
         }
@@ -29,6 +42,53 @@ mod std {
         while z-- {
             putchar(r[z]);
         }
-        putchar('\n');
+    }
+
+    mod printf_intern {
+        fn decode_int(s: **u1, stk: **u1) {
+            ++(*s);
+            var c := **s;
+            var st := *stk;
+            if c == '1' {
+                st = st - sizeof<u1>;
+                ..std.putint(*st);
+            } elif c == '2' {
+                st = st - sizeof<u2>;
+                ..std.putint(*st);
+            } elif c == '4' {
+                st = st - sizeof<u4>;
+                ..std.putint(*st);
+            } elif c == '8' {
+                st = st - sizeof<u8>;
+                ..std.putint(*st);
+            } else {
+                ..std.error("invalid size argument to %d_, must be one of 1, 2, 4, 8");
+            }
+            *stk = st;
+        }
+    }
+
+    fn printf(i: *u1, ...) {
+        var ptr := var_args::*u1;
+        while *i {
+            if *i == '%' {
+                i++;
+                var b := *i;
+                if b == 'c' {
+                    var c := --(ptr::*u1);
+                    putchar(*c);
+                } elif b == 'd' {
+                    printf_intern.decode_int(&i, &ptr);
+                } elif b == 's' {
+                    var s := --(ptr::**u1);
+                    putstr(*s);
+                } elif b == '%' {
+                    putchar('%');
+                } else { error("invalid format argument, must be one of %c, %d(n), %s, %%"); }
+            } else {
+                putchar(*i);
+            }
+            i++;
+        }
     }
 }

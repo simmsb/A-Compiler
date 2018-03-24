@@ -92,10 +92,7 @@ class IdentifierScope(ABC):
                 )
             return existing  # variable already declared but is of the same type, ignore it
 
-        var = Variable(name, typ, obj)
-        self.vars[name] = var
-
-        return var
+        return Variable(name, typ, obj)
 
     @abstractmethod
     def declare_variable(self, name: str, typ: types.Type) -> Variable:
@@ -103,6 +100,18 @@ class IdentifierScope(ABC):
 
         raises if variable is redeclared to a different type than the already existing var.
         """
+        return NotImplemented
+
+    @abstractmethod
+    def init_variable(self, var: Variable):
+        """Sets up a variable to exist in this scope but does not
+        make the variable visible in this scope.
+        """
+        return NotImplemented
+
+    @abstractmethod
+    def own_variable(self, var: Variable):
+        """Sets up a variable to be visible in this scope."""
         return NotImplemented
 
 
@@ -159,6 +168,17 @@ class Scope(StatementObject, IdentifierScope):
         var.stack_offset = self.size
         self.size += var.size
         return var
+
+    def init_variable(self, var: Variable):
+        """Sets up a variable to exist in this scope but does not
+        make the variable visible in this scope.
+        """
+        var.stack_offset = self.size
+        self.size += var.size
+
+    def own_variable(self, var: Variable):
+        """Sets up a variable to be visible in this scope."""
+        self.vars[var.name] = var
 
     def add_spill_vars(self, n: int):
         """Insert variables to spill registers into."""
@@ -235,6 +255,7 @@ class FunctionDecl(Scope):
     async def compile(self, ctx: 'CompileContext'):
         with ctx.scope(self):
             var = ctx.make_variable(self.name, self.type, self, global_only=True)
+            ctx.compiler.own_variable(var)
             var.global_offset = DataReference(self.identifier)  # set to our name
             var.lvalue_is_rvalue = True
 
@@ -295,11 +316,19 @@ class Compiler(IdentifierScope):
         raises if variable is redeclared to a different type than the already existing var.
         """
         var = self.make_variable(name, typ)
-        self.vars[vars] = var
+        self.vars[name] = var
         var.global_offset = DataReference(name)
         self.identifiers[name] = len(self.data)
         self.data.append(bytes((0,) * typ.size))
         return var
+
+    def init_variable(self, var: Variable):
+        var.global_offset = DataReference(var.name)
+        self.identifiers[var.name] = len(self.data)
+        self.data.append(bytes((0,) * var.type.size))
+
+    def own_variable(self, var: Variable):
+        self.vars[var.name] = var
 
     def add_string(self, string: str) -> Variable:
         """Add a string to the object table.
@@ -471,9 +500,9 @@ class CompileContext:
         raise InternalCompileException("Context's object stack is empty")
 
     @property
-    def top_function(self) -> Optional[FunctionDecl]:
+    def top_function(self) -> FunctionDecl:
         """Get the top level object being compiled.
-        :returns: None if not compiling a function. The function node otherwise.
+        :returns: The top function object.
         """
         if self.object_stack and isinstance(self.object_stack[0], FunctionDecl):
             return self.object_stack[0]
@@ -482,7 +511,16 @@ class CompileContext:
     @property
     def current_scope(self) -> Optional[Scope]:
         """Get the current active scope."""
-        return self.scope_stack[-1] if self.scope_stack else None
+        if self.scope_stack:
+            return self.scope_stack[-1]
+        return None
+
+    @property
+    def top_scope(self) -> Optional[Scope]:
+        """Get the top scope."""
+        if self.scope_stack:
+            return self.scope_stack[0]
+        return None
 
     @contextmanager
     def scope(self, scope: Scope):
@@ -524,7 +562,12 @@ class CompileContext:
 
     def declare_variable(self, name: str, typ: types.Type) -> Variable:
         if isinstance(self.current_scope, Scope):
-            return self.current_scope.declare_variable(name, typ)
+            # this makes subscoped variables place the location of the variable
+            # in the top scope, but the reference in themselves
+            var = self.current_scope.make_variable(name, typ)
+            self.top_scope.init_variable(var)
+            self.current_scope.own_variable(var)
+            return var
 
         name = f"{self.top_object.namespace}{name}"
         return self.compiler.declare_variable(name, typ)

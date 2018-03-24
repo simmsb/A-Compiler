@@ -62,7 +62,8 @@ class PreincrementOP(ExpressionObject):
 
     def __init__(self, op: str, expr: ExpressionObject, *, ast: Optional[AST]=None):
         super().__init__(ast=ast)
-        self.op = op
+        self.op = {"++": "add",
+                   "--": "sub"}[op]
         self.expr = expr
 
     @property
@@ -76,17 +77,16 @@ class PreincrementOP(ExpressionObject):
     async def compile(self, ctx: CompileContext) -> Register:
         my_type = await self.type
 
-        ptr: Register = (await self.load_lvalue(ctx))
-        tmp = ctx.get_register((await self.size))
+        ptr: Register = await self.load_lvalue(ctx)
+        tmp = ctx.get_register(await self.size)
 
         increment = 1
-
         # in the case of pointer increments, increment by the size of the pointer's underlying type
         if isinstance(my_type, (types.Array, types.Pointer)):
             increment = my_type.to.size
 
         ctx.emit(Mov(tmp, Dereference(ptr, tmp.size)))
-        ctx.emit(Binary.add(tmp, Immediate(increment, tmp.size)))
+        ctx.emit(Binary(tmp, Immediate(increment, tmp.size), self.op))
         ctx.emit(Mov(Dereference(ptr, tmp.size), tmp))
         return tmp
 
@@ -133,6 +133,10 @@ class CastExprOP(ExpressionObject):
     @property
     async def type(self):
         return self._type
+
+    async def load_lvalue(self, ctx: CompileContext) -> Register:
+        # we should allow cast ops to pass the lvalue through
+        return await self.expr.load_lvalue(ctx)
 
     @with_ctx
     async def compile(self, ctx: CompileContext) -> Register:
@@ -288,16 +292,16 @@ class PostIncrementOp(ExpressionObject):
     async def compile(self, ctx: CompileContext) -> Register:
         my_type = await self.type
 
-        ptr: Register = (await self.arg.load_lvalue(ctx))
+        ptr: Register = await self.arg.load_lvalue(ctx)
         size = await self.size
         res, temp = ctx.get_register(size), ctx.get_register(size)
 
-        value = 1
+        increment = 1
         if isinstance(my_type, (types.Array, types.Pointer)):
-            value = my_type.to.size
+            increment = my_type.to.size
 
         ctx.emit(Mov(res, Dereference(ptr, res.size)))
-        ctx.emit(Binary(res, Immediate(value, size), self.op, temp))
+        ctx.emit(Binary(res, Immediate(increment, size), self.op, temp))
         ctx.emit(Mov(Dereference(ptr, temp.size), temp))
         return res
 

@@ -328,6 +328,8 @@ def test_if_stmt():
                    "    return a;"
                    "} elif a > b {"
                    "    return b;"
+                   "} elif a == b {"
+                   "    return a+b;"
                    "} else {"
                    "    return (a + b) / 2;"
                    "}")

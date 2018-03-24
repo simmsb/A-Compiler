@@ -390,14 +390,40 @@ def test_varargs():
     }
     """
 
+@expect(5000, 5, 8)
+def test_if_stmt_true():
+    return """
+    fn main() {
+        var x := 1;
+        if x {
+            {dest} = 5;
+        } else {
+            {dest} = 0;
+        }
+    }
+    """
+
+@expect(5000, 5, 8)
+def test_if_stmt_false():
+    return """
+    fn main() {
+        var x := 0;
+        if x {
+            {dest} = 0;
+        } else {
+            {dest} = 5;
+        }
+    }
+    """
+
 @expect(5000, 1 + 2 + 3, 8)
 def test_varargs_complex():
     return """
     fn main() {
-        {dest} = test_va(1::u8, 2::u2, 3::u4);
+        {dest} = test_va(0, 1, 1::u8, 2::u2, 3::u4);
     }
 
-    fn test_va(...) -> u8 {
+    fn test_va(no_: u1, pe_: u8, ...) -> u8 {
         var a: *u8;
         var b: *u2;
         var c: *u4;
@@ -414,5 +440,15 @@ def test_varargs_complex():
         c = ptr;
 
         return *a + *b + *c;
+    }
+    """
+
+@expect(5000, 8, 8)
+def test_princrement():
+    return """
+    fn main() {
+        var x := 0::*u8;
+        ++x;
+        {dest} = x::u8;
     }
     """
