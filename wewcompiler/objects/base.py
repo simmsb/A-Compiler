@@ -328,10 +328,8 @@ class Compiler(IdentifierScope):
         raises if variable is redeclared to a different type than the already existing var.
         """
         var = self.make_variable(name, typ)
-        self.vars[name] = var
-        var.global_offset = DataReference(name)
-        self.identifiers[name] = len(self.data)
-        self.data.append(bytes((0,) * typ.size))
+        self.init_variable(var)
+        self.own_variable(var)
         return var
 
     def init_variable(self, var: Variable):
@@ -373,8 +371,8 @@ class Compiler(IdentifierScope):
         self.data.append(data)
         return val
 
-    def add_array(self, elems: List[Union[Variable, bytes]]) -> Variable:
-        """Add an array of vars or bytes to the object table.
+    def add_array(self, elems: List[Variable]) -> Variable:
+        """Add an array of vars to the object table.
 
         :param elems: The variables to insert.
         :returns: The variable reference created.
@@ -407,7 +405,7 @@ class Compiler(IdentifierScope):
         """
         self._objects.append((obj, None))
 
-    def run_over(self, obj: StatementObject, to_send: Variable = None) -> bool:
+    def run_over(self, obj: StatementObject, to_send: Optional[Variable]=None) -> bool:
         """Run over a compile coro. Returns true if finished, false if not.
 
         :param obj: The object to start compiling. May or may not have already been visited.
@@ -466,7 +464,11 @@ class Compiler(IdentifierScope):
                         continue
                     to_wake = self.waiting_coros.pop(name)
                     self._objects.extend((o, var) for (o, _) in to_wake)
-                self.compiled_objects.append(obj)
+                if not isinstance(obj, ModDecl):
+                    self.compiled_objects.append(obj)
+
+        # after compilation has finished, any waiting objects left means there were unresolved identifiers
+        # abort and alert the user of the missing names
         if self.waiting_coros:
             errs = []
             for name, sleeping in self.waiting_coros.items():

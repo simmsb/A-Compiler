@@ -452,3 +452,17 @@ def test_princrement():
         {dest} = x::u8;
     }
     """
+
+@expect(5000, 123 + 234, 8)
+def test_globals():
+    return """
+
+    var global: [u8] = {1, 2, 234};
+    mod test {
+        var global2 : u8 = 123;
+    }
+
+    fn main () {
+        {dest} = (test.global2 + global[2]);
+    }
+    """
