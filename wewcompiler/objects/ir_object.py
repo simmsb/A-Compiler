@@ -64,7 +64,10 @@ class Register:
         return Register(self.reg, size, sign)
 
     def copy(self) -> 'Register':
-        return Register(self.reg, self.size, self.sign)
+        return self.__copy__()
+
+    def __copy__(self):
+        return type(self)(self.reg, self.size, self.sign)
 
     def __eq__(self, other):
         if not isinstance(other, Register):

@@ -1,5 +1,10 @@
+from itertools import count
 from typing import Optional, Tuple
 
+import colorama
+from termcolor import colored
+
+from wewcompiler.utils import add_line_count, add_line_once, strip_newlines
 from wewcompiler.utils.formatter import format_lines
 from wewcompiler.objects.errors import CompileException, InternalCompileException
 
@@ -26,7 +31,11 @@ class BaseObject:
 
     @property
     def identifier(self) -> str:
-        return self.matched_region
+        startp, endp = self.get_text_positions()
+        info = self._info
+        startl, endl = info.line, info.endline
+
+        return f"{type(self).__name__}:{startp}:{endp}:{startl}:{endl}"
 
     @property
     def code(self):
@@ -60,39 +69,76 @@ class BaseObject:
         startp = startp - sum(map(len, source[:startl]))
         endp -= sum(map(len, source[:endl]))
 
-        return startp, endp
+        return startp, endp + 1
 
     @property
     def highlight_lines(self) -> str:
         """Generate the error info line for this ast node."""
+
+        info = self._info
+        buffer = info.buffer
+
+        startl, endl = info.line, info.endline
         startp, endp = self.get_text_positions()
 
-        source = [i.rstrip("\n") for i in self._info.text_lines()]
+        above_lines = strip_newlines(buffer.get_lines(max(startl - 5, 0), startl - 1))
+        below_lines = strip_newlines(buffer.get_lines(endl + 1, endl + 5))
 
-        def fmtr():
+        source = list(strip_newlines(self._info.text_lines()))
+
+        red = colorama.Fore.RED
+        white = colorama.Fore.WHITE
+        normal = colorama.Style.NORMAL
+        reset = colorama.Style.RESET_ALL + colorama.Fore.RESET
+        dim = colorama.Style.DIM
+        bright = colorama.Style.BRIGHT
+
+        def make_red(s):
+            return red + s + white
+
+        def make_dim(s):
+            return dim + s + normal
+
+        def make_bright(s):
+            return bright + s + normal
+
+        line_pad = " " * 5  # 5 chars are used by the linecount that need to be padded on the arrows
+
+        def fmtr(counter):
             if len(source) == 1:
                 # start and end on same line, only need simple fmt
-                yield source[0]
+                yield add_line_once(source[0], counter)
                 if startp == endp:  # only emit single carat when the error is a single character
-                    yield f"'^':>{startp}"
+                    yield make_red(line_pad + f"'^':>{startp}")
                 else:
                     width = (endp - startp) - 1  # leave space for carats + off by one
                     separator = '-' * width
-                    yield f"{'^':>{startp}}{separator}^"
+                    yield make_red(line_pad + f"{'^':>{startp}}{separator}^")
             else:
                 width = (len(source[0]) - startp)
                 separator = '-' * width
-                yield source[0]
-                yield f"{'^':>{startp}}{separator}"
+                yield add_line_once(source[0], counter)
+                yield make_red(line_pad + f"{'^':>{startp}}{separator}")
                 for i in source[1:-1]:
-                    yield i
-                    yield '-' * len(i)
+                    yield add_line_once(i, counter)
+                    yield make_red(line_pad + '-' * len(i))
                 width = endp - 1  # - len(source[endl])
                 separator = '-' * width
-                yield source[-1]
-                yield f"{separator}^"
+                yield add_line_once(source[-1], counter)
+                yield make_red(line_pad + f"{separator}^")
 
-        return "\n".join(fmtr())
+        line_counter = count(min(startl - 4, 1))
+
+        above_lines = "\n".join(add_line_count(above_lines, line_counter))
+        if above_lines:
+            above_lines += "\n"
+        error_lines = "\n".join(fmtr(line_counter))
+
+        below_lines = "\n".join(add_line_count(below_lines, line_counter))
+        if below_lines:
+            below_lines = "\n" + below_lines
+
+        return make_dim(above_lines) + make_bright(error_lines) + make_dim(below_lines)
 
     def make_error(self) -> Optional[str]:
         """Make an error for the ast node this object belongs to.

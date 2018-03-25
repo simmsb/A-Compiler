@@ -72,7 +72,7 @@ class ExpressionObject(BaseObject):
     async def load_lvalue(self, ctx: 'CompileContext') -> Register:  # pylint: disable=unused-argument
         """Load the lvalue of an expression, returning the register the value was placed in."""
         raise self.error(
-            f"Object of type <{self.__class__.__name__}> Holds no LValue information.")
+            f"Object: '{self.matched_region}' Holds no LValue information.")
 
 
 class IdentifierScope:

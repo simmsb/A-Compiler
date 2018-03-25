@@ -1,20 +1,20 @@
-from typing import Tuple, Dict, Any
+import re
+import pprint
+from itertools import count
+from typing import Tuple, Dict, Any, Iterable
 
 import click
-import pprint
+import colorama
+from termcolor import colored
 
-from wewcompiler.objects import compile_source, base
-from wewcompiler.backend.rustvm.register_allocate import allocate
+from tatsu.exceptions import FailedParse
+
+from wewcompiler.objects import base, parse_source, compile_source
+from wewcompiler.utils import add_line_count, strip_newlines
 from wewcompiler.backend.rustvm.assemble import process_code, assemble_instructions, group_fns_toplevel
 
 
-def compile_and_allocate(inp: str, debug: bool=False, reg_count: int = 10) -> base.Compiler:
-    compiler = compile_source(inp, debug)
-    for i in compiler.compiled_objects:
-        allocate(reg_count, i.code)
-    return compiler
-
-def compile_and_pack(inp: str, debug: bool=False, reg_count: int = 10) -> Tuple[Dict[str, int], Any]:
+def compile_and_pack(inp: str, debug: bool = False, reg_count: int = 10) -> Tuple[Dict[str, int], Any]:
     compiler = compile_source(inp, debug)
     return process_code(compiler, reg_count), compiler
 
@@ -46,7 +46,44 @@ def get_stats(compiler: base.Compiler, instructions: bytearray):
 def compile(input, out, reg_count, show_stats, debug_compiler,
             print_ir, print_hwin, print_offsets, no_include_std):
 
+    colorama.init(autoreset=True)
+
     input = input.read()
+
+    try:
+        parsed = parse_source(input)
+    except FailedParse as e:
+        print("Failed to parse input: ")
+
+        info = e.buf.line_info(e.pos)
+        line = info.line + 1
+        col = info.col + 1
+
+        text = info.text.rstrip()
+
+        arrow_pos = re.sub(r"[^\t]", " ", text)[:info.col]
+
+        text = text.expandtabs()
+
+        above_lines = strip_newlines(e.buf.get_lines(max(line - 5, 0), line - 2))
+        error_line = e.buf.get_line(line - 1).rstrip("\n\r")
+        below_lines = strip_newlines(e.buf.get_lines(line, line + 5))
+
+        # get line error is on, cut 5 lines above and 5 lines below
+        # highlight error line, grey colour surrounding lines
+
+        line_counter = count(max(line - 4, 1))
+
+        line = colored(str(line), 'green')
+        col = colored(str(col), 'green')
+        print(f"Line {line}, Column: {col}: ")
+        if above_lines:
+            print(colorama.Style.DIM + "\n".join(add_line_count(above_lines, line_counter)))
+        print(colorama.Style.BRIGHT + f"{next(line_counter):>3}| {error_line}\n     {arrow_pos}^")
+        if below_lines:
+            print(colorama.Style.DIM + "\n".join(add_line_count(below_lines, line_counter)))
+
+        exit(1)
 
     if not no_include_std:
         import os
@@ -55,9 +92,13 @@ def compile(input, out, reg_count, show_stats, debug_compiler,
         with open(stdlib_path) as f:
             stdlib = f.read()
 
-        input += stdlib  # Good solution lol
+        parsed.extend(parse_source(stdlib))
 
-    (offsets, code), compiler = compile_and_pack(input, debug=debug_compiler, reg_count=reg_count)
+    compiler = base.Compiler(debug_compiler)
+
+    compiler.compile(parsed)
+
+    offsets, code = process_code(compiler, reg_count)
 
     if print_ir:
         print("\n\n".join("{}\n{}".format(i.identifier, i.pretty_print())
