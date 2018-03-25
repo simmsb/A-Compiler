@@ -66,6 +66,9 @@ class ASMInstruction:
 
 
 class ASMStmt(StatementObject):
+
+    __slots__ = ("body", "exprs")
+
     def __init__(self, body: List[ASMInstruction],
                  exprs: Optional[List[ExpressionObject]]=None,
                  *, ast: Optional[AST]=None):

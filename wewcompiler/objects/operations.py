@@ -12,6 +12,8 @@ from wewcompiler.objects.ir_object import (Binary, Call, CompType, Compare, Dere
 
 class MemrefOp(ExpressionObject):
 
+    __slots__ = ("expr",)
+
     def __init__(self, expr: ExpressionObject, *, ast: Optional[AST]=None):
         super().__init__(ast=ast)
         self.expr = expr
@@ -26,6 +28,8 @@ class MemrefOp(ExpressionObject):
 
 
 class UnaryOP(ExpressionObject):
+
+    __slots__ = ("op", "expr")
 
     def __init__(self, op: str, expr: ExpressionObject, *, ast: Optional[AST]=None):
         super().__init__(ast=ast)
@@ -60,6 +64,8 @@ class UnaryOP(ExpressionObject):
 
 class PreincrementOP(ExpressionObject):
 
+    __slots__ = ("op", "expr")
+
     def __init__(self, op: str, expr: ExpressionObject, *, ast: Optional[AST]=None):
         super().__init__(ast=ast)
         self.op = {"++": "add",
@@ -93,6 +99,8 @@ class PreincrementOP(ExpressionObject):
 
 class DereferenceOP(ExpressionObject):
 
+    __slots__ = ("expr",)
+
     def __init__(self, expr: ExpressionObject, *, ast: Optional[AST]=None):
         super().__init__(ast=ast)
         self.expr = expr
@@ -124,6 +132,8 @@ class DereferenceOP(ExpressionObject):
 
 class CastExprOP(ExpressionObject):
 
+    __slots__ = ("_type", "expr", "op")
+
     def __init__(self, type: types.Type, expr: ExpressionObject, op: str='::', *, ast: Optional[AST]=None):
         super().__init__(ast=ast)
         self._type = type
@@ -150,6 +160,8 @@ class CastExprOP(ExpressionObject):
 
 
 class FunctionCallOp(ExpressionObject):
+
+    __slots__ = ("fun", "args")
 
     def __init__(self, fun: ExpressionObject, args: List[ExpressionObject], *, ast: Optional[AST]=None):
         super().__init__(ast=ast)
@@ -211,6 +223,8 @@ class FunctionCallOp(ExpressionObject):
 
 
 class ArrayIndexOp(ExpressionObject):
+
+    __slots__ = ("arg", "offset")
 
     def __init__(self, arg: ExpressionObject, offset: ExpressionObject, *, ast: Optional[AST]=None):
         super().__init__(ast=ast)
@@ -278,6 +292,8 @@ class ArrayIndexOp(ExpressionObject):
 
 class PostIncrementOp(ExpressionObject):
 
+    __slots__ = ("arg", "op")
+
     def __init__(self, arg: ExpressionObject, op: str, *, ast: Optional[AST]=None):
         super().__init__(ast=ast)
         self.arg = arg
@@ -311,6 +327,8 @@ class BinaryExpression(ExpressionObject):
     """Generic binary expression (a `x` b)
 
     _compat_types is used to typecheck the expression and set the return type of it."""
+
+    __slots__ = ("left", "op", "right", "ret_type", "left_type", "right_type")
 
     _compat_types: Tuple[Union[Tuple[str], str],
                          Tuple[types.Type, types.Type], types.Type] = ()
@@ -561,6 +579,8 @@ class BitwiseOp(BinaryExpression):
 class AssignOp(ExpressionObject):
     """Assignment operation."""
 
+    __slots__ = ("left", "right")
+
     def __init__(self, left: ExpressionObject,
                  right: ExpressionObject, *, ast: Optional[AST]=None):
         super().__init__(ast=ast)
@@ -593,6 +613,8 @@ class AssignOp(ExpressionObject):
 
 class BoolCompOp(ExpressionObject):
     """Short-circuiting boolean comparison operators."""
+
+    __slots__ = ("op", "left", "right")
 
     def __init__(self, op: str, left: ExpressionObject,
                  right: ExpressionObject, *, ast: Optional[AST]=None):

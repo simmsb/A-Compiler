@@ -10,6 +10,8 @@ from tatsu.infos import ParseInfo
 class BaseObject:
     """Base class of compilables."""
 
+    __slots__ = ("context", "ast", "namespace", "_info")
+
     def __init__(self, *, ast: Optional[AST]=None):
         self.context: 'CompileContext' = None
         self.ast = ast

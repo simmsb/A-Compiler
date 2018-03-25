@@ -60,12 +60,18 @@ class IO(IntEnum):
 @dataclass(frozen=True)
 class HardwareRegister:
     """Reference to a named hardware register."""
+
+    __slots__ = ("index",)
+
     index: int
     size = 8  # all hardware registers are just size 8
 
 
 @dataclass(frozen=True)
 class HardwareMemoryLocation:
+
+    __slots__ = ("index",)
+
     index: int
 
 
@@ -77,6 +83,9 @@ class SpecificRegisters:
 
 @dataclass
 class HardWareInstruction:
+
+    __slots__ = ("instr", "size", "args")
+
     instr: Union[BinaryInstructions,
                  UnaryInstructions,
                  Manip,
@@ -91,7 +100,6 @@ class HardWareInstruction:
 
     @property
     def code_size(self):
-        # TODO: confirm this works
         return 2 * (1 + len(self.args))
 
 

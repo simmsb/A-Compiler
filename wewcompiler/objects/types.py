@@ -6,6 +6,9 @@ from tatsu.ast import AST
 
 
 class Type(BaseObject):
+
+    __slots__ = ()
+
     size = 0
     const = False
     signed = False
@@ -28,6 +31,7 @@ class Type(BaseObject):
 
 
 class Void(Type):
+
     size = 1
 
     def __str__(self):
@@ -38,6 +42,8 @@ class Void(Type):
 
 
 class Int(Type):
+
+    __slots__ = ("signed", "size", "const")
 
     def __init__(self, t: str, const: bool=False, *, ast: Optional[AST]=None):
         super().__init__(ast=ast)
@@ -76,6 +82,8 @@ class Int(Type):
 
 class Pointer(Type):
 
+    __slots__ = ("to", "const")
+
     size = 2  # 16 bit pointers ?
 
     def __init__(self, to: Type, const: bool=False, *, ast: Optional[AST]=None):
@@ -105,6 +113,8 @@ class Pointer(Type):
 
 
 class Array(Type):
+
+    __slots__ = ("to", "length", "const")
 
     def __init__(self, to: Type, l: Optional[int]=None,
                  const: Optional[bool]=False, *, ast: Optional[AST]=None):
@@ -160,6 +170,8 @@ class Array(Type):
 
 
 class Function(Type):
+
+    __slots__ = ("returns", "args", "varargs", "const")
 
     size = 2  # we are pointers aswell
 

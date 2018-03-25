@@ -130,7 +130,7 @@ class WewSemantics(object):
         va = ast.va is not None
 
         params = [(name, type) for (name, _, type) in params]
-        return FunctionDecl(ast.name, params, va, ast.body, ast=ast)
+        return FunctionDecl(ast.name, params, ast.r, va, ast.body, ast=ast)
 
     def var_decl(self, ast):
         return VariableDecl(ast.name, ast.typ, ast.val, ast=ast)

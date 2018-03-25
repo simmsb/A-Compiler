@@ -1,6 +1,5 @@
 """Core compilation objects."""
 
-from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from functools import wraps
 from itertools import accumulate
@@ -11,7 +10,7 @@ from tatsu.ast import AST
 from wewcompiler.objects import types
 from wewcompiler.objects.astnode import BaseObject
 from wewcompiler.objects.errors import CompileException, InternalCompileException
-from wewcompiler.objects.ir_object import Epilog, IRObject, Prelude, Register, Return, Immediate
+from wewcompiler.objects.ir_object import Epilog, IRObject, Prelude, Register, Return
 from wewcompiler.objects.variable import Variable, DataReference
 
 
@@ -39,6 +38,8 @@ def with_ctx(f):
 class StatementObject(BaseObject):
     """Derived base ast for statements."""
 
+    __slots__ = ("_coro", )
+
     @with_ctx
     async def compile(self, ctx: 'CompileContext'):
         """Compile an object
@@ -48,6 +49,8 @@ class StatementObject(BaseObject):
 
 class ExpressionObject(BaseObject):
     """Derived base ast for expressions."""
+
+    __slots__ = ()
 
     @property
     async def type(self) -> types.Type:
@@ -72,10 +75,11 @@ class ExpressionObject(BaseObject):
             f"Object of type <{self.__class__.__name__}> Holds no LValue information.")
 
 
-class IdentifierScope(ABC):
+class IdentifierScope:
+
+    __slots__ = ()
 
     @property
-    @abstractmethod
     def vars(self) -> Dict[str, Variable]:
         pass
 
@@ -94,29 +98,28 @@ class IdentifierScope(ABC):
 
         return Variable(name, typ, obj)
 
-    @abstractmethod
     def declare_variable(self, name: str, typ: types.Type) -> Variable:
         """Add a variable to this scope.
 
         raises if variable is redeclared to a different type than the already existing var.
         """
-        return NotImplemented
+        raise NotImplementedError
 
-    @abstractmethod
     def init_variable(self, var: Variable):
         """Sets up a variable to exist in this scope but does not
         make the variable visible in this scope.
         """
-        return NotImplemented
+        raise NotImplementedError
 
-    @abstractmethod
     def own_variable(self, var: Variable):
         """Sets up a variable to be visible in this scope."""
-        return NotImplemented
+        raise NotImplementedError
 
 
 class ModDecl(StatementObject):
     """Module declaration."""
+
+    __slots__ = ("name", "body")
 
     def __init__(self, name: str, body: List[StatementObject], *, ast: Optional[AST]=None):
         super().__init__(ast=ast)
@@ -142,6 +145,8 @@ def fully_qualified_name(obj: BaseObject, name: str) -> str:
 
 class Scope(StatementObject, IdentifierScope):
     """A object that contains variables that can be looked up."""
+
+    __slots__ = ("_vars", "size", "body", "used_hw_regs")
 
     def __init__(self, body: List[StatementObject], *, ast: Optional[AST]=None):
         super().__init__(ast=ast)
@@ -201,7 +206,9 @@ class FunctionDecl(Scope):
                                                               ^
     """
 
-    def __init__(self, name: str, params: List[Tuple[str, types.Type]],
+    __slots__ = ("name", "params", "has_varargs", "_type")
+
+    def __init__(self, name: str, params: List[Tuple[str, types.Type]], return_val: types.Type,
                  has_varargs: bool, body: List[StatementObject], *, ast: Optional[AST]=None):
         super().__init__(body, ast=ast)
         self.name = name
@@ -223,7 +230,7 @@ class FunctionDecl(Scope):
         for var, offset in zip(params, offsets):
             var.stack_offset = initial_offset - offset
 
-        self._type = types.Function(ast.r or types.Void(), [p.type for p in params], has_varargs, const=True)
+        self._type = types.Function(return_val or types.Void(), [p.type for p in params], has_varargs, const=True)
 
         # set the var_args 'param' to point to the location of the last parameter
         if params:
@@ -270,6 +277,11 @@ class FunctionDecl(Scope):
 
 
 class Compiler(IdentifierScope):
+
+    __slots__ = ("debug", "_vars", "compiled_objects",
+                 "waiting_coros", "data", "identifiers",
+                 "spill_size", "_objects", "unique_counter")
+
     def __init__(self, debug: bool=False):
         self.debug = debug
         self._vars: Dict[str, Variable] = {}
@@ -469,6 +481,9 @@ class Compiler(IdentifierScope):
 
 class CompileContext:
     """A compilation context. Once context exists for every file level code object."""
+
+    __slots__ = ("scope_stack", "object_stack",
+                 "compiler", "code", "regs_used")
 
     def __init__(self, compiler: Compiler):
 

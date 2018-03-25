@@ -71,7 +71,7 @@ def process_immediates(compiler: Compiler, code: List[StatementObject]):
             if arg.val > 0x3FFF or arg.val < 0:
                 # bit length wont fit in an argument, we need to allocate a variable and make this point to it
                 signed = arg.val < 0
-                var = compiler.add_bytes(arg.val.to_bytes(length=arg.size, byteorder="little", signed=signed))  # TODO: check this is the correct byteorder
+                var = compiler.add_bytes(arg.val.to_bytes(length=arg.size, byteorder="little", signed=signed))
                 setattr(i, attr, ir_object.Dereference(ir_object.Immediate(var.global_offset, 2), arg.size))
 
 
@@ -96,7 +96,7 @@ InstrOrTarget = Union[encoder.HardWareInstruction, ir_object.JumpTarget]
 
 def package_objects(compiler: Compiler,
                     fns: List[Tuple[str, InstrOrTarget]],
-                    toplevel: List[InstrOrTarget]) -> Tuple[Dict[str, int], Any]:  # TODO: add correct type to this
+                    toplevel: List[InstrOrTarget]) -> Tuple[Dict[str, int], Any]:
     """Packages objects into the binary, making multiple passes to resolve arguments
 
     All IR instructions should have been moved into HardWareInstructions by this point.

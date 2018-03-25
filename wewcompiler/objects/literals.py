@@ -12,6 +12,9 @@ from tatsu.ast import AST
 
 
 class SizeOf(ExpressionObject):
+
+    __slots__ = ("obj",)
+
     def __init__(self, obj: Union[types.Type, ExpressionObject], *, ast: Optional[AST]=None):
         super().__init__(ast=ast)
         self.obj = obj
@@ -31,6 +34,9 @@ class SizeOf(ExpressionObject):
 
 
 class IntegerLiteral(ExpressionObject):
+
+    __slots__ = ("lit", "_type")
+
     def __init__(self, lit: int, type: Optional[types.Type]=None, *, ast: Optional[AST]=None):
         super().__init__(ast=ast)
         self.lit = lit
@@ -76,6 +82,9 @@ class IntegerLiteral(ExpressionObject):
 
 
 class Identifier(ExpressionObject):
+
+    __slots__ = ("name", "var")
+
     def __init__(self, name: str, *, ast: Optional[AST]=None):
         super().__init__(ast=ast)
         assert isinstance(name, str)
@@ -113,6 +122,9 @@ class Identifier(ExpressionObject):
 
 
 class ArrayLiteral(ExpressionObject):
+
+    __slots__ = ("exprs", "_type", "var", "_ptr", "float_size")
+
     def __init__(self, exprs: List[ExpressionObject], *, ast: Optional[AST]=None):
         super().__init__(ast=ast)
         assert isinstance(exprs, list)
@@ -284,7 +296,7 @@ class ArrayLiteral(ExpressionObject):
 
         if (isinstance((await self.type).to, types.Array) and
                 (not isinstance(self.first_elem, ArrayLiteral))):
-            # TODO: Maybe just cast the internal type to a pointer.
+            # Maybe just cast the internal type to a pointer.
             raise self.error("Internal type is of array type but is not a literal.")
 
         if self.var is None:

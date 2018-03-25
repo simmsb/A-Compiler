@@ -33,6 +33,9 @@ class CompType(IntEnum):
 
 @dataclass
 class DataField:
+
+    __slots__ = ("identifier", "data")
+
     identifier: str
     data: bytes
 
@@ -40,6 +43,7 @@ class DataField:
 @dataclass
 class AllocatedRegister:
     """References an allocated register."""
+
     size: int
     sign: bool = False
     physical_register: Optional[int] = None
@@ -47,6 +51,7 @@ class AllocatedRegister:
 
 @dataclass
 class Register:
+
     reg: int
     size: int
     sign: bool = False
@@ -79,6 +84,8 @@ class Register:
 @dataclass
 class Immediate:
 
+    __slots__ = ("val", "size")
+
     val: int
     size: int
 
@@ -90,6 +97,8 @@ class Immediate:
 
 @dataclass
 class Dereference:
+
+    __slots__ = ("to", "size")
 
     to: Union[Register, AllocatedRegister, Immediate]
     size: int
@@ -170,6 +179,8 @@ class LoadVar(IRObject):
 @dataclass
 class SaveVar(IRObject):
 
+    __slots__ = ("variable", "from_")
+
     variable: Variable
     from_: IRParam
 
@@ -179,6 +190,8 @@ class SaveVar(IRObject):
 @dataclass
 class Mov(IRObject):
     """More general than LoadVar/ SaveVar, for setting registers directly."""
+
+    __slots__ = ("to", "from_")
 
     to: IRParam
     from_: IRParam
@@ -252,6 +265,8 @@ class Compare(IRObject):
     Compares two operands and sets resultant registers.
     """
 
+    __slots__ = ("left", "right")
+
     left: IRParam
     right: IRParam
 
@@ -262,6 +277,8 @@ class Compare(IRObject):
 class SetCmp(IRObject):
     """Set a location from the results of the last comparison."""
 
+    __slots__ = ("dest", "op")
+
     dest: IRParam
     op: CompType
 
@@ -271,6 +288,8 @@ class SetCmp(IRObject):
 @dataclass
 class Push(IRObject):
 
+    __slots__ = ("arg",)
+
     arg: IRParam
 
     touched_regs = ("arg",)
@@ -278,6 +297,8 @@ class Push(IRObject):
 
 @dataclass
 class Pop(IRObject):
+
+    __slots__ = ("arg",)
 
     arg: IRParam
 
@@ -288,12 +309,16 @@ class Pop(IRObject):
 class Prelude(IRObject):
     """Function/ scope prelude."""
 
+    __slots__ = ("scope",)
+
     scope: Any
 
 
 @dataclass
 class Epilog(IRObject):
     """Function/ scope epilog."""
+
+    __slots__ = ("scope",)
 
     scope: Any
 
@@ -348,6 +373,8 @@ class Jumpable(IRObject):
 class JumpTarget(Jumpable):
     """Jump target."""
 
+    __slots__ = ()
+
     @property
     def identifier(self):
         return f"jump-target-{id(self)}"
@@ -376,6 +403,8 @@ class Jump(Jumpable):
 class Resize(IRObject):
     """Resize data."""
 
+    __slots__ = ("from_", "to")
+
     from_: IRParam
     to: IRParam
 
@@ -385,6 +414,8 @@ class Resize(IRObject):
 @dataclass
 class MachineInstr(IRObject):
     """Special machine instruction IR type to allow for inline ASM."""
+
+    __slots__ = ("instr", "size", "args")
 
     instr: str
     size: int
