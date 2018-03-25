@@ -69,7 +69,7 @@ class BaseObject:
         startp = startp - sum(map(len, source[:startl]))
         endp -= sum(map(len, source[:endl]))
 
-        return startp, endp + 1
+        return startp + 1, endp
 
     @property
     def highlight_lines(self) -> str:

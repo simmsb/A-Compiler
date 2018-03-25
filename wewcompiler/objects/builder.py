@@ -36,8 +36,13 @@ def resolve_left_assoc(builder_fun: BinaryExpression, ast):
 
     node = ast.left
 
+    # do the first one manually to preserve the ast match region
+    # ('1 * 1' has the entire match, not just '* 1')
+    first = next(operations)
+    node = builder_fun(first.op, node, first.right, ast=ast)
+
     for i in operations:
-        node = builder_fun(i.op, node, i.right)
+        node = builder_fun(i.op, node, i.right, ast=i)
 
     return node
 
