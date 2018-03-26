@@ -2,7 +2,7 @@
 #+EMAIL: ben@bensimms.moe
 #+TITLE: Compiler Checklist
 
-* Compiler Logic [5/6]
+* Compiler Logic [6/6]
 - [X] Type system
 - [X] Function bodies
   + [X] Scopes
@@ -46,7 +46,7 @@
   + [X] Array initialiser
     - [X] Multi dimension initialisers
   + [X] Inferred type
-- [ ] Inline assembly (register substitutions, etc) 
+- [X] Inline assembly (register substitutions, etc) 
     
 * Code Generator
 - [X] Register allocator
