@@ -127,7 +127,7 @@ class BaseObject:
                 yield add_line_once(source[-1], counter)
                 yield make_red(line_pad + f"{separator}^")
 
-        line_counter = count(min(startl - 4, 1))
+        line_counter = count(max(startl - 5, 1))
 
         above_lines = "\n".join(add_line_count(above_lines, line_counter))
         if above_lines:
@@ -150,9 +150,9 @@ class BaseObject:
             return None
         startl, endl = info.line, info.endline
 
-        return "\n".join(((f"on line {startl}"
+        return "\n".join(((f"On line {startl}:"
                            if startl == endl else
-                           f"on lines {startl} to {endl}"),
+                           f"On lines {startl} to {endl}:"),
                           self.highlight_lines))
 
     def error(self, *reasons: str):

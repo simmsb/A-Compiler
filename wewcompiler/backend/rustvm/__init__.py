@@ -72,9 +72,9 @@ def compile(input, out, reg_count, show_stats, debug_compiler,
         # get line error is on, cut 5 lines above and 5 lines below
         # highlight error line, grey colour surrounding lines
 
-        line_counter = count(max(line - 4, 1))
+        line_counter = count(max(line - 5, 1))
 
-        line = colored(str(line), 'green')
+        line = colored(str(line - 1), 'green')
         col = colored(str(col), 'green')
         print(f"Line {line}, Column: {col}: ")
         if above_lines:
