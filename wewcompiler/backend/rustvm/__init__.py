@@ -11,11 +11,12 @@ from tatsu.exceptions import FailedParse
 
 from wewcompiler.objects import base, parse_source, compile_source
 from wewcompiler.utils import add_line_count, strip_newlines
+from wewcompiler.objects.errors import CompileException
 from wewcompiler.backend.rustvm.assemble import process_code, assemble_instructions, group_fns_toplevel
 
 
-def compile_and_pack(inp: str, debug: bool = False, reg_count: int = 10) -> Tuple[Dict[str, int], Any]:
-    compiler = compile_source(inp, debug)
+def compile_and_pack(inp: str, reg_count: int = 10) -> Tuple[Dict[str, int], Any]:
+    compiler = compile_source(inp)
     return process_code(compiler, reg_count), compiler
 
 
@@ -84,6 +85,11 @@ def compile(input, out, reg_count, show_stats, debug_compiler,
             print(colorama.Style.DIM + "\n".join(add_line_count(below_lines, line_counter)))
 
         exit(1)
+    except CompileException as e:
+        if debug_compiler:
+            raise e from None
+        print(e)
+        exit(1)
 
     if not no_include_std:
         import os
@@ -94,9 +100,15 @@ def compile(input, out, reg_count, show_stats, debug_compiler,
 
         parsed.extend(parse_source(stdlib))
 
-    compiler = base.Compiler(debug_compiler)
+    compiler = base.Compiler()
 
-    compiler.compile(parsed)
+    try:
+        compiler.compile(parsed)
+    except CompileException as e:
+        if debug_compiler:
+            raise e from None
+        print(e)
+        exit(1)
 
     offsets, code = process_code(compiler, reg_count)
 

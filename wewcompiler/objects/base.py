@@ -212,7 +212,12 @@ class FunctionDecl(Scope):
                  has_varargs: bool, body: List[StatementObject], *, ast: Optional[AST]=None):
         super().__init__(body, ast=ast)
         self.name = name
-        self.params = {name: Variable(name, type) for (name, type) in params}
+
+
+        self._type = types.Function(return_val or types.Void(), [t for _, t in params],
+                                    has_varargs, const=True, ast=ast)
+
+        self.params = {name: Variable(name, type) for name, type in params}
 
         self.has_varargs = has_varargs
 
@@ -229,8 +234,6 @@ class FunctionDecl(Scope):
 
         for var, offset in zip(params, offsets):
             var.stack_offset = initial_offset - offset
-
-        self._type = types.Function(return_val or types.Void(), [p.type for p in params], has_varargs, const=True)
 
         # set the var_args 'param' to point to the location of the last parameter
         if params:
@@ -278,12 +281,11 @@ class FunctionDecl(Scope):
 
 class Compiler(IdentifierScope):
 
-    __slots__ = ("debug", "_vars", "compiled_objects",
-                 "waiting_coros", "data", "identifiers",
+    __slots__ = ("data", "_vars", "compiled_objects",
+                 "waiting_coros", "identifiers",
                  "spill_size", "_objects", "unique_counter")
 
-    def __init__(self, debug: bool=False):
-        self.debug = debug
+    def __init__(self):
         self._vars: Dict[str, Variable] = {}
         self.compiled_objects: List[StatementObject] = []
         self.waiting_coros: Dict[str, List[Tuple[BaseObject, BaseObject]]] = {}
@@ -558,14 +560,13 @@ class CompileContext:
             # if the exception doesn't contain a trace, try to add it for them.
             if exc.trace is None and self.current_object:
                 exc.trace = self.current_object.make_error()
-            if self.compiler.debug:  # if we're debugging or testing, give the stack trace by raising
-                raise exc from None
-            print(exc)
-            exit(0)  # We dont want to display a stacktrace in situations like this
+            raise exc from None
         self.object_stack.pop()
 
     def get_register(self, size: int, sign: bool = False):
         """Get a unique register."""
+        assert size in (1, 2, 4, 8)
+
         reg = Register(self.regs_used, size, sign)
         self.regs_used += 1
         return reg

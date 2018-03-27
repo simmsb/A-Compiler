@@ -150,9 +150,9 @@ class BaseObject:
             return None
         startl, endl = info.line, info.endline
 
-        return "\n".join(((f"On line {startl}:"
+        return "\n".join(((f"On line {startl + 1}:"
                            if startl == endl else
-                           f"On lines {startl} to {endl}:"),
+                           f"On lines {startl + 1} to {endl + 1}:"),
                           self.highlight_lines))
 
     def error(self, *reasons: str):

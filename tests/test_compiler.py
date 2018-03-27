@@ -6,9 +6,8 @@ from tests.helpers import emptyfn, for_feature
 
 
 def compile(inp: str):
-    # when testing we want debug mode to be on
     inp += "fn main() {}"  # add an empty main function
-    return compile_and_pack(inp, debug=True)
+    return compile_and_pack(inp)
 
 
 @for_feature(globals="Global variables")

@@ -18,6 +18,8 @@ class Variable:
 
     name: str
     type: Type
+
+    size: Optional[int] = None
     parent: Optional[BaseObject] = None
 
     stack_offset: Optional[int] = None
@@ -26,13 +28,9 @@ class Variable:
     #: are we a function or something where dereferencing doesn't make sense
     lvalue_is_rvalue: Optional[bool] = False
 
-    @property
-    def size(self) -> int:
-        return self.type.size
-
-    @property
-    def value_size(self) -> int:
-        return self.type.value_size
+    def __post_init__(self):
+        if self.size is None:
+            self.size = self.type.size
 
     @property
     def identifier(self) -> str:

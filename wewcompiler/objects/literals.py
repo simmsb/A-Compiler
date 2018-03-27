@@ -115,7 +115,7 @@ class Identifier(ExpressionObject):
     @with_ctx
     async def compile(self, ctx: CompileContext) -> Register:
         var = await self.retrieve_variable()
-        reg = ctx.get_register(var.value_size)
+        reg = ctx.get_register(var.type.size)  # explicitly use the type size not the var size
 
         ctx.emit(LoadVar(var, reg))
         return reg

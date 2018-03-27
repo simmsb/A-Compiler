@@ -39,7 +39,9 @@ class VariableDecl(StatementObject):
     async def compile(self, ctx: CompileContext):
         my_type = await self.type
         if self.val is None:  # just a declaration, no types so exit here
-            ctx.declare_variable(self.name, my_type)
+            var = ctx.declare_variable(self.name, my_type)
+            if isinstance(my_type, Array):
+                var.type = Pointer(my_type.to)
             return
 
         if isinstance(self.val, ArrayLiteral):
@@ -62,7 +64,8 @@ class VariableDecl(StatementObject):
                     ctx.emit(Resize(reg, reg0))
                     reg = reg0
                 ctx.emit(SaveVar(var, reg))
-
+            var.type = Pointer(var.type.to)
+            #  var size is now set to the size of the array
 
         elif isinstance(self.val, ExpressionObject):
             val_type = await self.val.type

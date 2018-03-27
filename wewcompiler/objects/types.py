@@ -13,14 +13,6 @@ class Type(BaseObject):
     const = False
     signed = False
 
-    @property
-    def value_size(self):
-        """The value size of this type.
-
-        The same as the .size attribute except for arrays
-        """
-        return self.size
-
     can_cast_to: Tuple['Type'] = ()
 
     def implicitly_casts_to(self, other: 'Type') -> bool:
@@ -159,10 +151,6 @@ class Array(Type):
 
         return self.to.size * self.length
 
-    @property
-    def value_size(self) -> int:
-        return Pointer.size
-
     def implicitly_casts_to(self, other: Type) -> bool:
         if isinstance(other, (Array, Pointer)):
             return self.to.implicitly_casts_to(other.to)
@@ -181,6 +169,10 @@ class Function(Type):
         self.args = args
         self.varargs = varargs
         self.const = const
+
+        for i in args:
+            if isinstance(i, Array):
+                raise i.error("Function arguments cannot have array type as the toplevel type, use pointer instead.")
 
     def __str__(self):
         types = ", ".join(map(str, self.args))
