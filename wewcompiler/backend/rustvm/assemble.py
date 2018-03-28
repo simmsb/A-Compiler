@@ -71,8 +71,11 @@ def process_immediates(compiler: Compiler, code: List[StatementObject]):
             if arg.val > 0x3FFF or arg.val < 0:
                 # bit length wont fit in an argument, we need to allocate a variable and make this point to it
                 signed = arg.val < 0
-                var = compiler.add_bytes(arg.val.to_bytes(length=arg.size, byteorder="little", signed=signed))
-                setattr(i, attr, ir_object.Dereference(var.global_offset, arg.size))
+                try:
+                    var = compiler.add_bytes(arg.val.to_bytes(length=arg.size, byteorder="little", signed=signed))
+                    setattr(i, attr, ir_object.Dereference(var.global_offset, arg.size))
+                except OverflowError:
+                    raise InternalCompileException("Number: {arg.val} too large!")
 
 
 def process_instruction(indexes: Dict[str, int],
