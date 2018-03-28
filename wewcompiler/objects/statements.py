@@ -42,6 +42,7 @@ class VariableDecl(StatementObject):
             var = ctx.declare_variable(self.name, my_type)
             if isinstance(my_type, Array):
                 var.type = Pointer(my_type.to)
+                var.lvalue_is_rvalue = True
             return
 
         if isinstance(self.val, ArrayLiteral):
