@@ -84,7 +84,7 @@ class PreincrementOP(ExpressionObject):
         my_type = await self.type
 
         ptr: Register = await self.load_lvalue(ctx)
-        tmp = ctx.get_register(await self.size)
+        tmp = ctx.get_register(my_type.size, my_type.signed)
 
         increment = 1
         # in the case of pointer increments, increment by the size of the pointer's underlying type
@@ -124,8 +124,9 @@ class DereferenceOP(ExpressionObject):
     @with_ctx
     async def compile(self, ctx: CompileContext) -> Register:
         ptr = await self.load_lvalue(ctx)
+        my_type = await self.type
 
-        reg = ctx.get_register((await self.size))
+        reg = ctx.get_register(my_type.size, my_type.signed)
         ctx.emit(Mov(reg, Dereference(ptr, reg.size)))
         return reg
 
@@ -178,7 +179,7 @@ class FunctionCallOp(ExpressionObject):
     @with_ctx
     async def compile(self, ctx: CompileContext) -> Register:
 
-        fun_typ: types.Function = (await self.fun.type)
+        fun_typ: types.Function = await self.fun.type
         if not isinstance(fun_typ, types.Function):
             raise self.error("Called object is not a function.")
 
@@ -217,7 +218,9 @@ class FunctionCallOp(ExpressionObject):
         if isinstance(fun_typ.returns, types.Void):
             ctx.emit(Call(params, fun))
         else:
-            result_reg = ctx.get_register(await self.size)
+            await self.size
+            result_reg = ctx.get_register(fun_typ.returns.size,
+                                          fun_typ.returns.signed)
             ctx.emit(Call(params, fun, result_reg))
             return result_reg
 
@@ -285,7 +288,8 @@ class ArrayIndexOp(ExpressionObject):
         if isinstance(await self.type, types.Array):
             return ptr
 
-        res = ctx.get_register(await self.size)
+        my_type = await self.type
+        res = ctx.get_register(my_type.size, my_type.signed)
         ctx.emit(Mov(res, Dereference(ptr, res.size)))
         return res
 
@@ -309,8 +313,8 @@ class PostIncrementOp(ExpressionObject):
         my_type = await self.type
 
         ptr: Register = await self.arg.load_lvalue(ctx)
-        size = await self.size
-        res, temp = ctx.get_register(size), ctx.get_register(size)
+        size = my_type.size
+        res, temp = ctx.get_register(size, my_type.signed), ctx.get_register(size)
 
         increment = 1
         if isinstance(my_type, (types.Array, types.Pointer)):
@@ -342,6 +346,13 @@ class BinaryExpression(ExpressionObject):
     async def type(self) -> types.Type:
         await self.resolve_types()
         return self.ret_type
+
+    @property
+    def sign(self) -> bool:
+        """Get the sign of this binary operation.
+        Must be called after types are resolved.
+        """
+        return self.left_type.signed or self.right_type.signed
 
     def __init__(self, op: str, left: ExpressionObject,
                  right: ExpressionObject, *, ast: Optional[AST]=None):
@@ -387,8 +398,8 @@ class BinaryExpression(ExpressionObject):
         Both registers returned have equal size."""
         await self.resolve_types()  # force type resolution to typecheck
 
-        lhs: Register = (await self.left.compile(ctx))
-        rhs: Register = (await self.right.compile(ctx))
+        lhs: Register = await self.left.compile(ctx)
+        rhs: Register = await self.right.compile(ctx)
 
         # resize to the largest operand
         if lhs.size < rhs.size:
@@ -421,13 +432,13 @@ class BinAddOp(BinaryExpression):
                         if isinstance(self.left_type, (types.Pointer, types.Array))
                         else self.right_type)
             return ptr_side
-        return types.Int.fromsize((await self.size))
+        return types.Int.fromsize(await self.size, self.sign)
 
     @with_ctx
     async def compile(self, ctx: CompileContext) -> Register:
         lhs, rhs = (await self.compile_meta(ctx))
 
-        res = ctx.get_register(lhs.size)
+        res = ctx.get_register(lhs.size, self.sign)
 
         op = {"+": "add",
               "-": "sub"}[self.op]
@@ -455,23 +466,23 @@ class BinMulOp(BinaryExpression):
     @property
     async def type(self):
         await self.resolve_types()
-        signed = (self.left_type.signed and self.right_type.signed) if self.op == "/" else False
-        return types.Int.fromsize((await self.size), signed)
+        signed = self.left_type.signed or self.right_type.signed
+        return types.Int.fromsize(await self.size, signed)
 
     @with_ctx
     async def compile(self, ctx: CompileContext) -> Register:
         lhs, rhs = await self.compile_meta(ctx)
 
-        res = ctx.get_register(lhs.size)
+        res = ctx.get_register(lhs.size, self.sign)
 
         if self.op == "*":
             op = "mul"
         elif self.op == "%":
-            if rhs.sign:
+            if self.sign:
                 op = "imod"
             else:
                 op = "umod"
-        elif self.op == "/" and rhs.sign:
+        elif self.op == "/" and self.sign:
             op = "idiv"
         else:
             op = "udiv"
@@ -505,7 +516,7 @@ class BinShiftOp(BinaryExpression):
         if rhs.sign:
             raise self.right.error("RHS operand to a binary shift op must be unsigned.")
 
-        res = ctx.get_register(lhs.size)
+        res = ctx.get_register(lhs.size, self.sign)
 
         if self.op == "<<":
             op = "shl"
@@ -533,16 +544,28 @@ class BinRelOp(BinaryExpression):
 
     @with_ctx
     async def compile(self, ctx: CompileContext) -> Register:
-        op = {
-            '<=': CompType.leq,
-            '<': CompType.lt,
-            '==': CompType.eq,
-            '!=': CompType.neq,
-            '>': CompType.gt,
-            '>=': CompType.geq
-        }[self.op]
-
         lhs, rhs = await self.compile_meta(ctx)
+
+        # if signed, emit signed comparison
+        if self.sign:
+            op = {
+                '<=': CompType.leqs,
+                '<': CompType.lts,
+                '==': CompType.eq,
+                '!=': CompType.neq,
+                '>': CompType.gts,
+                '>=': CompType.geqs
+            }[self.op]
+        else:
+            op = {
+                '<=': CompType.leq,
+                '<': CompType.lt,
+                '==': CompType.eq,
+                '!=': CompType.neq,
+                '>': CompType.gt,
+                '>=': CompType.geq
+            }[self.op]
+
         res = ctx.get_register(1)
         ctx.emit(Compare(lhs, rhs))
         ctx.emit(SetCmp(res, op))
@@ -560,7 +583,7 @@ class BitwiseOp(BinaryExpression):
     async def type(self):
         await self.resolve_types()
         assert self.ret_type is types.Int
-        return self.ret_type((await self.size))
+        return self.ret_type.fromsize(await self.size, self.sign)
 
     @with_ctx
     async def compile(self, ctx: CompileContext) -> Register:
@@ -571,7 +594,7 @@ class BitwiseOp(BinaryExpression):
         }[self.op]
 
         lhs, rhs = await self.compile_meta(ctx)
-        res = ctx.get_register(lhs.size)
+        res = ctx.get_register(lhs.size, self.sign)
         ctx.emit(Binary(lhs, rhs, op, res))
         return res
 

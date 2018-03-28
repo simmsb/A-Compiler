@@ -72,7 +72,7 @@ def process_immediates(compiler: Compiler, code: List[StatementObject]):
                 # bit length wont fit in an argument, we need to allocate a variable and make this point to it
                 signed = arg.val < 0
                 var = compiler.add_bytes(arg.val.to_bytes(length=arg.size, byteorder="little", signed=signed))
-                setattr(i, attr, ir_object.Dereference(ir_object.Immediate(var.global_offset, 2), arg.size))
+                setattr(i, attr, ir_object.Dereference(var.global_offset, arg.size))
 
 
 def process_instruction(indexes: Dict[str, int],
@@ -175,6 +175,13 @@ def package_objects(compiler: Compiler,
                         args[position] = encoder.HardwareMemoryLocation(indexes[arg.name])
                     else:
                         missing.append(arg.name)
+
+                if isinstance(arg, ir_object.Dereference):
+                    if isinstance(arg.to, DataReference):
+                        if arg.to.name in indexes:
+                            arg.to = ir_object.Immediate(indexes[arg.to.name], 2)
+                        else:
+                            missing.append(arg.to.name)
 
                 # resolve jump target
                 if isinstance(arg, ir_object.JumpTarget):

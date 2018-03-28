@@ -181,7 +181,7 @@ class WewSemantics(object):
         # negation operator applied to an integer literal makes it negative and signed
         if isinstance(ast.right, IntegerLiteral) and ast.op == "-":
             ast.right.lit = -ast.right.lit
-            ast.right._type.sign = True
+            ast.right._type.signed = True
             return ast.right
         return unary_prefix(ast)
 

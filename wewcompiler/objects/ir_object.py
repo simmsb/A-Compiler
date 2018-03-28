@@ -22,7 +22,7 @@ class CompType(IntEnum):
      lt,  # less than
      leq,  # less than or equal
      eq,  # equal to
-     les,  # less than signed
+     lts,  # less than signed
      leqs,  # less than or equal signed
      geq,  # greater than or equal
      gt,  # greater than
@@ -95,6 +95,9 @@ class Immediate:
     def __str__(self):
         return f"Imm({self.val}:{self.size})"
 
+    def __post_init__(self):
+        assert isinstance(self.val, int)
+
     __repr__ = __str__
 
 
@@ -103,7 +106,7 @@ class Dereference:
 
     __slots__ = ("to", "size")
 
-    to: Union[Register, AllocatedRegister, Immediate]
+    to: Union[Register, AllocatedRegister, Immediate, DataReference]
     size: int
 
     def __post_init__(self):
@@ -227,7 +230,7 @@ class Unary(IRObject, metaclass=UnaryMeta):
 
     valid_ops = ("binv", "linv", "neg", "pos")
 
-    touched_regs = ("op",)
+    touched_regs = ("arg", "to")
 
 
 class BinaryMeta(type):
