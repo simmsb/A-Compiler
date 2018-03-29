@@ -20,11 +20,13 @@ class ASMExprType(Enum):
 
 @dataclass
 class ASMExpr:
+
+    __slots__ = ("operation", "val", "deref", "size")
+
     operation: ASMExprType
     val: int
     deref: bool
     size: int
-    set_val: IRParam = field(default=None, init=False)
 
 
 def asm_expr_build(index=None,
@@ -50,19 +52,20 @@ class ASMInstruction:
     params: List[ASMExpr]
 
     def resolve_params(self, expr_registers: List[Register]):
-        for i in self.params:
+        def p_res(i):
             if i.operation is ASMExprType.index_register:
-                i.set_val = AllocatedRegister(i.size, i.val)
+                r = AllocatedRegister(i.size, i.val)
             elif i.operation is ASMExprType.int_immediate:
-                i.set_val = Immediate(i.val, i.size)
+                r = Immediate(i.val, i.size)
             elif i.operation is ASMExprType.expr_index:
                 if i.val not in range(len(expr_registers)):
                     raise InternalCompileException(f"Missing expression index for asm instruction {i.val}. regs: {expr_registers}")
-                i.set_val = expr_registers[i.val].copy()  # make sure to copy the register object
+                r = expr_registers[i.val].copy()  # make sure to copy the register object
             if i.deref:
-                i.set_val = Dereference(i.set_val, i.size)
+                r = Dereference(r, i.size)
+            return r
 
-        return [i.set_val for i in self.params]
+        return [p_res(i) for i in self.params]
 
 
 class ASMStmt(StatementObject):
