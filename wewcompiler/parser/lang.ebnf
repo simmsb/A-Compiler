@@ -59,7 +59,7 @@ if_stmt = 'if' ~ e:expr t:scope elf:{elif} ['else' f:scope] ;
 loop_stmt = 'while' ~ e:expr t:scope ;
 
 
-return_stmt = 'return' ~ [e:expr] ;
+return_stmt = 'return' ~ e:[expr] ;
 
 fun_args_pre = @+:(name ':' type) {',' @+:(name ':' type)} ;
 fun_args = 

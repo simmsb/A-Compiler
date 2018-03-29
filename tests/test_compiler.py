@@ -355,7 +355,8 @@ def test_array_init_num():
 @for_feature(variables="Variables", arrays="Arrays", string_literals="String literals")
 def test_array_init_str():
     """Test array initialisation."""
-    decl = emptyfn("var a: [*u8] = {\"string\", \"morestring\", \"lessstring\"};")
+    decl = emptyfn(
+        "var a: [*u8] = {\"string\", \"morestring\", \"lessstring\"};")
     compile(decl)
 
 
@@ -539,3 +540,65 @@ def test_modules_fail():
     """
     with raises(CompileException):
         compile(decl)
+
+
+@for_feature(functions="Functions")
+def test_function_array_param():
+    decl = """
+    fn test(x: [u8]) {
+    }
+    """
+
+    with raises(CompileException):
+        compile(decl)
+
+
+@for_feature(functions="Functions")
+def test_void_function_return():
+    decl = """
+    fn avoid() {
+        return;
+    }
+    """
+
+    compile(decl)
+
+    decl = """
+    fn avoid() {
+        return 4;
+    }
+    """
+
+    with raises(CompileException):
+        compile(decl)
+
+
+def test_unary_negate_on_positives():
+    decl = emptyfn(
+        "var a := 1;"
+        "var b := -a;"
+    )
+
+    with raises(CompileException):
+        compile(decl)
+
+
+@for_feature(pointers="Pointers")
+def test_deref_nonptr():
+    decl = emptyfn(
+        "*(3::u8);"
+    )
+
+    with raises(CompileException):
+        compile(decl)
+
+
+@for_feature(functions="Functions")
+def test_call_nonfn():
+    decl = emptyfn(
+        "(3::u8)();"
+    )
+
+    with raises(CompileException):
+        compile(decl)
+

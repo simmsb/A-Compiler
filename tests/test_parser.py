@@ -78,4 +78,3 @@ def test_fn_in_fn():
     decl = emptyfn(emptyfn(""))
     with raises(FailedParse):
         parse_source(decl)
-

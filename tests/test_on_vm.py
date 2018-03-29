@@ -10,7 +10,8 @@ def run_code_on_vm(location: int, value: int, size: int, program: str, binary_lo
     compiled = assemble_instructions(code)
 
     proc = subprocess.run(
-        [binary_location, "-", "test", "-d", str(location), "-s", str(size), "-v", str(value)],
+        [binary_location, "-", "test", "-d",
+            str(location), "-s", str(size), "-v", str(value)],
         input=compiled,
         stdout=subprocess.PIPE
     )
@@ -114,6 +115,7 @@ def test_five():
     }
     """
 
+
 @expect(1000, 4, 8)
 def test_six():
     return """
@@ -201,6 +203,7 @@ def test_eleven():
     }
     """
 
+
 @expect(5000, 1000 - 100 * (4 // 2) + 10 - 5 + 1 << 3, 8)
 def test_arithmetic():
     return """
@@ -208,6 +211,7 @@ def test_arithmetic():
         {dest} = 1000 - 100 * (4 / 2) + 10 - 5 + 1 << 3;
     }
     """
+
 
 @expect(5000, 1, 8)
 def test_comparison_ops_le_t():
@@ -217,6 +221,7 @@ def test_comparison_ops_le_t():
     }
     """
 
+
 @expect(5000, 0, 8)
 def test_comparison_ops_le_f():
     return """
@@ -224,6 +229,7 @@ def test_comparison_ops_le_f():
         {dest} = 2 < 1;
     }
     """
+
 
 @expect(5000, 1, 8)
 def test_comparison_ops_eq_t():
@@ -233,6 +239,7 @@ def test_comparison_ops_eq_t():
     }
     """
 
+
 @expect(5000, 0, 8)
 def test_comparison_ops_eq_f():
     return """
@@ -240,6 +247,7 @@ def test_comparison_ops_eq_f():
         {dest} = 1 == 2;
     }
     """
+
 
 @expect(5000, 1, 8)
 def test_bool_op_or_first():
@@ -255,6 +263,7 @@ def test_bool_op_or_first():
     }
     """
 
+
 @expect(5000, 1, 8)
 def test_bool_op_or_second():
     return """
@@ -268,6 +277,7 @@ def test_bool_op_or_second():
         0 or write();
     }
     """
+
 
 @expect(5000, 1, 8)
 def test_bool_op_and_first():
@@ -283,6 +293,7 @@ def test_bool_op_and_first():
     }
     """
 
+
 @expect(5000, 1, 8)
 def test_bool_op_and_second():
     return """
@@ -296,6 +307,7 @@ def test_bool_op_and_second():
         0 and write();
     }
     """
+
 
 @expect(5000, 10, 8)
 def test_function_pointers():
@@ -313,6 +325,7 @@ def test_function_pointers():
     }
     """
 
+
 @expect(5000, ord('a'), 1)
 def test_string():
     return """
@@ -327,6 +340,7 @@ def test_string():
     }
     """
 
+
 @expect(5000, 123, 8)
 def test_multidimension_arr():
     return """
@@ -335,6 +349,7 @@ def test_multidimension_arr():
         {dest} = arr[1][0];
     }
     """
+
 
 @expect(5000, 12, 4)
 def test_call_fuzz():
@@ -357,6 +372,7 @@ def test_call_fuzz():
     }
     """
 
+
 @expect(5000, 3, 8)
 def test_ptr_arr():
     return """
@@ -378,6 +394,7 @@ def test_force_spills_to_happen():
     }
     """.replace('{x}', x)
 
+
 @expect(5000, 5, 8)
 def test_varargs():
     return """
@@ -389,6 +406,7 @@ def test_varargs():
         return *(var_args::*u8 - 1);
     }
     """
+
 
 @expect(5000, 5, 8)
 def test_if_stmt_true():
@@ -403,6 +421,7 @@ def test_if_stmt_true():
     }
     """
 
+
 @expect(5000, 5, 8)
 def test_if_stmt_false():
     return """
@@ -415,6 +434,31 @@ def test_if_stmt_false():
         }
     }
     """
+
+
+@expect(5000, 5, 8)
+def test_if_stmt_single_branch_true():
+    return """
+    fn main() {
+        {dest} = 0;
+        if 1 {
+            {dest} = 5;
+        }
+    }
+    """
+
+
+@expect(5000, 5, 8)
+def test_if_stmt_single_branch_false():
+    return """
+    fn main() {
+        {dest} = 5;
+        if 0 {
+            {dest} = 0;
+        }
+    }
+    """
+
 
 @expect(5000, 1 + 2 + 3, 8)
 def test_varargs_complex():
@@ -443,6 +487,7 @@ def test_varargs_complex():
     }
     """
 
+
 @expect(5000, 8, 8)
 def test_princrement():
     return """
@@ -453,10 +498,10 @@ def test_princrement():
     }
     """
 
+
 @expect(5000, 123 + 234, 8)
 def test_globals():
     return """
-
     var global: [u8] = {1, 2, 234};
     mod test {
         var global2 : u8 = 123;
@@ -466,3 +511,95 @@ def test_globals():
         {dest} = (test.global2 + global[2]);
     }
     """
+
+
+@expect(5000, 999_999_999_999_999_999, 8)
+def test_big_number():
+    return """
+    fn main() {
+        {dest} = 999999999999999999;
+    }
+    """
+
+
+@expect(5000, 1, 8)
+def test_pos_of_neg():
+    return """
+    fn main() {
+        var a := -1;
+        {dest} = +a;
+    }
+    """
+
+
+@expect(5000, 1, 8)
+def test_pos_of_pos():
+    return """
+    fn main() {
+        var a : s8 = 1;
+        {dest} = +a;
+    }
+    """
+
+
+@expect(5000, 1, 8)
+def test_negate_of_neg():
+    return """
+    fn main() {
+        var a := -1;
+        {dest} = -a;
+    }
+    """
+
+
+@expect(5000, 1, 8)
+def test_linv():
+    return """
+    fn main() {
+        var a := 0;
+        {dest} = !a;
+    }
+    """
+
+
+@expect(5000, 1, 1)
+def test_binv():
+    return """
+    fn main() {
+        var a : u1 = 254;
+        {dest} = ~a;
+    }
+    """
+
+
+def math_test_gen(name: str, left: int, right: int, op: str, force_result: int = None):
+    result = force_result if force_result is not None else eval(f"({left}) {op} ({right})")
+
+    @expect(5000, result, 1)
+    def wrapper():
+        return """
+        fn main() {
+            {dest} = ({left}) {op} ({right});
+        }
+        """.replace("{left}", str(left)).replace("{op}", op).replace("{right}", str(right))
+
+    wrapper.__name__ = f"test_op_{name}"
+    return wrapper
+
+
+test_op_imod = math_test_gen("imod", -3, 2, "%", force_result=255)
+
+
+test_op_mod = math_test_gen("mod", 3, 2, "%")
+
+
+test_op_idiv = math_test_gen("idiv", -4, 2, "/", force_result=254)
+
+
+test_op_shr = math_test_gen("shr", 4, 1, ">>")
+
+
+test_op_sar = math_test_gen("sar", -4, 1, ">>", force_result=254)
+
+
+test_op_shl = math_test_gen("shl", 1, 1, "<<")

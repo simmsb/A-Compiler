@@ -123,8 +123,8 @@ class DereferenceOP(ExpressionObject):
 
     @with_ctx
     async def compile(self, ctx: CompileContext) -> Register:
-        ptr = await self.load_lvalue(ctx)
         my_type = await self.type
+        ptr = await self.load_lvalue(ctx)
 
         reg = ctx.get_register(my_type.size, my_type.signed)
         ctx.emit(Mov(reg, Dereference(ptr, reg.size)))
