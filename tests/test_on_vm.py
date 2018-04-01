@@ -395,6 +395,24 @@ def test_force_spills_to_happen():
     """.replace('{x}', x)
 
 
+@expect(5000, sum(range(50)), 8)
+def test_force_spills_to_happen():
+    arg_names = [f"a_{i}" for i in range(50)]
+    args = ", ".join(f"{i}: u8" for i in arg_names)
+    argsum = "+".join(arg_names)
+    params = ", ".join(map(str, range(50)))
+
+    return """
+    fn test({args}) -> u8 {
+        return {argsum};
+    }
+
+    fn main() {
+        {dest} = test({params});
+    }
+    """.replace("{args}", args).replace("{argsum}", argsum).replace("{params}", params)
+
+
 @expect(5000, 5, 8)
 def test_varargs():
     return """
