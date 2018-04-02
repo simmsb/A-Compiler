@@ -1,0 +1,28 @@
+var fns := {add_one, mul_two, square};
+
+fn add_one(a: u8) -> u8 {
+    std.printf("adding one: %u8\n", a);
+    return a + 1;
+}
+
+fn mul_two(a: u8) -> u8 {
+    std.printf("mul by two: %u8\n", a);
+    return a * 2;
+}
+
+fn square(a: u8) -> u8 {
+    std.printf("squaring: %u8\n", a);
+    return a * a;
+}
+
+fn main() {
+    var x := 0;
+    var a: u8 = 4;
+
+    while x < 3 {
+        // look: we never say the types involved!!
+        a = fns[x](a);
+        x++;
+    }
+    std.printf("finally: %u8\n", a);
+}

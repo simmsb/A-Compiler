@@ -108,7 +108,11 @@ mod std {
                     putstr(*s);
                 } elif b == '%' {
                     putchar('%');
-                } else { error("invalid format argument, must be one of %c, %d(n), %s, %%"); }
+                } else {
+                    putstr("invalid format argument: ");
+                    putchar(b);
+                    error(", must be one of %c, %d<size>, %u<size> %s, %%");
+                }
             } else {
                 putchar(*i);
             }

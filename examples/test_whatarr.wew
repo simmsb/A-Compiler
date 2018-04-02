@@ -1,0 +1,10 @@
+fn test(a: *[u8@2]) -> u8 {
+  std.printf("Array at: %d2\n", a);
+  return a[1][0];
+}
+
+fn main() {
+    var arr: [[u8@2]] = {{1, 2}, {3}};
+    var x := test(arr);
+    std.printf("result: %d8\n", x);
+}

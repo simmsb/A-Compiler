@@ -1,0 +1,16 @@
+fn somefn() -> *u8 {
+    return 4::*u8;
+}
+
+fn ret(a: *()) -> *() {
+  return a;
+}
+
+fn main() {
+    var a := 1 * somefn();
+
+    var a := 1 +"blah" ret(
+        ret(ret
+          (ret(somefn())
+          )));
+}
