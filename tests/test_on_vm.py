@@ -377,14 +377,14 @@ def test_call_fuzz():
 def test_ptr_arr():
     return """
     fn main() {
-        var x: **u8 = {{1, 2}, {3, 4}};
+        var x: |*|*u8|| = {{1, 2}, {3, 4}};
         {dest} = x[1][0];
     }
     """
 
 
 @expect(5000, 50, 8)
-def test_force_spills_to_happen():
+def test_force_spills_to_happen_large_expression():
     x = "1"
     for _ in range(49):
         x = f"(1 + {x})"
@@ -396,7 +396,7 @@ def test_force_spills_to_happen():
 
 
 @expect(5000, sum(range(50)), 8)
-def test_force_spills_to_happen():
+def test_force_spills_to_happen_many_args():
     arg_names = [f"a_{i}" for i in range(50)]
     args = ", ".join(f"{i}: u8" for i in arg_names)
     argsum = "+".join(arg_names)

@@ -356,7 +356,7 @@ def test_array_init_num():
 def test_array_init_str():
     """Test array initialisation."""
     decl = emptyfn(
-        "var a: [*u8] = {\"string\", \"morestring\", \"lessstring\"};")
+        "var a: [|*u8|] = {\"string\", \"morestring\", \"lessstring\"};")
     compile(decl)
 
 

@@ -153,7 +153,8 @@ class ArrayLiteral(ExpressionObject):
         elem_type = await self.first_elem.type
         if self._ptr:
             return types.Pointer(elem_type, const=True)
-        return types.Array(elem_type, len(self.exprs), const=True)
+        # array types dont get const since they have an automatic location on the stack
+        return types.Array(elem_type, len(self.exprs))
 
     @property
     def first_elem(self):
@@ -179,7 +180,7 @@ class ArrayLiteral(ExpressionObject):
     async def check_types(self, type: types.Type):
         self_type = await self.type
         if not self_type.implicitly_casts_to(type):
-            raise self.error(f"Cannot typecheck {self_type} to {type}")
+            raise self.error(f"Cannot implicitly cast type: {self_type} to type: {type}")
 
         if isinstance(type, types.Array) and type.length is not None and type.length < len(self.exprs):
             raise self.error(f"Length of this array is constrained to {self_type.length}")
@@ -192,10 +193,10 @@ class ArrayLiteral(ExpressionObject):
                     raise i.error(f"Element sizes of this array are constrained to {first_elem_size} by the first element.")
                 await i.check_types(type.to)
         else:
-            for i in self.exprs:
+            for idx, i in enumerate(self.exprs):
                 e_type = await i.type
                 if not e_type.implicitly_casts_to(type.to):
-                    raise i.error(f"Cannot typecheck {e_type} to {type.to}")
+                    raise i.error(f"Cannot implicitly cast element {idx} of array literal from type: '{e_type}' to type: '{type.to}'")
 
 
     async def broadcast_length(self, length: Optional[int] = None):

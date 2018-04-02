@@ -109,7 +109,7 @@ class BaseObject:
                 # start and end on same line, only need simple fmt
                 yield add_line_once(source[0], counter)
                 if startp == endp:  # only emit single carat when the error is a single character
-                    yield make_red(line_pad + f"'^':>{startp}")
+                    yield make_red(line_pad + f"{'^':>{startp}}")
                 else:
                     width = (endp - startp) - 1  # leave space for carats + off by one
                     separator = '-' * width

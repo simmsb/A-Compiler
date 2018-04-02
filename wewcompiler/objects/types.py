@@ -19,6 +19,10 @@ class Type(BaseObject):
         """Determine if it is valid to implicitly cast the the other type to this type.
         does not care about size.
         """
+        # we can always cast to the same type
+        if self == other:
+            return True
+
         return isinstance(other, self.can_cast_to)
 
 
@@ -99,6 +103,25 @@ class Pointer(Type):
     def __repr__(self):
         return f"Pointer({self.to!r}, {self.const!r})"
 
+    def implicitly_casts_to(self, other: Type):
+        if not isinstance(other, Pointer):
+            return False
+
+        if self == other:
+            return True
+
+        # void pointer to any pointer is allowed
+        if isinstance(self.to, Void):
+            return True
+
+        # similarly we can cast the other way around
+        if isinstance(other.to, Void):
+            return True
+
+        # any other type of pointer cast is disallowed implicitly
+        return False
+
+
     @property
     def can_cast_to(self) -> Tuple[Type]:
         return Pointer, Function
@@ -152,8 +175,12 @@ class Array(Type):
         return self.to.size * self.length
 
     def implicitly_casts_to(self, other: Type) -> bool:
+        if self == other:
+            return True
+
         if isinstance(other, (Array, Pointer)):
             return self.to.implicitly_casts_to(other.to)
+
         return False
 
 
@@ -191,12 +218,7 @@ class Function(Type):
         if not isinstance(other, Function):
             return False
         return (self.returns == other.returns and
-                all(a == b for a, b in zip(self.args, other.args)) and
-                self.const == other.const)
-
-    @property
-    def can_cast_to(self) -> Tuple[Type]:
-        return Pointer, Function
+                all(a == b for a, b in zip(self.args, other.args)))
 
 
 char = Int('u1')
