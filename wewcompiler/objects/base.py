@@ -30,6 +30,7 @@ def with_ctx(f):
     """Wraps a function to enter the :class:`CompileContext.context` context manager when called"""
     @wraps(f)
     async def internal(self, ctx: 'CompileContext', *args, **kwargs):
+        assert isinstance(ctx, CompileContext)
         with ctx.context(self):
             return await f(self, ctx, *args, **kwargs)
     return internal
@@ -83,11 +84,11 @@ class IdentifierScope:
     def vars(self) -> Dict[str, Variable]:
         pass
 
-    def lookup_variable(self, name: str) -> Variable:
+    def lookup_variable(self, name: str) -> Optional[Variable]:
         return self.vars.get(name)
 
-    def make_variable(self, name: str, typ: types.Type, obj: Optional[BaseObject] = None) -> Variable:
-        """Create variable pointing to another object."""
+    def make_variable(self, name: str, typ: types.Type) -> Variable:
+        """Manufacture a variable object, checking that the variable does not exist already."""
         existing = self.lookup_variable(name)
         if existing is not None:
             if existing.type != typ:
@@ -96,14 +97,16 @@ class IdentifierScope:
                 )
             return existing  # variable already declared but is of the same type, ignore it
 
-        return Variable(name, typ, obj)
+        return Variable(name, typ)
 
     def declare_variable(self, name: str, typ: types.Type) -> Variable:
-        """Add a variable to this scope.
-
+        """Add a variable to this scope, creating space for it.
         raises if variable is redeclared to a different type than the already existing var.
         """
-        raise NotImplementedError
+        var = self.make_variable(name, typ)
+        self.own_variable(var)
+        self.init_variable(var)
+        return var
 
     def init_variable(self, var: Variable):
         """Sets up a variable to exist in this scope but does not
@@ -166,13 +169,6 @@ class Scope(StatementObject, IdentifierScope):
             for i in self.body:
                 await i.compile(ctx)
             ctx.emit(Epilog(self))
-
-    def declare_variable(self, name: str, typ: types.Type) -> Variable:
-        var = self.make_variable(name, typ)
-        self.vars[name] = var
-        var.stack_offset = self.size
-        self.size += var.size
-        return var
 
     def init_variable(self, var: Variable):
         """Sets up a variable to exist in this scope but does not
@@ -264,7 +260,7 @@ class FunctionDecl(Scope):
     @with_ctx
     async def compile(self, ctx: 'CompileContext'):
         with ctx.scope(self):
-            var = ctx.make_variable(self.name, self.type, self, global_only=True)
+            var = ctx.make_variable(self.name, self.type, global_only=True)
             ctx.compiler.own_variable(var)
             var.global_offset = DataReference(self.identifier)  # set to our name
             var.lvalue_is_rvalue = True
@@ -282,15 +278,15 @@ class FunctionDecl(Scope):
 class Compiler(IdentifierScope):
 
     __slots__ = ("data", "_vars", "compiled_objects",
-                 "waiting_coros", "identifiers",
+                 "waiting_coros", "data_identifiers",
                  "spill_size", "_objects", "unique_counter")
 
     def __init__(self):
         self._vars: Dict[str, Variable] = {}
         self.compiled_objects: List[StatementObject] = []
-        self.waiting_coros: Dict[str, List[Tuple[BaseObject, BaseObject]]] = {}
+        self.waiting_coros: Dict[str, List[BaseObject]] = {}
         self.data: List[Union[bytes, List[Variable]]] = []
-        self.identifiers: Dict[str, int] = {}
+        self.data_identifiers: Dict[str, int] = {}
         self.spill_size = 0
 
         self._objects: List[Tuple[StatementObject, Any]] = []
@@ -305,13 +301,13 @@ class Compiler(IdentifierScope):
     @property
     def allocated_data(self) -> int:
         """Get size of allocated data in bytes."""
-        total = 0
-        for i in self.data:
+        def fn(i):
             if isinstance(i, bytes):
-                total += len(i)
+                return len(i)
             elif isinstance(i, Variable):
-                total += i.size
-        return total
+                return i.size
+            raise InternalCompileException
+        return sum(map(fn, self.data))
 
     def lookup_variable(self, name: str) -> Variable:
         return self.vars.get(name)
@@ -324,19 +320,9 @@ class Compiler(IdentifierScope):
                 types.Int.fromsize(8)  # always make an 8 byte spill
             )  # MAYBE: give sizes to spill vars
 
-    def declare_variable(self, name: str, typ: types.Type) -> Variable:
-        """Add a variable to global scope.
-        creates space for variable
-        raises if variable is redeclared to a different type than the already existing var.
-        """
-        var = self.make_variable(name, typ)
-        self.init_variable(var)
-        self.own_variable(var)
-        return var
-
     def init_variable(self, var: Variable):
         var.global_offset = DataReference(var.name)
-        self.identifiers[var.name] = len(self.data)
+        self.data_identifiers[var.name] = len(self.data)
         self.data.append(bytes((0,) * var.type.size))
 
     def own_variable(self, var: Variable):
@@ -354,8 +340,8 @@ class Compiler(IdentifierScope):
         val = Variable(key, types.string_lit)
         string = string.encode("utf-8")
         val.global_offset = DataReference(key)
-        if key not in self.identifiers:
-            self.identifiers[key] = len(self.data)
+        if key not in self.data_identifiers:
+            self.data_identifiers[key] = len(self.data)
             self.data.append(string)
         return val
 
@@ -369,7 +355,7 @@ class Compiler(IdentifierScope):
         key = f"raw-data-{index}"
         val = Variable(key, types.string_lit)
         val.global_offset = DataReference(key)
-        self.identifiers[key] = index
+        self.data_identifiers[key] = index
         self.data.append(data)
         return val
 
@@ -384,19 +370,18 @@ class Compiler(IdentifierScope):
         key = f"var-array-{index}"
         val = Variable(key, types.Pointer(elems[0].type))
         val.global_offset = DataReference(key)
-        self.identifiers[key] = index
+        self.data_identifiers[key] = index
         self.data.append(elems)
         return val
 
-    def add_waiting(self, name: str, obj: BaseObject, from_: Optional[BaseObject]=None):
+    def add_waiting(self, name: str, obj: BaseObject):
         """Add a coro to the waiting list.
 
         :param name: The name to wait on.
         :param obj: The object that should sleep.
-        :param from_: The object that made the request.
         """
         coros = self.waiting_coros.setdefault(name, [])
-        coros.append((obj, from_))
+        coros.append(obj)
 
     def add_object(self, obj: BaseObject):
         """Add an object to be compiled by the current compilation.
@@ -447,8 +432,7 @@ class Compiler(IdentifierScope):
                 continue
 
             # if nothing was found place coro on waiting list and start compiling something else.
-
-            self.add_waiting(name, obj, ctx.current_object)
+            self.add_waiting(name, obj)
             return False
 
     def compile(self, objects: Optional[List[StatementObject]]=None):
@@ -465,7 +449,7 @@ class Compiler(IdentifierScope):
                     if var is None:
                         continue
                     to_wake = self.waiting_coros.pop(name)
-                    self._objects.extend((o, var) for (o, _) in to_wake)
+                    self._objects.extend((o, var) for o in to_wake)
                 if not isinstance(obj, ModDecl):
                     self.compiled_objects.append(obj)
 
@@ -474,8 +458,9 @@ class Compiler(IdentifierScope):
         if self.waiting_coros:
             errs = []
             for name, sleeping in self.waiting_coros.items():
-                for (waiting_obj, err_obj) in sleeping:
-                    err = (waiting_obj if err_obj is None else err_obj).make_error()
+                for waiting_obj in sleeping:
+                    top_object = waiting_obj.context.top_object
+                    err = top_object.make_error()
                     err = f"{err}\nThis object is waiting on an object of name: '{name}' which never compiled."
                     errs.append(err)
             raise CompileException(
@@ -523,9 +508,9 @@ class CompileContext:
         """Get the top level object being compiled.
         :returns: The top function object.
         """
-        if self.object_stack and isinstance(self.object_stack[0], FunctionDecl):
-            return self.object_stack[0]
-        return None
+        if isinstance(self.top_object, FunctionDecl):
+            return self.top_object
+        raise InternalCompileException("Request for top_function when top object is not a function")
 
     @property
     def current_scope(self) -> Optional[Scope]:
@@ -563,7 +548,7 @@ class CompileContext:
             raise exc from None
         self.object_stack.pop()
 
-    def get_register(self, size: int, sign: bool = False):
+    def get_register(self, size: int, sign: bool = False) -> Register:
         """Get a unique register."""
         assert size in (1, 2, 4, 8)
 
@@ -571,12 +556,12 @@ class CompileContext:
         self.regs_used += 1
         return reg
 
-    def make_variable(self, name: str, typ: types.Type, obj: BaseObject, global_only: bool=False) -> Variable:
+    def make_variable(self, name: str, typ: types.Type, global_only: bool=False) -> Variable:
         if isinstance(self.current_scope, Scope) and not global_only:
-            return self.current_scope.make_variable(name, typ, obj)
+            return self.current_scope.make_variable(name, typ)
 
         name = f"{self.top_object.namespace}{name}"
-        return self.compiler.make_variable(name, typ, obj)
+        return self.compiler.make_variable(name, typ)
 
     def declare_variable(self, name: str, typ: types.Type) -> Variable:
         if isinstance(self.current_scope, Scope):

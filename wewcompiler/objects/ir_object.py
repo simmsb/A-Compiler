@@ -5,18 +5,6 @@ from dataclasses import dataclass, field
 from wewcompiler.objects.variable import Variable, DataReference
 from wewcompiler.objects.astnode import BaseObject
 
-# 0 => true,
-# 1 => self.flags.contains(CpuFlags::LE),
-# 2 => self.flags.intersects(CpuFlags::LE | CpuFlags::EQ),
-# 3 => self.flags.contains(CpuFlags::EQ),
-# 4 => self.flags.contains(CpuFlags::LS),
-# 5 => self.flags.intersects(CpuFlags::LS | CpuFlags::EQ),
-# 6 => !self.flags.contains(CpuFlags::LE),
-# 7 => !self.flags.contains(CpuFlags::LE | CpuFlags::EQ),
-# 8 => !self.flags.contains(CpuFlags::EQ),
-# 9 => !self.flags.contains(CpuFlags::LS),
-# 10 => !self.flags.intersects(CpuFlags::LS | CpuFlags::EQ),
-
 class CompType(IntEnum):
     (uncond,  # unconditional (set to 1)
      lt,  # less than
@@ -32,15 +20,6 @@ class CompType(IntEnum):
 
 
 @dataclass
-class DataField:
-
-    __slots__ = ("identifier", "data")
-
-    identifier: str
-    data: bytes
-
-
-@dataclass
 class AllocatedRegister:
     """References an allocated register."""
 
@@ -51,6 +30,7 @@ class AllocatedRegister:
 
 @dataclass
 class Register:
+    """A generic register for an infinite register machine."""
 
     reg: int
     size: int
@@ -86,6 +66,7 @@ class Register:
 
 @dataclass
 class Immediate:
+    """An immediate value."""
 
     __slots__ = ("val", "size")
 
@@ -103,6 +84,7 @@ class Immediate:
 
 @dataclass
 class Dereference:
+    """Represents dereferencing a register, address or immediate value."""
 
     __slots__ = ("to", "size")
 
@@ -206,6 +188,9 @@ class Mov(IRObject):
 
 
 class UnaryMeta(type):
+    """Metaclass for the Unary ir object.
+    used to allow Unary.neg(arg, to) as a shortcut to Unary(arg, "neg", to)
+    """
 
     def __getattr__(cls, attr):
         if attr in cls.valid_ops:

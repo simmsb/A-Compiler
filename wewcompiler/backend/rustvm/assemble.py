@@ -126,7 +126,7 @@ def package_objects(compiler: Compiler,
     indexes["program-data"] = size
 
     # do a single pass to place everything in the output table
-    for (ident, index) in compiler.identifiers.copy().items():
+    for (ident, index) in compiler.data_identifiers.copy().items():
 
         obj = compiler.data[index]
         indexes[ident] = size

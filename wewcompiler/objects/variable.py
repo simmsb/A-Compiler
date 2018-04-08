@@ -20,8 +20,6 @@ class Variable:
     type: Type
 
     size: Optional[int] = None
-    parent: Optional[BaseObject] = None
-
     stack_offset: Optional[int] = None
     global_offset: Optional[DataReference] = None
 
