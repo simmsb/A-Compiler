@@ -1,6 +1,5 @@
 from typing import List, Tuple, Union, Optional, Coroutine
 from types import coroutine
-from itertools import chain
 
 from wewcompiler.objects import types, operations
 from wewcompiler.objects.base import (CompileContext, ExpressionObject,
@@ -95,7 +94,8 @@ class Identifier(ExpressionObject):
     async def type(self):
         return (await self.retrieve_variable()).type
 
-    # these have to be coroutines since we 'yield' inside them and return a value
+    # these have to be 'coroutine' functions instead of async
+    # since we 'yield' inside them and return a value
     @coroutine
     def retrieve_variable(self) -> Coroutine[ObjectRequest, Variable, Tuple[Register, Variable]]:
         if self.var is None:

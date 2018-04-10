@@ -238,6 +238,7 @@ class FunctionDecl(Scope):
             last_offset = initial_offset
 
 
+        # insert the varargs pointer variable
         if has_varargs:
             self.params["var_args"] = Variable("var_args", types.Pointer(types.Void()),
                                                stack_offset=last_offset, lvalue_is_rvalue=True)
