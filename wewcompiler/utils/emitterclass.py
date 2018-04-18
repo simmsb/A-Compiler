@@ -1,4 +1,9 @@
-class Emitter(type):
+def const(x):
+    def fn(*_args, **_kwargs):
+        return x
+    return fn
+
+class EmitterMeta(type):
     """Creates an 'emitter' class.
 
     Methods that have the 'emits' decorator used will become classmethods
@@ -30,6 +35,27 @@ class Emitter(type):
         klass.emitters = emitters
 
         return klass
+
+    def __call__(cls, obj):
+        """Calling an emitter class calls the emit method corresponding to the type of
+        the input if it exists, otherwise the 'default' method if that exists,
+        otherwise the object passed is returned.
+        """
+        return cls.method_for(obj)(obj)
+
+
+class Emitter(metaclass=EmitterMeta):
+
+    @classmethod
+    def method_for(cls, obj):
+        if type(obj) in cls.emitters:
+            return cls.emitters[type(obj)]
+
+        default = getattr(cls, "default", None)
+        if default is None:
+            return const(obj)
+        return default
+
 
 
 def emits(name: str):

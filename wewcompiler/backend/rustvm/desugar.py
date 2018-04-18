@@ -1,3 +1,4 @@
+from itertools import chain
 from typing import Iterable
 
 from wewcompiler.backend.rustvm import encoder
@@ -8,22 +9,19 @@ from wewcompiler.objects.errors import InternalCompileException
 from wewcompiler.utils.emitterclass import Emitter, emits
 
 
-class Desugarer(metaclass=Emitter):
+class Desugarer(Emitter):
+
+    @staticmethod
+    def default(_ctx, instr):
+        yield instr
 
     @classmethod
     def desugar(cls, obj: StatementObject):
         """Desugars code for an object in place."""
-        code = obj.context.code
-        desugared = []
-
-        for ir in code:
-            name = type(ir).__name__
-
-            if name in cls.emitters:
-                desugared.extend(cls.emitters[name](obj.context, ir))
-            else:
-                desugared.append(ir)
-        obj.context.code[:] = desugared
+        obj.context.code[:] = chain.from_iterable(
+            cls.method_for(ir)(obj.context, ir)
+            for ir in obj.context.code
+        )
 
 
 class DesugarIR_Post(Desugarer):
@@ -38,14 +36,14 @@ class DesugarIR_Post(Desugarer):
         else:
             yield instr
 
-    @emits("Prelude")
+    @emits(ir_object.Prelude)
     def emit_prelude(cls, ctx: CompileContext, pre: ir_object.Prelude):  # pylint: disable=unused-argument
         # vm enters function with base pointer and stack pointer equal
         yield ir_object.Binary.add(encoder.SpecificRegisters.stk, ir_object.Immediate(pre.scope.size, 8))
         for reg in pre.scope.used_hw_regs:
             yield ir_object.Push(ir_object.AllocatedRegister(8, False, reg))
 
-    @emits("Epilog")
+    @emits(ir_object.Epilog)
     def emit_epilog(cls, ctx: CompileContext, epi: ir_object.Epilog):  # pylint: disable=unused-argument
         for reg in reversed(epi.scope.used_hw_regs):
             yield ir_object.Pop(ir_object.AllocatedRegister(8, False, reg))
@@ -58,7 +56,7 @@ class DesugarIR_Pre(Desugarer):
     Operations such as LoadVar/ SaveVar are desugared into Mov instructions.
     """
 
-    @emits("LoadVar")
+    @emits(ir_object.LoadVar)
     def emit_loadvar(cls, ctx: CompileContext, load: ir_object.LoadVar):  # pylint: disable=unused-argument
         var = load.variable
 
@@ -89,7 +87,7 @@ class DesugarIR_Pre(Desugarer):
             yield ir_object.Mov(load.to, ir_object.Dereference(temp_reg, load.to.size))
 
 
-    @emits("SaveVar")
+    @emits(ir_object.SaveVar)
     def emit_savevar(cls, ctx: CompileContext, save: ir_object.SaveVar):
         var = save.variable
 
@@ -112,7 +110,7 @@ class DesugarIR_Pre(Desugarer):
         # emit the dereference and store
         yield ir_object.Mov(ir_object.Dereference(temp_reg, save.from_.size), save.from_)
 
-    @emits("Call")
+    @emits(ir_object.Call)
     def emit_call(cls, ctx: CompileContext, call: ir_object.Call):  # pylint: disable=unused-argument
         for i in reversed(call.args):
             yield ir_object.Push(i)

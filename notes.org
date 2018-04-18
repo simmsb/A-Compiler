@@ -8,3 +8,9 @@
    + LLVM codegen
    + PeachPy codegen
  - Top level impl: place in implicit function body to do computation (spill variables)
+
+ * Todo
+  - Missing main reference, custom error for that.
+  - Zero input gives an error
+  - Taking a reference to an array type shouldn't work.
+  - Look at desugar_pre, are we using the datareference properly?

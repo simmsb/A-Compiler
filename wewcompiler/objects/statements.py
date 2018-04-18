@@ -17,7 +17,7 @@ class VariableDecl(StatementObject):
 
     __slots__ = ("name", "_type", "val")
 
-    def __init__(self, name: str, type: Type, val: Optional[ExpressionObject]=None, *, ast: Optional[AST]=None):
+    def __init__(self, name: str, type: Type, val: Optional[ExpressionObject] = None, *, ast: Optional[AST] = None):
         super().__init__(ast=ast)
         self.name = name
         self._type = type
@@ -88,7 +88,7 @@ class ReturnStmt(StatementObject):
 
     __slots__ = ("expr",)
 
-    def __init__(self, expr: Optional[ExpressionObject]=None, *, ast: Optional[AST]=None):
+    def __init__(self, expr: Optional[ExpressionObject] = None, *, ast: Optional[AST] = None):
         super().__init__(ast=ast)
         self.expr = expr
 
@@ -127,7 +127,8 @@ class IFStmt(StatementObject):
 
     __slots__ = ("cond", "body", "else_")
 
-    def __init__(self, cond: ExpressionObject, body: Scope, else_: Optional[Scope]=None, *, ast: Optional[AST]=None):
+    def __init__(self, cond: ExpressionObject, body: Scope,
+                 else_: Optional[Scope]=None, *, ast: Optional[AST] = None):
         super().__init__(ast=ast)
         self.cond = cond
         self.body = body
@@ -163,7 +164,7 @@ class LoopStmt(StatementObject):
 
     __slots__ = ("cond", "body")
 
-    def __init__(self, cond: ExpressionObject, body: Scope, *, ast: Optional[AST]=None):
+    def __init__(self, cond: ExpressionObject, body: Scope, *, ast: Optional[AST] = None):
         super().__init__(ast=ast)
         self.cond = cond
         self.body = body

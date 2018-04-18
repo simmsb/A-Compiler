@@ -124,25 +124,25 @@ def pack_param(param: int, reg: bool=False, deref: bool=False) -> bytes:
     return (param | reg << 15 | deref << 14).to_bytes(2, byteorder="little", signed=signed)
 
 
-class InstructionEncoder(metaclass=Emitter):
+class InstructionEncoder(Emitter):
+
+    @staticmethod
+    def default(obj):
+        name = type(obj).__name__
+        raise InternalCompileException(f"Missing encoder for instruction {name}")
 
     @classmethod
     def encode_instr(cls, instr: ir_object.IRObject) -> Iterable[HardWareInstruction]:
         """Encode an IR Instruction into a hardware instruction.
         Some instructions may expand into multiple hardware instructions so the result is an iterable.
         """
-        name = type(instr).__name__
+        yield from cls.method_for(instr)(instr)
 
-        if name in ("JumpTarget",):  # leave in jump targets
-            yield instr
-            return
+    @emits(ir_object.JumpTarget)
+    def emit_jumptarget(cls, instr: ir_object.JumpTarget):
+        yield instr
 
-        if name not in cls.emitters:
-            raise InternalCompileException(f"Missing encoder for instruction {name}")
-
-        yield from cls.emitters[name](instr)
-
-    @emits("Mov")
+    @emits(ir_object.Mov)
     def emit_mov(cls, instr: ir_object.Mov):
         yield HardWareInstruction(
             Manip.mov,
@@ -150,7 +150,7 @@ class InstructionEncoder(metaclass=Emitter):
             (instr.to, instr.from_)
         )
 
-    @emits("Unary")
+    @emits(ir_object.Unary)
     def emit_unary(cls, instr: ir_object.Unary):
 
         hwin = getattr(UnaryInstructions, instr.op)
@@ -161,7 +161,7 @@ class InstructionEncoder(metaclass=Emitter):
             (instr.arg, instr.to)
         )
 
-    @emits("Binary")
+    @emits(ir_object.Binary)
     def emit_binary(cls, instr: ir_object.Binary):
 
         replacements = {
@@ -180,7 +180,7 @@ class InstructionEncoder(metaclass=Emitter):
             (instr.left, instr.right, instr.to)
         )
 
-    @emits("Compare")
+    @emits(ir_object.Compare)
     def emit_compare(cls, instr: ir_object.Compare):
         yield HardWareInstruction(
             Manip.tst,
@@ -188,7 +188,7 @@ class InstructionEncoder(metaclass=Emitter):
             (instr.left, instr.right)
         )
 
-    @emits("SetCmp")
+    @emits(ir_object.SetCmp)
     def emit_setcmp(cls, instr: ir_object.SetCmp):
         yield HardWareInstruction(
             Manip.set,
@@ -196,7 +196,7 @@ class InstructionEncoder(metaclass=Emitter):
             (instr.op, instr.dest)
         )
 
-    @emits("Push")
+    @emits(ir_object.Push)
     def emit_push(cls, instr: ir_object.Push):
         yield HardWareInstruction(
             Mem.push,
@@ -204,7 +204,7 @@ class InstructionEncoder(metaclass=Emitter):
             (instr.arg,)
         )
 
-    @emits("Pop")
+    @emits(ir_object.Pop)
     def emit_pop(cls, instr: ir_object.Pop):
         yield HardWareInstruction(
             Mem.pop,
@@ -212,7 +212,7 @@ class InstructionEncoder(metaclass=Emitter):
             (instr.arg,)
         )
 
-    @emits("Return")
+    @emits(ir_object.Return)
     def emit_return(cls, instr: ir_object.Return):
         if instr.arg is not None:
             yield HardWareInstruction(
@@ -240,7 +240,7 @@ class InstructionEncoder(metaclass=Emitter):
             ()
         )
 
-    @emits("Call")
+    @emits(ir_object.Call)
     def emit_call(cls, instr: ir_object.Call):
 
         yield HardWareInstruction(
@@ -265,7 +265,7 @@ class InstructionEncoder(metaclass=Emitter):
                 (instr.result, SpecificRegisters.ret)
             )
 
-    @emits("Jump")
+    @emits(ir_object.Jump)
     def emit_jump(cls, instr: ir_object.Jump):
         condition = instr.condition or ir_object.Immediate(1, 2)  # 2-byte containing 1
 
@@ -275,7 +275,7 @@ class InstructionEncoder(metaclass=Emitter):
             (condition, instr.location)
         )
 
-    @emits("Resize")
+    @emits(ir_object.Resize)
     def emit_resize(cls, instr: ir_object.Resize):
 
         # if source is signed, we emit signed resize
@@ -297,7 +297,7 @@ class InstructionEncoder(metaclass=Emitter):
             (instr.from_, size, instr.to)
         )
 
-    @emits("MachineInstr")
+    @emits(ir_object.MachineInstr)
     def emit_machine_instr(cls, instr: ir_object.MachineInstr):
 
         for group in (BinaryInstructions, UnaryInstructions, Manip, Mem, IO):
