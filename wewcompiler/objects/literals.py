@@ -14,7 +14,7 @@ class SizeOf(ExpressionObject):
 
     __slots__ = ("obj",)
 
-    def __init__(self, obj: Union[types.Type, ExpressionObject], *, ast: Optional[AST]=None):
+    def __init__(self, obj: Union[types.Type, ExpressionObject], *, ast: Optional[AST] = None):
         super().__init__(ast=ast)
         self.obj = obj
 
@@ -36,7 +36,7 @@ class IntegerLiteral(ExpressionObject):
 
     __slots__ = ("lit", "_type")
 
-    def __init__(self, lit: int, type: Optional[types.Type]=None, *, ast: Optional[AST]=None):
+    def __init__(self, lit: int, type: Optional[types.Type] = None, *, ast: Optional[AST] = None):
         super().__init__(ast=ast)
         self.lit = lit
         if type:
@@ -44,8 +44,8 @@ class IntegerLiteral(ExpressionObject):
         else:
             # if the size isn't given, determine the size from the value of the literal
             bitlen = self.lit.bit_length()
-            for (bitrange, s) in ((range(0,   8), 1),
-                                  (range(8,  16), 2),
+            for (bitrange, s) in ((range(0, 8), 1),
+                                  (range(8, 16), 2),
                                   (range(16, 32), 4)):
                 if bitlen in bitrange:
                     size = s
@@ -63,7 +63,7 @@ class IntegerLiteral(ExpressionObject):
     def byte_length(self) -> int:
         return self._type.size
 
-    def to_bytes(self, size: Optional[int]=None) -> bytes:
+    def to_bytes(self, size: Optional[int] = None) -> bytes:
         """Get the byte representation of this integer literal.
 
         :param size: Size to output, if None use size of type"""
@@ -84,7 +84,7 @@ class Identifier(ExpressionObject):
 
     __slots__ = ("name", "var")
 
-    def __init__(self, name: str, *, ast: Optional[AST]=None):
+    def __init__(self, name: str, *, ast: Optional[AST] = None):
         super().__init__(ast=ast)
         assert isinstance(name, str)
         self.name = name
@@ -125,7 +125,7 @@ class ArrayLiteral(ExpressionObject):
 
     __slots__ = ("exprs", "_type", "var", "_ptr", "float_size")
 
-    def __init__(self, exprs: List[ExpressionObject], *, ast: Optional[AST]=None):
+    def __init__(self, exprs: List[ExpressionObject], *, ast: Optional[AST] = None):
         super().__init__(ast=ast)
         assert isinstance(exprs, list)
         self.exprs = exprs
@@ -198,7 +198,6 @@ class ArrayLiteral(ExpressionObject):
                 if not e_type.implicitly_casts_to(type.to):
                     raise i.error(f"Cannot implicitly cast element {idx} of array literal from type: '{e_type}' to type: '{type.to}'")
 
-
     async def broadcast_length(self, length: Optional[int] = None):
         """Broadcast fill lengths to internal arrays.
 
@@ -215,7 +214,6 @@ class ArrayLiteral(ExpressionObject):
 
         for i in self.exprs:
             await i.broadcast_length(first_elem_len)
-
 
     async def insert_type(self, type: types.Type):
         # this inserts a nested type into a nested initialiser.
@@ -251,7 +249,6 @@ class ArrayLiteral(ExpressionObject):
         for i in self.exprs:
             await i.insert_type(type.to)
 
-
     async def compile_as_ref(self, ctx: CompileContext) -> Register:
         """Compile to the array literal and return a reference to the start.
 
@@ -263,8 +260,7 @@ class ArrayLiteral(ExpressionObject):
             self.var = ctx.declare_unique_variable(await self.type)
             self.var.lvalue_is_rvalue = True
 
-        if (isinstance(self.first_elem, ArrayLiteral) and
-                (not isinstance((await self.type).to, types.Pointer))):
+        if (isinstance(self.first_elem, ArrayLiteral) and (not isinstance((await self.type).to, types.Pointer))):
             raise self.error("Cannot compile to references if internal array type is an array and not a pointer")
 
         base = ctx.get_register(types.Pointer.size)
@@ -295,8 +291,7 @@ class ArrayLiteral(ExpressionObject):
     async def compile_as_arr(self, ctx: CompileContext) -> Register:
         """Compile an array literal but inline the inner values."""
 
-        if (isinstance((await self.type).to, types.Array) and
-                (not isinstance(self.first_elem, ArrayLiteral))):
+        if (isinstance((await self.type).to, types.Array) and (not isinstance(self.first_elem, ArrayLiteral))):
             # Maybe just cast the internal type to a pointer.
             raise self.error("Internal type is of array type but is not a literal.")
 
@@ -314,7 +309,6 @@ class ArrayLiteral(ExpressionObject):
 
         for i in self.exprs:
             await i.compile_as_arr_helper(ctx, index)
-
 
         # NOTE: will we ever hit this?
         if self.float_size:

@@ -1,6 +1,6 @@
-from typing import Union, Tuple, Iterable, Optional
+from typing import Union, Tuple, Iterable
 from enum import IntEnum
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from wewcompiler.objects.ir_object import Register, Dereference, DataReference, JumpTarget
 from wewcompiler.objects.errors import InternalCompileException
@@ -118,7 +118,7 @@ def pack_instruction(instr: HardWareInstruction) -> bytes:
     return (value & 0xffff).to_bytes(2, byteorder="little")
 
 
-def pack_param(param: int, reg: bool=False, deref: bool=False) -> bytes:
+def pack_param(param: int, reg: bool = False, deref: bool = False) -> bytes:
     """Packs a single parameter into bytes."""
     signed = param < 0
     return (param | reg << 15 | deref << 14).to_bytes(2, byteorder="little", signed=signed)

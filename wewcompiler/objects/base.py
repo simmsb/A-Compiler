@@ -124,7 +124,7 @@ class ModDecl(StatementObject):
 
     __slots__ = ("name", "body")
 
-    def __init__(self, name: str, body: List[StatementObject], *, ast: Optional[AST]=None):
+    def __init__(self, name: str, body: List[StatementObject], *, ast: Optional[AST] = None):
         super().__init__(ast=ast)
         self.name = name
         self.body = body
@@ -151,7 +151,7 @@ class Scope(StatementObject, IdentifierScope):
 
     __slots__ = ("_vars", "size", "body", "used_hw_regs")
 
-    def __init__(self, body: List[StatementObject], *, ast: Optional[AST]=None):
+    def __init__(self, body: List[StatementObject], *, ast: Optional[AST] = None):
         super().__init__(ast=ast)
         self._vars: Dict[str, Variable] = {}
         self.size = 0
@@ -205,10 +205,9 @@ class FunctionDecl(Scope):
     __slots__ = ("name", "params", "has_varargs", "_type")
 
     def __init__(self, name: str, params: List[Tuple[str, types.Type]], return_val: types.Type,
-                 has_varargs: bool, body: List[StatementObject], *, ast: Optional[AST]=None):
+                 has_varargs: bool, body: List[StatementObject], *, ast: Optional[AST] = None):
         super().__init__(body, ast=ast)
         self.name = name
-
 
         self._type = types.Function(return_val or types.Void(), [t for _, t in params],
                                     has_varargs, const=True, ast=ast)
@@ -237,12 +236,10 @@ class FunctionDecl(Scope):
         else:
             last_offset = initial_offset
 
-
         # insert the varargs pointer variable
         if has_varargs:
             self.params["var_args"] = Variable("var_args", types.Pointer(types.Void()),
                                                stack_offset=last_offset, lvalue_is_rvalue=True)
-
 
     @property
     def type(self) -> types.Type:
@@ -393,7 +390,7 @@ class Compiler(IdentifierScope):
         """
         self._objects.append((obj, None))
 
-    def run_over(self, obj: StatementObject, to_send: Optional[Variable]=None) -> bool:
+    def run_over(self, obj: StatementObject, to_send: Optional[Variable] = None) -> bool:
         """Run over a compile coro. Returns true if finished, false if not.
 
         :param obj: The object to start compiling. May or may not have already been visited.
@@ -436,7 +433,7 @@ class Compiler(IdentifierScope):
             self.add_waiting(name, obj)
             return False
 
-    def compile(self, objects: Optional[List[StatementObject]]=None):
+    def compile(self, objects: Optional[List[StatementObject]] = None):
         """Compile a list of objects or restart compilation of any lasting objects."""
         if objects:
             self._objects.extend((o, None) for o in objects)
@@ -557,7 +554,7 @@ class CompileContext:
         self.regs_used += 1
         return reg
 
-    def make_variable(self, name: str, typ: types.Type, global_only: bool=False) -> Variable:
+    def make_variable(self, name: str, typ: types.Type, global_only: bool = False) -> Variable:
         if isinstance(self.current_scope, Scope) and not global_only:
             return self.current_scope.make_variable(name, typ)
 

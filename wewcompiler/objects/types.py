@@ -41,7 +41,7 @@ class Int(Type):
 
     __slots__ = ("signed", "size", "const")
 
-    def __init__(self, t: str, const: bool=False, *, ast: Optional[AST]=None):
+    def __init__(self, t: str, const: bool = False, *, ast: Optional[AST] = None):
         super().__init__(ast=ast)
         self.signed = t[0] == "s"
         self.size = int(t[1])
@@ -50,9 +50,7 @@ class Int(Type):
     def __eq__(self, other: Type):
         if not isinstance(other, Int):
             return False
-        return (self.const == other.const and
-                self.signed == other.signed and
-                self.size == other.size)
+        return (self.const == other.const) and (self.signed == other.signed) and (self.size == other.size)
 
     def __str__(self):
         tp = self.t
@@ -72,7 +70,7 @@ class Int(Type):
         return Int,
 
     @classmethod
-    def fromsize(cls, size: int, sign: bool=False, *, ast: Optional[AST]=None):
+    def fromsize(cls, size: int, sign: bool = False, *, ast: Optional[AST] = None):
         return cls(f"{'s' if sign else 'u'}{size}", ast=ast)
 
 
@@ -82,7 +80,7 @@ class Pointer(Type):
 
     size = 2  # 16 bit pointers ?
 
-    def __init__(self, to: Type, const: bool=False, *, ast: Optional[AST]=None):
+    def __init__(self, to: Type, const: bool = False, *, ast: Optional[AST] = None):
         super().__init__(ast=ast)
         assert isinstance(to, Type)
         self.to = to
@@ -91,8 +89,7 @@ class Pointer(Type):
     def __eq__(self, other: Type):
         if not isinstance(other, Pointer):
             return False
-        return (self.to == other.to and
-                self.const == other.const)
+        return (self.to == other.to) and (self.const == other.const)
 
     def __str__(self):
         tp = f"*{self.to}"
@@ -121,7 +118,6 @@ class Pointer(Type):
         # any other type of pointer cast is disallowed implicitly
         return False
 
-
     @property
     def can_cast_to(self) -> Tuple[Type]:
         return Pointer, Function
@@ -131,8 +127,8 @@ class Array(Type):
 
     __slots__ = ("to", "length", "const")
 
-    def __init__(self, to: Type, l: Optional[int]=None,
-                 const: Optional[bool]=False, *, ast: Optional[AST]=None):
+    def __init__(self, to: Type, l: Optional[int] = None,
+                 const: Optional[bool] = False, *, ast: Optional[AST] = None):
         super().__init__(ast=ast)
         assert isinstance(to, Type)
         self.to = to
@@ -142,10 +138,12 @@ class Array(Type):
     def __eq__(self, other: Type):
         if not isinstance(other, Array):
             return False
-        return (self.to == other.to
-                # if we dont know our length dont check the other's length
-                and ((self.length is None) or (self.length == other.length))
-                and self.const == other.const)
+
+        # if we dont know our length dont check the other's length
+        len_check = ((self.length is None) or (self.length == other.length))
+        const_check = self.const == other.const
+
+        return (self.to == other.to) and len_check and const_check
 
     def __str__(self):
         if self.length is not None:
@@ -190,7 +188,7 @@ class Function(Type):
 
     size = 2  # we are pointers aswell
 
-    def __init__(self, returns: Type, args: List[Type], varargs: bool, const: bool=False, *, ast: Optional[AST]=None):
+    def __init__(self, returns: Type, args: List[Type], varargs: bool, const: bool = False, *, ast: Optional[AST] = None):
         super().__init__(ast=ast)
         self.returns = returns
         self.args = args
@@ -217,8 +215,9 @@ class Function(Type):
     def __eq__(self, other: Type):
         if not isinstance(other, Function):
             return False
-        return (self.returns == other.returns and
-                all(a == b for a, b in zip(self.args, other.args)))
+
+        arg_check = all(a == b for a, b in zip(self.args, other.args))
+        return (self.returns == other.returns) and arg_check
 
 
 char = Int('u1')

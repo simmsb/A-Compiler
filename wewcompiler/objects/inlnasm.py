@@ -2,12 +2,12 @@ from typing import List, Optional
 from enum import Enum, auto
 
 from tatsu.ast import AST
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from wewcompiler.objects.base import (CompileContext, StatementObject, with_ctx,
                                       ExpressionObject)
 from wewcompiler.objects.ir_object import (Register, AllocatedRegister,
-                                           Dereference, Immediate, IRParam,
+                                           Dereference, Immediate,
                                            MachineInstr)
 from wewcompiler.objects.errors import InternalCompileException
 
@@ -73,8 +73,8 @@ class ASMStmt(StatementObject):
     __slots__ = ("body", "exprs")
 
     def __init__(self, body: List[ASMInstruction],
-                 exprs: Optional[List[ExpressionObject]]=None,
-                 *, ast: Optional[AST]=None):
+                 exprs: Optional[List[ExpressionObject]] = None,
+                 *, ast: Optional[AST] = None):
         super().__init__(ast=ast)
         self.body = body
         self.exprs = exprs or ()

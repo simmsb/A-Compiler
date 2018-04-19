@@ -2,7 +2,7 @@ from itertools import chain
 from typing import Iterable
 
 from wewcompiler.backend.rustvm import encoder
-from wewcompiler.objects import ir_object, types
+from wewcompiler.objects import ir_object
 from wewcompiler.objects.variable import DataReference
 from wewcompiler.objects.base import StatementObject, CompileContext
 from wewcompiler.objects.errors import InternalCompileException
@@ -80,12 +80,10 @@ class DesugarIR_Pre(Desugarer):
         else:
             raise InternalCompileException(f"Variable had no stack or global offset: {var}")
 
-
         if var.lvalue_is_rvalue or load.lvalue:
             yield ir_object.Mov(load.to, temp_reg)
         else:
             yield ir_object.Mov(load.to, ir_object.Dereference(temp_reg, load.to.size))
-
 
     @emits(ir_object.SaveVar)
     def emit_savevar(cls, ctx: CompileContext, save: ir_object.SaveVar):

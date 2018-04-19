@@ -2,7 +2,6 @@ from itertools import count
 from typing import Optional, Tuple
 
 import colorama
-from termcolor import colored
 
 from wewcompiler.utils import add_line_count, add_line_once, strip_newlines
 from wewcompiler.utils.formatter import format_lines
@@ -17,7 +16,7 @@ class BaseObject:
 
     __slots__ = ("context", "ast", "namespace", "_info")
 
-    def __init__(self, *, ast: Optional[AST]=None):
+    def __init__(self, *, ast: Optional[AST] = None):
         self.context: 'CompileContext' = None
         self.ast = ast
 
@@ -89,7 +88,7 @@ class BaseObject:
         red = colorama.Fore.RED
         white = colorama.Fore.WHITE
         normal = colorama.Style.NORMAL
-        reset = colorama.Style.RESET_ALL + colorama.Fore.RESET
+        # reset = colorama.Style.RESET_ALL + colorama.Fore.RESET
         dim = colorama.Style.DIM
         bright = colorama.Style.BRIGHT
 

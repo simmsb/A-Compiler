@@ -1,14 +1,13 @@
-from typing import Optional, Union
+from typing import Optional
 
 from tatsu.ast import AST
 
 from wewcompiler.objects.base import (CompileContext, ExpressionObject,
                                       Scope, StatementObject,
                                       with_ctx)
-from wewcompiler.objects.ir_object import (Binary, Dereference,
-                                           Immediate, Jump, JumpTarget, LoadVar,
-                                           Mov, Register, Resize, Return, SaveVar,
-                                           Compare, SetCmp, CompType, Epilog)
+from wewcompiler.objects.ir_object import (Jump, JumpTarget, Register,
+                                           Resize, Return, SaveVar,
+                                           Epilog)
 from wewcompiler.objects.literals import ArrayLiteral
 from wewcompiler.objects.types import Pointer, Type, Array, Function, Void
 
@@ -83,7 +82,6 @@ class VariableDecl(StatementObject):
             ctx.emit(SaveVar(var, reg))
 
 
-
 class ReturnStmt(StatementObject):
 
     __slots__ = ("expr",)
@@ -128,7 +126,7 @@ class IFStmt(StatementObject):
     __slots__ = ("cond", "body", "else_")
 
     def __init__(self, cond: ExpressionObject, body: Scope,
-                 else_: Optional[Scope]=None, *, ast: Optional[AST] = None):
+                 else_: Optional[Scope] = None, *, ast: Optional[AST] = None):
         super().__init__(ast=ast)
         self.cond = cond
         self.body = body

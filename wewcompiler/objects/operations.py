@@ -1,26 +1,27 @@
 from itertools import zip_longest
-from typing import Iterable, Tuple, Union, Optional, List
+from typing import Tuple, Union, Optional, List
 
 from tatsu.ast import AST
 
-from wewcompiler.objects import types
-from wewcompiler.objects.base import (CompileContext, ExpressionObject, with_ctx)
-from wewcompiler.objects.ir_object import (Binary, Call, CompType, Compare, Dereference,
-                                           Immediate, Jump, JumpTarget, Mov,
-                                           Register, Resize, SetCmp, Unary)
+from wewcompiler.objects.types import Type, Pointer, Array, Void, Int, Function
+from wewcompiler.objects.base import (CompileContext, ExpressionObject,
+                                      with_ctx)
+from wewcompiler.objects.ir_object import (
+    Binary, Call, CompType, Compare, Dereference, Immediate, Jump, JumpTarget,
+    Mov, Register, Resize, SetCmp, Unary)
 
 
 class MemrefOp(ExpressionObject):
 
-    __slots__ = ("expr",)
+    __slots__ = ("expr", )
 
-    def __init__(self, expr: ExpressionObject, *, ast: Optional[AST]=None):
+    def __init__(self, expr: ExpressionObject, *, ast: Optional[AST] = None):
         super().__init__(ast=ast)
         self.expr = expr
 
     @property
     async def type(self):
-        return types.Pointer((await self.expr.type))
+        return Pointer((await self.expr.type))
 
     @with_ctx
     async def compile(self, ctx: CompileContext) -> Register:
@@ -31,32 +32,34 @@ class UnaryOP(ExpressionObject):
 
     __slots__ = ("op", "expr")
 
-    def __init__(self, op: str, expr: ExpressionObject, *, ast: Optional[AST]=None):
+    def __init__(self,
+                 op: str,
+                 expr: ExpressionObject,
+                 *,
+                 ast: Optional[AST] = None):
         super().__init__(ast=ast)
         self.op = op
         self.expr = expr
 
     @property
-    async def type(self) -> types.Type:
+    async def type(self) -> Type:
         return await self.expr.type
 
     @with_ctx
     async def compile(self, ctx: CompileContext) -> Register:
         reg: Register = (await self.expr.compile(ctx))
 
-        optype: types.Type = await self.type
+        optype: Type = await self.type
         if not optype.signed:
             if self.op == "+":
                 return reg  # '+' is a noop on unsigned types
             if self.op == "-":
                 raise self.error("Unary negate has no meaning on unsigned types.")
 
-        op = {
-            "~": "binv",
-            "!": "linv",
-            "-": "neg",
-            "+": "pos"
-        }[self.op]
+        op = {"~": "binv",
+              "!": "linv",
+              "-": "neg",
+              "+": "pos"}[self.op]
 
         ctx.emit(Unary(reg, op))
         return reg
@@ -66,10 +69,13 @@ class PreincrementOP(ExpressionObject):
 
     __slots__ = ("op", "expr")
 
-    def __init__(self, op: str, expr: ExpressionObject, *, ast: Optional[AST]=None):
+    def __init__(self,
+                 op: str,
+                 expr: ExpressionObject,
+                 *,
+                 ast: Optional[AST] = None):
         super().__init__(ast=ast)
-        self.op = {"++": "add",
-                   "--": "sub"}[op]
+        self.op = {"++": "add", "--": "sub"}[op]
         self.expr = expr
 
     @property
@@ -88,7 +94,7 @@ class PreincrementOP(ExpressionObject):
 
         increment = 1
         # in the case of pointer increments, increment by the size of the pointer's underlying type
-        if isinstance(my_type, (types.Array, types.Pointer)):
+        if isinstance(my_type, (Array, Pointer)):
             increment = my_type.to.size
 
         ctx.emit(Mov(tmp, Dereference(ptr, tmp.size)))
@@ -99,24 +105,26 @@ class PreincrementOP(ExpressionObject):
 
 class DereferenceOP(ExpressionObject):
 
-    __slots__ = ("expr",)
+    __slots__ = ("expr", )
 
-    def __init__(self, expr: ExpressionObject, *, ast: Optional[AST]=None):
+    def __init__(self, expr: ExpressionObject, *, ast: Optional[AST] = None):
         super().__init__(ast=ast)
         self.expr = expr
 
     @property
     async def type(self):
-        ptr: Union[types.Pointer, types.Array] = await self.expr.type
-        if not isinstance(ptr, (types.Pointer, types.Array)):
-            raise self.error(f"Operand to dereference is of type {ptr}, not of pointer or array type.")
+        ptr: Union[Pointer, Array] = await self.expr.type
+        if not isinstance(ptr, (Pointer, Array)):
+            raise self.error(
+                f"Operand to dereference is of type {ptr}, not of pointer or array type."
+            )
 
         return ptr.to
 
     async def load_lvalue(self, ctx: CompileContext) -> Register:
         reg: Register = await self.expr.compile(ctx)
-        if reg.size != types.Pointer.size:
-            reg0 = reg.resize(types.Pointer.size)
+        if reg.size != Pointer.size:
+            reg0 = reg.resize(Pointer.size)
             ctx.emit(Resize(reg, reg0))
             reg = reg0
         return reg
@@ -135,7 +143,12 @@ class CastExprOP(ExpressionObject):
 
     __slots__ = ("_type", "expr", "op")
 
-    def __init__(self, type: types.Type, expr: ExpressionObject, op: str='::', *, ast: Optional[AST]=None):
+    def __init__(self,
+                 type: Type,
+                 expr: ExpressionObject,
+                 op: str = '::',
+                 *,
+                 ast: Optional[AST] = None):
         super().__init__(ast=ast)
         self._type = type
         self.expr = expr
@@ -164,7 +177,11 @@ class FunctionCallOp(ExpressionObject):
 
     __slots__ = ("fun", "args")
 
-    def __init__(self, fun: ExpressionObject, args: List[ExpressionObject], *, ast: Optional[AST]=None):
+    def __init__(self,
+                 fun: ExpressionObject,
+                 args: List[ExpressionObject],
+                 *,
+                 ast: Optional[AST] = None):
         super().__init__(ast=ast)
         self.fun = fun
         self.args = args
@@ -172,15 +189,15 @@ class FunctionCallOp(ExpressionObject):
     @property
     async def type(self):
         typ = await self.fun.type
-        if not isinstance(typ, types.Function):
+        if not isinstance(typ, Function):
             raise self.error("Called object is not a function.")
         return typ.returns
 
     @with_ctx
     async def compile(self, ctx: CompileContext) -> Register:
 
-        fun_typ: types.Function = await self.fun.type
-        if not isinstance(fun_typ, types.Function):
+        fun_typ: Function = await self.fun.type
+        if not isinstance(fun_typ, Function):
             raise self.error("Called object is not a function.")
 
         if fun_typ.varargs:
@@ -189,17 +206,20 @@ class FunctionCallOp(ExpressionObject):
             invalid_len = len(self.args) != len(fun_typ.args)
 
         if invalid_len:
-            raise self.error("Incorrect number of args to function.\n"
-                             f"Expected {len(fun_typ.args)} got {len(self.args)}")
+            raise self.error(
+                "Incorrect number of args to function.\n"
+                f"Expected {len(fun_typ.args)} got {len(self.args)}")
 
         # check that the argument types are valid
         # If this is a varargs function then the extra args wont be typechecked
         arg_types = [(i, (await i.type)) for i in self.args]
-        for arg_n, (lhs_type, (rhs_obj, rhs_type)) in enumerate(zip(fun_typ.args, arg_types)):
+        for arg_n, (lhs_type, (rhs_obj, rhs_type)) in enumerate(
+                zip(fun_typ.args, arg_types)):
             if not rhs_type.implicitly_casts_to(lhs_type):
                 raise rhs_obj.error(
                     f"Argument {arg_n} to call '{self.fun.identifier}' was of "
-                    f"type {rhs_type} instead of expected {lhs_type} and cannot be casted.")
+                    f"type {rhs_type} instead of expected {lhs_type} and cannot be casted."
+                )
 
         params = []
 
@@ -215,7 +235,7 @@ class FunctionCallOp(ExpressionObject):
 
         fun: Register = await self.fun.compile(ctx)
 
-        if isinstance(fun_typ.returns, types.Void):
+        if isinstance(fun_typ.returns, Void):
             ctx.emit(Call(params, fun))
         else:
             await self.size
@@ -229,7 +249,11 @@ class ArrayIndexOp(ExpressionObject):
 
     __slots__ = ("arg", "offset")
 
-    def __init__(self, arg: ExpressionObject, offset: ExpressionObject, *, ast: Optional[AST]=None):
+    def __init__(self,
+                 arg: ExpressionObject,
+                 offset: ExpressionObject,
+                 *,
+                 ast: Optional[AST] = None):
         super().__init__(ast=ast)
         self.arg = arg
         self.offset = offset
@@ -237,38 +261,36 @@ class ArrayIndexOp(ExpressionObject):
     @property
     async def type(self):
         ptr = await self.arg.type
-        if not isinstance(ptr, (types.Pointer, types.Array)):
-            raise self.error("Operand to index operator is not of pointer or array type.")
+        if not isinstance(ptr, (Pointer, Array)):
+            raise self.error(
+                "Operand to index operator is not of pointer or array type.")
         return ptr.to
 
     async def load_lvalue(self, ctx: CompileContext) -> Register:
         atype = await self.arg.type
 
-        if not isinstance(atype, (types.Pointer, types.Array)):
+        if not isinstance(atype, (Pointer, Array)):
             raise self.error(f"Incompatible type to array index base {atype}")
 
         argument = await self.arg.compile(ctx)
         offset = await self.offset.compile(ctx)
-
 
         # get the size of the inner type if type.to is an array,
         # this will be the size of the internal array
         size = await self.size
 
         # make sure both the offset and the arguments are the correct size (size of a pointer)
-        if argument.size != types.Pointer.size:
-            argument0 = argument.resize(types.Pointer.size)
+        if argument.size != Pointer.size:
+            argument0 = argument.resize(Pointer.size)
             ctx.emit(Resize(argument, argument0))
             argument = argument0
 
-
-        if offset.size != types.Pointer.size:
-            offset0 = offset.resize(types.Pointer.size)
+        if offset.size != Pointer.size:
+            offset0 = offset.resize(Pointer.size)
             ctx.emit(Resize(offset, offset0))
             offset = offset0
 
-
-        result = ctx.get_register(types.Pointer.size)
+        result = ctx.get_register(Pointer.size)
         # multiply to the size of the inner type of the pointer/ array
         ctx.emit(Binary.mul(offset, Immediate(size, offset.size)))
         ctx.emit(Binary.add(argument, offset, result))
@@ -278,14 +300,13 @@ class ArrayIndexOp(ExpressionObject):
     @with_ctx
     async def compile(self, ctx: CompileContext) -> Register:
         ptr: Register = await self.load_lvalue(ctx)
-        if ptr.size != types.Pointer.size:
-            ptr0 = ptr.resize(types.Pointer.size)
+        if ptr.size != Pointer.size:
+            ptr0 = ptr.resize(Pointer.size)
             ctx.emit(Resize(ptr, ptr0))
             ptr = ptr0
 
-
         # indexes that leave an array type dont dereference
-        if isinstance(await self.type, types.Array):
+        if isinstance(await self.type, Array):
             return ptr
 
         my_type = await self.type
@@ -298,11 +319,14 @@ class PostIncrementOp(ExpressionObject):
 
     __slots__ = ("arg", "op")
 
-    def __init__(self, arg: ExpressionObject, op: str, *, ast: Optional[AST]=None):
+    def __init__(self,
+                 arg: ExpressionObject,
+                 op: str,
+                 *,
+                 ast: Optional[AST] = None):
         super().__init__(ast=ast)
         self.arg = arg
-        self.op = {"++": "add",
-                   "--": "sub"}[op]
+        self.op = {"++": "add", "--": "sub"}[op]
 
     @property
     async def type(self):
@@ -314,10 +338,11 @@ class PostIncrementOp(ExpressionObject):
 
         ptr: Register = await self.arg.load_lvalue(ctx)
         size = my_type.size
-        res, temp = ctx.get_register(size, my_type.signed), ctx.get_register(size)
+        res, temp = ctx.get_register(size,
+                                     my_type.signed), ctx.get_register(size)
 
         increment = 1
-        if isinstance(my_type, (types.Array, types.Pointer)):
+        if isinstance(my_type, (Array, Pointer)):
             increment = my_type.to.size
 
         ctx.emit(Mov(res, Dereference(ptr, res.size)))
@@ -327,23 +352,20 @@ class PostIncrementOp(ExpressionObject):
 
 
 class BinaryExpression(ExpressionObject):
-
     """Generic binary expression (a `x` b)
 
     _compat_types is used to typecheck the expression and set the return type of it."""
 
     __slots__ = ("left", "op", "right", "ret_type", "left_type", "right_type")
 
-    _compat_types: Tuple[Union[Tuple[str], str],
-                         Tuple[types.Type, types.Type], types.Type] = ()
+    _compat_types: Tuple[Union[Tuple[str], str], Tuple[Type, Type], Type] = ()
 
     @property
     async def size(self) -> int:
-        return max((await self.left.size),
-                   (await self.right.size))
+        return max((await self.left.size), (await self.right.size))
 
     @property
-    async def type(self) -> types.Type:
+    async def type(self) -> Type:
         await self.resolve_types()
         return self.ret_type
 
@@ -354,8 +376,12 @@ class BinaryExpression(ExpressionObject):
         """
         return self.left_type.signed or self.right_type.signed
 
-    def __init__(self, op: str, left: ExpressionObject,
-                 right: ExpressionObject, *, ast: Optional[AST]=None):
+    def __init__(self,
+                 op: str,
+                 left: ExpressionObject,
+                 right: ExpressionObject,
+                 *,
+                 ast: Optional[AST] = None):
         super().__init__(ast=ast)
         self.left = left
         self.op = op
@@ -378,11 +404,14 @@ class BinaryExpression(ExpressionObject):
         right = self.right_type = await self.right.type
         # typecheck operands here
 
-        for check_ops, (lhs_typ, rhs_type), result_type in self._compat_types:  # wew lad
+        for check_ops, (
+                lhs_typ,
+                rhs_type), result_type in self._compat_types:  # wew lad
             if not isinstance(check_ops, (list, tuple)):  # always an iterable
-                check_ops = (check_ops,)
+                check_ops = (check_ops, )
             for check_op in check_ops:
-                if isinstance(left, lhs_typ) and isinstance(right, rhs_type) and check_op == op:
+                if isinstance(left, lhs_typ) and isinstance(
+                        right, rhs_type) and check_op == op:
                     self.ret_type = result_type
                     break
             else:
@@ -393,7 +422,8 @@ class BinaryExpression(ExpressionObject):
                 f"Incompatible types for binary {op}: {left} and {right}")
 
     @with_ctx
-    async def compile_meta(self, ctx: CompileContext) -> Tuple[Register, Register]:
+    async def compile_meta(self,
+                           ctx: CompileContext) -> Tuple[Register, Register]:
         """Binary expression meta compile, returns registers of both side
         Both registers returned have equal size."""
         await self.resolve_types()  # force type resolution to typecheck
@@ -417,22 +447,22 @@ class BinaryExpression(ExpressionObject):
 class BinAddOp(BinaryExpression):
 
     _compat_types = (  # maybe follow algebraic rules to reduce repetition
-        (('+', '-'), (types.Pointer, types.Int), types.Pointer),
-        (('+', '-'), (types.Int, types.Pointer), types.Pointer),
-        (('+', '-'), (types.Int, types.Int), types.Int),
-        ('-', (types.Pointer, types.Pointer), types.Int),
+        (('+', '-'), (Pointer, Int), Pointer),
+        (('+', '-'), (Int, Pointer), Pointer),
+        (('+', '-'), (Int, Int), Int),
+        ('-', (Pointer, Pointer), Int),
     )
 
     @property
     async def type(self):
         await self.resolve_types()
 
-        if self.ret_type is types.Pointer:
+        if self.ret_type is Pointer:
             ptr_side = (self.left_type
-                        if isinstance(self.left_type, (types.Pointer, types.Array))
-                        else self.right_type)
+                        if isinstance(self.left_type, (Pointer, Array)) else
+                        self.right_type)
             return ptr_side
-        return types.Int.fromsize(await self.size, self.sign)
+        return Int.fromsize(await self.size, self.sign)
 
     @with_ctx
     async def compile(self, ctx: CompileContext) -> Register:
@@ -440,15 +470,14 @@ class BinAddOp(BinaryExpression):
 
         res = ctx.get_register(lhs.size, self.sign)
 
-        op = {"+": "add",
-              "-": "sub"}[self.op]
+        op = {"+": "add", "-": "sub"}[self.op]
 
-        if isinstance(await self.type, (types.Pointer, types.Array)):
-            (ptr_type, non_ptr) = ((self.left_type, rhs)
-                                   if isinstance(self.left_type, (types.Pointer, types.Array))
-                                   else (self.right_type, lhs))
+        if isinstance(await self.type, (Pointer, Array)):
+            (ptr_type, non_ptr) = ((self.left_type, rhs) if isinstance(
+                self.left_type, (Pointer, Array)) else (self.right_type, lhs))
 
-            ctx.emit(Binary.mul(non_ptr, Immediate(ptr_type.to.size, non_ptr.size)))
+            ctx.emit(
+                Binary.mul(non_ptr, Immediate(ptr_type.to.size, non_ptr.size)))
 
         ctx.emit(Binary(lhs, rhs, op, res))
         return res
@@ -459,15 +488,13 @@ class BinMulOp(BinaryExpression):
 
     Emits a signed operation of the rhs of a division is signed."""
 
-    _compat_types = (
-        (('*', '/', '%'), (types.Int, types.Int), types.Int),
-    )
+    _compat_types = ((('*', '/', '%'), (Int, Int), Int), )
 
     @property
     async def type(self):
         await self.resolve_types()
         signed = self.left_type.signed or self.right_type.signed
-        return types.Int.fromsize(await self.size, signed)
+        return Int.fromsize(await self.size, signed)
 
     @with_ctx
     async def compile(self, ctx: CompileContext) -> Register:
@@ -496,9 +523,7 @@ class BinShiftOp(BinaryExpression):
 
     Emits a signed operation if shifting left and any side of the expression is signed."""
 
-    _compat_types = (
-        (('>>', '<<'), (types.Int, types.Int), types.Int),
-    )
+    _compat_types = ((('>>', '<<'), (Int, Int), Int), )
 
     @property
     async def type(self):
@@ -508,13 +533,14 @@ class BinShiftOp(BinaryExpression):
             signed = lhs.signed
         else:
             signed = False
-        return types.Int.fromsize((await self.size), signed)
+        return Int.fromsize((await self.size), signed)
 
     @with_ctx
     async def compile(self, ctx: CompileContext) -> Register:
         lhs, rhs = await self.compile_meta(ctx)
         if rhs.sign:
-            raise self.right.error("RHS operand to a binary shift op must be unsigned.")
+            raise self.right.error(
+                "RHS operand to a binary shift op must be unsigned.")
 
         res = ctx.get_register(lhs.size, self.sign)
 
@@ -532,15 +558,14 @@ class BinShiftOp(BinaryExpression):
 class BinRelOp(BinaryExpression):
     """Binary relational comparison operation."""
 
-    _compat_types = (
-        (('<=', '>=', '<', '>', '==', '!='), (types.Int, types.Int), types.Int),
-        (('<=', '>=', '<', '>', '==', '!='), (types.Pointer, types.Pointer), types.Int)
-    )
+    _compat_types = ((('<=', '>=', '<', '>', '==', '!='), (Int, Int), Int),
+                     (('<=', '>=', '<', '>', '==', '!='), (Pointer, Pointer),
+                      Int))
 
     @property
     async def type(self):
         # always results in 0 or 1 (unsigned 1 byte int)
-        return types.Int('u1')
+        return Int('u1')
 
     @with_ctx
     async def compile(self, ctx: CompileContext) -> Register:
@@ -575,23 +600,17 @@ class BinRelOp(BinaryExpression):
 class BitwiseOp(BinaryExpression):
     """Binary bitwise operators."""
 
-    _compat_types = (
-        (("|", "^", "&"), (types.Int, types.Int), types.Int),
-    )
+    _compat_types = ((("|", "^", "&"), (Int, Int), Int), )
 
     @property
     async def type(self):
         await self.resolve_types()
-        assert self.ret_type is types.Int
+        assert self.ret_type is Int
         return self.ret_type.fromsize(await self.size, self.sign)
 
     @with_ctx
     async def compile(self, ctx: CompileContext) -> Register:
-        op = {
-            "|": "or",
-            "^": "xor",
-            "&": "and"
-        }[self.op]
+        op = {"|": "or", "^": "xor", "&": "and"}[self.op]
 
         lhs, rhs = await self.compile_meta(ctx)
         res = ctx.get_register(lhs.size, self.sign)
@@ -604,8 +623,11 @@ class AssignOp(ExpressionObject):
 
     __slots__ = ("left", "right")
 
-    def __init__(self, left: ExpressionObject,
-                 right: ExpressionObject, *, ast: Optional[AST]=None):
+    def __init__(self,
+                 left: ExpressionObject,
+                 right: ExpressionObject,
+                 *,
+                 ast: Optional[AST] = None):
         super().__init__(ast=ast)
         self.left = left
         self.right = right
@@ -639,8 +661,12 @@ class BoolCompOp(ExpressionObject):
 
     __slots__ = ("op", "left", "right")
 
-    def __init__(self, op: str, left: ExpressionObject,
-                 right: ExpressionObject, *, ast: Optional[AST]=None):
+    def __init__(self,
+                 op: str,
+                 left: ExpressionObject,
+                 right: ExpressionObject,
+                 *,
+                 ast: Optional[AST] = None):
         super().__init__(ast=ast)
         self.op = op
         self.left = left
@@ -648,7 +674,7 @@ class BoolCompOp(ExpressionObject):
 
     @property
     async def type(self):
-        return types.Int('u1')
+        return Int('u1')
 
     @with_ctx
     async def compile(self, ctx: CompileContext) -> Register:
@@ -656,23 +682,20 @@ class BoolCompOp(ExpressionObject):
         lhs_type, rhs_type = await self.left.type, await self.right.type
 
         if not rhs_type.implicitly_casts_to(lhs_type):
-            raise self.error(f"Right argument to boolean operator: '{self.right.matched_region}'\n"
-                             f"of type: {rhs_type} cannot be casted to left argument: '{self.left.matched_region}'\n"
-                             f"of type {lhs_type}")
+            raise self.error(
+                f"Right argument to boolean operator: '{self.right.matched_region}'\n"
+                f"of type: {rhs_type} cannot be casted to left argument: '{self.left.matched_region}'\n"
+                f"of type {lhs_type}")
 
-        if isinstance(lhs_type, types.Void):
+        if isinstance(lhs_type, Void):
             raise self.left.error("Void type argument to boolean operator")
-        if isinstance(rhs_type, types.Void):
+        if isinstance(rhs_type, Void):
             raise self.right.error("Void type argument to boolean operator")
-
 
         r1: Register = await self.left.compile(ctx)
         ctx.emit(Compare(r1, Immediate(0, r1.size)))
         target = JumpTarget()
-        op = {
-            'or': CompType.neq,
-            'and': CompType.eq
-        }[self.op]
+        op = {'or': CompType.neq, 'and': CompType.eq}[self.op]
 
         cond = ctx.get_register(1)
         ctx.emit(SetCmp(cond, op))

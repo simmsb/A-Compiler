@@ -47,7 +47,7 @@ def resolve_left_assoc(builder_fun: BinaryExpression, ast):
     return node
 
 
-def unary_prefix(ast: Optional[AST]=None):
+def unary_prefix(ast: Optional[AST] = None):
     """Build a unary prefix op from an ast node."""
     if ast.op == "*":
         return DereferenceOP(ast.right, ast=ast)
@@ -61,7 +61,7 @@ def unary_prefix(ast: Optional[AST]=None):
     raise InternalCompileException("Invalid unary prefix op")
 
 
-def unary_postfix(ast: Optional[AST]=None):
+def unary_postfix(ast: Optional[AST] = None):
     if ast.type == "f":
         return FunctionCallOp(ast.left, ast.args, ast=ast)
     if ast.type == "b":

@@ -37,7 +37,7 @@ class Register:
     sign: bool = False
     physical_register: Optional[int] = None
 
-    def resize(self, new_size: int=None, new_sign: bool=None) -> 'Register':
+    def resize(self, new_size: int = None, new_sign: bool = None) -> 'Register':
         """Get a resized copy of this register."""
         size = new_size or self.size
         sign = new_sign or self.sign
@@ -378,7 +378,8 @@ class JumpTarget(Jumpable):
 class Jump(Jumpable):
     """Conditional jump.
 
-    If condition is not provided this is a unconditional jump, otherwise tests for truthyness of the argument
+    If condition is not provided this is a unconditional jump,
+    otherwise tests for truthyness of the argument
     """
 
     location: JumpTarget

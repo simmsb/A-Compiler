@@ -4,8 +4,7 @@ from typing import Tuple, List, Dict, Union, Optional, Iterable, Any
 from wewcompiler.backend.rustvm.desugar import DesugarIR_Pre, DesugarIR_Post
 from wewcompiler.backend.rustvm import encoder
 from wewcompiler.backend.rustvm.register_allocate import allocate, Spill, Load
-from wewcompiler.objects.base import FunctionDecl, StatementObject, Compiler, CompileContext, Scope
-from wewcompiler.objects.astnode import BaseObject
+from wewcompiler.objects.base import FunctionDecl, StatementObject, Compiler, Scope
 from wewcompiler.objects.errors import InternalCompileException
 from wewcompiler.objects.variable import Variable, DataReference
 from wewcompiler.objects import ir_object
@@ -152,7 +151,6 @@ def package_objects(compiler: Compiler,
             size += instr.code_size
             packaged.append(instr)
 
-
     # add in code
     for (name, code) in fns:
         indexes[name] = size
@@ -257,7 +255,7 @@ def process_spill(scope: Scope, instr: Union[Spill, Load]) -> Iterable[encoder.H
         encoder.Manip.mov,
         2,
         (reg_s2,
-        encoder.SpecificRegisters.bas)
+         encoder.SpecificRegisters.bas)
     )
 
     var = scope.lookup_variable(f"spill-var-{instr.index}")

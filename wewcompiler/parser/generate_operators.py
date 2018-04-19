@@ -10,6 +10,7 @@ bin_ops = (
     ("multiply", ("*", "/", "%"),        "<")
 )
 
+
 def generate(op_table: Tuple[str, Tuple[str, ...]]):
     result = []
 
@@ -38,5 +39,6 @@ def generate(op_table: Tuple[str, Tuple[str, ...]]):
         result.append("\n")
 
     return "\n".join(result)
+
 
 print(generate(bin_ops))

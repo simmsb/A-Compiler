@@ -3,7 +3,6 @@ from typing import Optional
 from dataclasses import dataclass
 
 from wewcompiler.objects.types import Type
-from wewcompiler.objects.astnode import BaseObject
 
 
 @dataclass
