@@ -1,3 +1,4 @@
+import sys
 import re
 import pprint
 from itertools import count
@@ -50,11 +51,16 @@ def compile(input, out, reg_count, show_stats, debug_compiler,
     colorama.init(autoreset=True)
 
     input = input.read()
+    input = input.expandtabs(tabsize=4)
+
+    if not input:
+        print("No input", file=sys.stderr)
+        exit(1)
 
     try:
         parsed = parse_source(input)
     except FailedParse as e:
-        print("Failed to parse input: ")
+        print("Failed to parse input: ", file=sys.stderr)
 
         info = e.buf.line_info(e.pos)
         line = info.line + 1
@@ -77,18 +83,18 @@ def compile(input, out, reg_count, show_stats, debug_compiler,
 
         line = colored(str(line - 1), 'green')
         col = colored(str(col), 'green')
-        print(f"Line {line}, Column: {col}: ")
+        print(f"Line {line}, Column: {col}: ", file=sys.stderr)
         if above_lines:
-            print(colorama.Style.DIM + "\n".join(add_line_count(above_lines, line_counter)))
-        print(colorama.Style.BRIGHT + f"{next(line_counter):>3}| {error_line}\n     {arrow_pos}^")
+            print(colorama.Style.DIM + "\n".join(add_line_count(above_lines, line_counter)), file=sys.stderr)
+        print(colorama.Style.BRIGHT + f"{next(line_counter):>3}| {error_line}\n     {arrow_pos}^", file=sys.stderr)
         if below_lines:
-            print(colorama.Style.DIM + "\n".join(add_line_count(below_lines, line_counter)))
+            print(colorama.Style.DIM + "\n".join(add_line_count(below_lines, line_counter)), file=sys.stderr)
 
         exit(1)
     except CompileException as e:
         if debug_compiler:
             raise e from None
-        print(e)
+        print(e, file=sys.stderr)
         exit(1)
 
     if not no_include_std:
@@ -107,7 +113,7 @@ def compile(input, out, reg_count, show_stats, debug_compiler,
     except CompileException as e:
         if debug_compiler:
             raise e from None
-        print(e)
+        print(e, file=sys.stderr)
         exit(1)
 
     offsets, code = process_code(compiler, reg_count)

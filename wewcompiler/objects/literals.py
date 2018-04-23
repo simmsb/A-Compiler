@@ -107,7 +107,7 @@ class Identifier(ExpressionObject):
 
         # if we load the lvalue when requested, error here since this is disallowed
         if var.lvalue_is_rvalue:
-            raise self.error(f"Variable has no lvalue information.")
+            raise self.error(f"Variable '{self.name}' has no lvalue information.")
         reg = ctx.get_register(types.Pointer(self.var.type).size)
         ctx.emit(LoadVar(var, reg, lvalue=True))
         return reg

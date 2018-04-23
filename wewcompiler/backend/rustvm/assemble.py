@@ -5,7 +5,7 @@ from wewcompiler.backend.rustvm.desugar import DesugarIR_Pre, DesugarIR_Post
 from wewcompiler.backend.rustvm import encoder
 from wewcompiler.backend.rustvm.register_allocate import allocate, Spill, Load
 from wewcompiler.objects.base import FunctionDecl, StatementObject, Compiler, Scope
-from wewcompiler.objects.errors import InternalCompileException
+from wewcompiler.objects.errors import InternalCompileException, CompileException
 from wewcompiler.objects.variable import Variable, DataReference
 from wewcompiler.objects import ir_object
 
@@ -200,8 +200,10 @@ def package_objects(compiler: Compiler,
                     else:
                         missing.append(elem.name)
 
+    if missing == ["main"]:
+        # custom message when missing main
+        raise CompileException("No main function defined.")
     if missing:
-        # FEATURE: keep track of what we're missing and display it
         raise InternalCompileException(f"Failed to resolve references: {missing}")
 
     return indexes, packaged

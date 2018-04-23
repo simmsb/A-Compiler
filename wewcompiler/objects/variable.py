@@ -29,9 +29,5 @@ class Variable:
         if self.size is None:
             self.size = self.type.size
 
-    @property
-    def identifier(self) -> str:
-        return self.name
-
     def __str__(self):
         return f"Variable({self.name}, {self.type})"

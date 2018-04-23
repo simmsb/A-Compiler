@@ -1,0 +1,1042 @@
+@startuml
+
+skinparam monochrome true
+skinparam defaultFontName FantasqueSans Mono
+left to right direction
+
+class WewSemantics {
+{method} fn additive(self, ast)
+{method} fn arr_lit(self, ast)
+{method} fn array_type(self, ast)
+{method} fn asm(self, ast)
+{method} fn asm_expr(self, ast)
+{method} fn asm_instruction(self, ast)
+{method} fn assign_expr(self, ast)
+{method} fn base_type(self, ast)
+{method} fn bitshift(self, ast)
+{method} fn bitwise(self, ast)
+{method} fn boolean(self, ast)
+{method} fn chr(self, ast)
+{method} fn const_type(self, typ)
+{method} fn decl(self, ast)
+{method} fn equality(self, ast)
+{method} fn expr(self, ast)
+{method} fn fun_decl(self, ast)
+{method} fn fun_type(self, ast)
+{method} fn identifier(self, ast)
+{method} fn if_stmt(self, ast)
+{method} fn int(self, ast)
+{method} fn int_lit(self, ast)
+{method} fn literal(self, ast)
+{method} fn loop_stmt(self, ast)
+{method} fn mod_decl(self, ast)
+{method} fn multiply(self, ast)
+{method} fn optional_def(self, ast)
+{method} fn postfix(self, ast)
+{method} fn postfixexpr(self, ast)
+{method} fn postop(self, ast)
+{method} fn prefix(self, ast)
+{method} fn ptr_type(self, ast)
+{method} fn relation(self, ast)
+{method} fn return_stmt(self, ast)
+{method} fn scope(self, ast)
+{method} fn singular(self, ast)
+{method} fn sizeof(self, ast)
+{method} fn start(self, ast)
+{method} fn statement(self, ast)
+{method} fn str(self, ast)
+{method} fn subexpr(self, ast)
+{method} fn type(self, ast)
+{method} fn var_decl(self, ast)
+{method} fn void_type(self, ast)
+
+}
+
+class object {
+
+
+}
+class Void {
+{method} fn __init__(self, ast)
+{method} fn error(self, reasons)
+{method} fn get_text_positions(self)
+{method} fn implicitly_casts_to(self, other)
+{method} fn make_error(self)
+{method} fn pretty_print(self)
+{field} context
+{field} ast
+{field} namespace
+}
+Type -up-|> Void
+class Type {
+{method} fn __init__(self, ast)
+{method} fn error(self, reasons)
+{method} fn get_text_positions(self)
+{method} fn implicitly_casts_to(self, other)
+{method} fn make_error(self)
+{method} fn pretty_print(self)
+{field} context
+{field} ast
+{field} namespace
+}
+BaseObject --|> Type
+class BaseObject {
+{method} fn __init__(self, ast)
+{method} fn error(self, reasons)
+{method} fn get_text_positions(self)
+{method} fn make_error(self)
+{method} fn pretty_print(self)
+{field} context
+{field} ast
+{field} namespace
+}
+
+class VariableDecl {
+{method} fn __init__(self, name, type, val, ast)
+{method} fn compile(self, ctx)
+{method} fn error(self, reasons)
+{method} fn get_text_positions(self)
+{method} fn make_error(self)
+{method} fn pretty_print(self)
+{field} name
+{field} _type
+{field} val
+}
+StatementObject --|> VariableDecl
+class StatementObject {
+{method} fn __init__(self, ast)
+{method} fn compile(self, ctx)
+{method} fn error(self, reasons)
+{method} fn get_text_positions(self)
+{method} fn make_error(self)
+{method} fn pretty_print(self)
+{field} context
+{field} ast
+{field} namespace
+}
+BaseObject --|> StatementObject
+class Variable {
+{method} fn __init__(self, name, type, size, parent, stack_offset, global_offset, lvalue_is_rvalue)
+{field} name
+{field} type
+{field} size
+{field} parent
+{field} stack_offset
+{field} global_offset
+{field} lvalue_is_rvalue
+{field} return
+}
+
+class UnaryOP {
+{method} fn __init__(self, op, expr, ast)
+{method} fn compile(self, ctx)
+{method} fn error(self, reasons)
+{method} fn get_text_positions(self)
+{method} fn load_lvalue(self, ctx)
+{method} fn make_error(self)
+{method} fn pretty_print(self)
+{field} op
+{field} expr
+}
+ExpressionObject -up-|> UnaryOP
+class ExpressionObject {
+{method} fn __init__(self, ast)
+{method} fn compile(self, ctx)
+{method} fn error(self, reasons)
+{method} fn get_text_positions(self)
+{method} fn load_lvalue(self, ctx)
+{method} fn make_error(self)
+{method} fn pretty_print(self)
+{field} context
+{field} ast
+{field} namespace
+}
+BaseObject --|> ExpressionObject
+class UnaryMeta {
+
+
+}
+type --|> UnaryMeta
+class type {
+
+
+}
+
+class UnaryInstructions {
+
+
+}
+IntEnum --|> UnaryInstructions
+class IntEnum {
+
+
+}
+int --|> IntEnum
+Enum --|> IntEnum
+class Enum {
+
+
+}
+
+class int {
+
+
+}
+
+class Unary {
+{method} fn __init__(self, arg, op, to)
+{method} fn clone_regs(self)
+{method} fn insert_pre_instrs(self, instrs)
+{field} arg
+{field} op
+{field} to
+{field} return
+}
+IRObject -left-|> Unary
+class IRObject {
+{method} fn __init__(self)
+{method} fn clone_regs(self)
+{method} fn insert_pre_instrs(self, instrs)
+{field} return
+}
+
+class Spill {
+{method} fn __init__(self, reg, index)
+{field} reg
+{field} index
+{field} return
+}
+
+class SpecificRegisters {
+
+
+}
+
+class SizeOf {
+{method} fn __init__(self, obj, ast)
+{method} fn compile(self, ctx)
+{method} fn error(self, reasons)
+{method} fn get_text_positions(self)
+{method} fn load_lvalue(self, ctx)
+{method} fn make_error(self)
+{method} fn pretty_print(self)
+{field} obj
+}
+ExpressionObject -up-|> SizeOf
+class SetCmp {
+{method} fn __init__(self, dest, op)
+{method} fn clone_regs(self)
+{method} fn insert_pre_instrs(self, instrs)
+{field} dest
+{field} op
+{field} return
+}
+IRObject -left-|> SetCmp
+class Scope {
+{method} fn __init__(self, body, ast)
+{method} fn add_spill_vars(self, n)
+{method} fn compile(self, ctx)
+{method} fn declare_variable(self, name, typ)
+{method} fn error(self, reasons)
+{method} fn get_text_positions(self)
+{method} fn init_variable(self, var)
+{method} fn lookup_variable(self, name)
+{method} fn make_error(self)
+{method} fn make_variable(self, name, typ, obj)
+{method} fn own_variable(self, var)
+{method} fn pretty_print(self)
+{field} _vars
+{field} size
+{field} body
+{field} used_hw_regs
+}
+StatementObject --|> Scope
+IdentifierScope --|> Scope
+class IdentifierScope {
+{method} fn declare_variable(self, name, typ)
+{method} fn init_variable(self, var)
+{method} fn lookup_variable(self, name)
+{method} fn make_variable(self, name, typ, obj)
+{method} fn own_variable(self, var)
+
+}
+
+class SaveVar {
+{method} fn __init__(self, variable, from_)
+{method} fn clone_regs(self)
+{method} fn insert_pre_instrs(self, instrs)
+{field} variable
+{field} from_
+{field} return
+}
+IRObject -left-|> SaveVar
+class ReturnStmt {
+{method} fn __init__(self, expr, ast)
+{method} fn compile(self, ctx)
+{method} fn error(self, reasons)
+{method} fn get_text_positions(self)
+{method} fn make_error(self)
+{method} fn pretty_print(self)
+{field} expr
+}
+StatementObject --|> ReturnStmt
+class Return {
+{method} fn __init__(self, scope, arg)
+{method} fn clone_regs(self)
+{method} fn insert_pre_instrs(self, instrs)
+{field} scope
+{field} arg
+{field} return
+}
+IRObject -up-|> Return
+class Resize {
+{method} fn __init__(self, from_, to)
+{method} fn clone_regs(self)
+{method} fn insert_pre_instrs(self, instrs)
+{field} from_
+{field} to
+{field} return
+}
+IRObject -up-|> Resize
+class RegisterState {
+
+
+}
+Enum --|> RegisterState
+class Register {
+{method} fn __init__(self, reg, size, sign, physical_register)
+{method} fn copy(self)
+{method} fn resize(self, new_size, new_sign)
+{field} reg
+{field} size
+{field} sign
+{field} physical_register
+{field} return
+}
+
+class Push {
+{method} fn __init__(self, arg)
+{method} fn clone_regs(self)
+{method} fn insert_pre_instrs(self, instrs)
+{field} arg
+{field} return
+}
+IRObject -up-|> Push
+class Prelude {
+{method} fn __init__(self, scope)
+{method} fn clone_regs(self)
+{method} fn insert_pre_instrs(self, instrs)
+{field} scope
+{field} return
+}
+IRObject -up-|> Prelude
+class PreincrementOP {
+{method} fn __init__(self, op, expr, ast)
+{method} fn compile(self, ctx)
+{method} fn error(self, reasons)
+{method} fn get_text_positions(self)
+{method} fn load_lvalue(self, ctx)
+{method} fn make_error(self)
+{method} fn pretty_print(self)
+{field} op
+{field} expr
+}
+ExpressionObject -up-|> PreincrementOP
+class PostIncrementOp {
+{method} fn __init__(self, arg, op, ast)
+{method} fn compile(self, ctx)
+{method} fn error(self, reasons)
+{method} fn get_text_positions(self)
+{method} fn load_lvalue(self, ctx)
+{method} fn make_error(self)
+{method} fn pretty_print(self)
+{field} arg
+{field} op
+}
+ExpressionObject -right-|> PostIncrementOp
+class Pop {
+{method} fn __init__(self, arg)
+{method} fn clone_regs(self)
+{method} fn insert_pre_instrs(self, instrs)
+{field} arg
+{field} return
+}
+IRObject -up-|> Pop
+class Pointer {
+{method} fn __init__(self, to, const, ast)
+{method} fn error(self, reasons)
+{method} fn get_text_positions(self)
+{method} fn implicitly_casts_to(self, other)
+{method} fn make_error(self)
+{method} fn pretty_print(self)
+{field} to
+{field} const
+}
+Type -left-|> Pointer
+class ObjectRequest {
+{method} fn __init__(self, name)
+{field} name
+}
+
+class Mov {
+{method} fn __init__(self, to, from_)
+{method} fn clone_regs(self)
+{method} fn insert_pre_instrs(self, instrs)
+{field} to
+{field} from_
+{field} return
+}
+IRObject -right-|> Mov
+class ModDecl {
+{method} fn __init__(self, name, body, ast)
+{method} fn compile(self, ctx)
+{method} fn error(self, reasons)
+{method} fn get_text_positions(self)
+{method} fn make_error(self)
+{method} fn pretty_print(self)
+{field} name
+{field} body
+}
+StatementObject --|> ModDecl
+class MemrefOp {
+{method} fn __init__(self, expr, ast)
+{method} fn compile(self, ctx)
+{method} fn error(self, reasons)
+{method} fn get_text_positions(self)
+{method} fn load_lvalue(self, ctx)
+{method} fn make_error(self)
+{method} fn pretty_print(self)
+{field} expr
+}
+ExpressionObject -right-|> MemrefOp
+class Mem {
+
+
+}
+IntEnum --|> Mem
+class Manip {
+
+
+}
+IntEnum --|> Manip
+class MachineInstr {
+{method} fn __init__(self, instr, size, args)
+{method} fn clone_regs(self)
+{method} fn insert_pre_instrs(self, instrs)
+{field} instr
+{field} size
+{field} args
+{field} return
+}
+IRObject -right-|> MachineInstr
+class LoopStmt {
+{method} fn __init__(self, cond, body, ast)
+{method} fn compile(self, ctx)
+{method} fn error(self, reasons)
+{method} fn get_text_positions(self)
+{method} fn make_error(self)
+{method} fn pretty_print(self)
+{field} cond
+{field} body
+}
+StatementObject --|> LoopStmt
+class LoadVar {
+{method} fn __init__(self, variable, to, lvalue)
+{method} fn clone_regs(self)
+{method} fn insert_pre_instrs(self, instrs)
+{field} variable
+{field} to
+{field} lvalue
+{field} return
+}
+IRObject -right-|> LoadVar
+class Load {
+{method} fn __init__(self, reg, index)
+{field} reg
+{field} index
+{field} return
+}
+
+class ListView {
+{method} fn __init__(self, lst, slc)
+{field} lst
+{field} slc
+{field} return
+}
+
+class Jumpable {
+{method} fn __init__(self)
+{method} fn add_jump_to(self, from_)
+{method} fn clone_regs(self)
+{method} fn insert_pre_instrs(self, instrs)
+{method} fn take_jumps_from(self, other)
+{field} return
+}
+IRObject -down-|> Jumpable
+class JumpTarget {
+{method} fn __init__(self)
+{method} fn add_jump_to(self, from_)
+{method} fn clone_regs(self)
+{method} fn insert_pre_instrs(self, instrs)
+{method} fn take_jumps_from(self, other)
+{field} return
+}
+Jumpable --|> JumpTarget
+class Jump {
+{method} fn __init__(self, location, condition)
+{method} fn add_jump_to(self, from_)
+{method} fn clone_regs(self)
+{method} fn insert_pre_instrs(self, instrs)
+{method} fn take_jumps_from(self, other)
+{field} location
+{field} condition
+{field} return
+}
+Jumpable --|> Jump
+class InternalCompileException {
+
+
+}
+Exception --|> InternalCompileException
+class Exception {
+
+
+}
+BaseException --|> Exception
+class BaseException {
+
+
+}
+
+class IntegerLiteral {
+{method} fn __init__(self, lit, type, ast)
+{method} fn compile(self, ctx)
+{method} fn compile_to_var(self, ctx)
+{method} fn error(self, reasons)
+{method} fn get_text_positions(self)
+{method} fn load_lvalue(self, ctx)
+{method} fn make_error(self)
+{method} fn pretty_print(self)
+{method} fn to_bytes(self, size)
+{field} lit
+}
+ExpressionObject -right-|> IntegerLiteral
+class Int {
+{method} fn __init__(self, t, const, ast)
+{method} fn error(self, reasons)
+{method} fn get_text_positions(self)
+{method} fn implicitly_casts_to(self, other)
+{method} fn make_error(self)
+{method} fn pretty_print(self)
+{field} signed
+{field} size
+{field} const
+}
+Type --|> Int
+class InstructionEncoder {
+
+
+}
+
+class Immediate {
+{method} fn __init__(self, val, size)
+{field} val
+{field} size
+{field} return
+}
+
+class Identifier {
+{method} fn __init__(self, name, ast)
+{method} fn compile(self, ctx)
+{method} fn error(self, reasons)
+{method} fn get_text_positions(self)
+{method} fn load_lvalue(self, ctx)
+{method} fn make_error(self)
+{method} fn pretty_print(self)
+{method} fn retrieve_variable(self)
+{field} name
+{field} var
+}
+ExpressionObject -up-|> Identifier
+class IO {
+
+
+}
+IntEnum --|> IO
+class IFStmt {
+{method} fn __init__(self, cond, body, else_, ast)
+{method} fn compile(self, ctx)
+{method} fn error(self, reasons)
+{method} fn get_text_positions(self)
+{method} fn make_error(self)
+{method} fn pretty_print(self)
+{field} cond
+{field} body
+{field} else_
+}
+StatementObject --|> IFStmt
+class HardwareRegister {
+{method} fn __init__(self, index)
+{field} index
+{field} return
+}
+
+class HardwareMemoryLocation {
+{method} fn __init__(self, index)
+{field} index
+{field} return
+}
+
+class HardWareInstruction {
+{method} fn __init__(self, instr, size, args)
+{field} instr
+{field} size
+{field} args
+{field} return
+}
+
+class FunctionDecl {
+{method} fn __init__(self, name, params, return_val, has_varargs, body, ast)
+{method} fn add_spill_vars(self, n)
+{method} fn compile(self, ctx)
+{method} fn declare_variable(self, name, typ)
+{method} fn error(self, reasons)
+{method} fn get_text_positions(self)
+{method} fn init_variable(self, var)
+{method} fn lookup_variable(self, name)
+{method} fn make_error(self)
+{method} fn make_variable(self, name, typ, obj)
+{method} fn own_variable(self, var)
+{method} fn pretty_print(self)
+{field} name
+{field} _type
+{field} params
+{field} has_varargs
+}
+Scope --|> FunctionDecl
+class FunctionCallOp {
+{method} fn __init__(self, fun, args, ast)
+{method} fn compile(self, ctx)
+{method} fn error(self, reasons)
+{method} fn get_text_positions(self)
+{method} fn load_lvalue(self, ctx)
+{method} fn make_error(self)
+{method} fn pretty_print(self)
+{field} fun
+{field} args
+}
+ExpressionObject -left-|> FunctionCallOp
+class Function {
+{method} fn __init__(self, returns, args, varargs, const, ast)
+{method} fn error(self, reasons)
+{method} fn get_text_positions(self)
+{method} fn implicitly_casts_to(self, other)
+{method} fn make_error(self)
+{method} fn pretty_print(self)
+{field} returns
+{field} args
+{field} varargs
+{field} const
+}
+Type -down-|> Function
+class Epilog {
+{method} fn __init__(self, scope)
+{method} fn clone_regs(self)
+{method} fn insert_pre_instrs(self, instrs)
+{field} scope
+{field} return
+}
+IRObject -down-|> Epilog
+class Emitter {
+
+
+}
+type --|> Emitter
+class Desugarer {
+
+
+}
+
+class DesugarIR_Pre {
+
+
+}
+Desugarer --|> DesugarIR_Pre
+class DesugarIR_Post {
+
+
+}
+Desugarer --|> DesugarIR_Post
+class DereferenceOP {
+{method} fn __init__(self, expr, ast)
+{method} fn compile(self, ctx)
+{method} fn error(self, reasons)
+{method} fn get_text_positions(self)
+{method} fn load_lvalue(self, ctx)
+{method} fn make_error(self)
+{method} fn pretty_print(self)
+{field} expr
+}
+ExpressionObject -left-|> DereferenceOP
+class Dereference {
+{method} fn __init__(self, to, size)
+{field} to
+{field} size
+{field} return
+}
+
+class DataReference {
+{method} fn __init__(self, name)
+{field} name
+{field} return
+}
+
+class DataField {
+{method} fn __init__(self, identifier, data)
+{field} identifier
+{field} data
+{field} return
+}
+
+class Compiler {
+{method} fn __init__(self)
+{method} fn add_array(self, elems)
+{method} fn add_bytes(self, data)
+{method} fn add_object(self, obj)
+{method} fn add_spill_vars(self, n)
+{method} fn add_string(self, string)
+{method} fn add_waiting(self, name, obj, from_)
+{method} fn compile(self, objects)
+{method} fn declare_variable(self, name, typ)
+{method} fn init_variable(self, var)
+{method} fn lookup_variable(self, name)
+{method} fn make_variable(self, name, typ, obj)
+{method} fn own_variable(self, var)
+{method} fn run_over(self, obj, to_send)
+{field} _vars
+{field} compiled_objects
+{field} waiting_coros
+{field} data
+{field} identifiers
+{field} spill_size
+{field} _objects
+{field} unique_counter
+}
+IdentifierScope --|> Compiler
+class CompileException {
+{method} fn __init__(self, reasons, trace)
+{field} reason
+{field} trace
+}
+Exception --|> CompileException
+class CompileContext {
+{method} fn __init__(self, compiler)
+{method} fn context(self, obj)
+{method} fn declare_unique_variable(self, typ)
+{method} fn declare_variable(self, name, typ)
+{method} fn emit(self, instr)
+{method} fn get_register(self, size, sign)
+{method} fn lookup_variable(self, name)
+{method} fn make_variable(self, name, typ, obj, global_only)
+{method} fn scope(self, scope)
+{field} scope_stack
+{field} object_stack
+{field} compiler
+{field} code
+{field} regs_used
+}
+
+class Compare {
+{method} fn __init__(self, left, right)
+{method} fn clone_regs(self)
+{method} fn insert_pre_instrs(self, instrs)
+{field} left
+{field} right
+{field} return
+}
+IRObject -down-|> Compare
+class CompType {
+
+
+}
+IntEnum --|> CompType
+class CastExprOP {
+{method} fn __init__(self, type, expr, op, ast)
+{method} fn compile(self, ctx)
+{method} fn error(self, reasons)
+{method} fn get_text_positions(self)
+{method} fn load_lvalue(self, ctx)
+{method} fn make_error(self)
+{method} fn pretty_print(self)
+{field} _type
+{field} expr
+{field} op
+}
+ExpressionObject -down-|> CastExprOP
+class Call {
+{method} fn __init__(self, args, jump, result)
+{method} fn clone_regs(self)
+{method} fn insert_pre_instrs(self, instrs)
+{field} args
+{field} jump
+{field} result
+{field} return
+}
+IRObject -down-|> Call
+class BoolCompOp {
+{method} fn __init__(self, op, left, right, ast)
+{method} fn compile(self, ctx)
+{method} fn error(self, reasons)
+{method} fn get_text_positions(self)
+{method} fn load_lvalue(self, ctx)
+{method} fn make_error(self)
+{method} fn pretty_print(self)
+{field} op
+{field} left
+{field} right
+}
+ExpressionObject -down-|> BoolCompOp
+class BitwiseOp {
+{method} fn __init__(self, op, left, right, ast)
+{method} fn compile(self, ctx)
+{method} fn compile_meta(self, ctx)
+{method} fn error(self, reasons)
+{method} fn get_text_positions(self)
+{method} fn load_lvalue(self, ctx)
+{method} fn make_error(self)
+{method} fn pretty_print(self)
+{method} fn resolve_types(self)
+{field} left
+{field} op
+{field} right
+{field} ret_type
+{field} left_type
+{field} right_type
+}
+BinaryExpression -up-|> BitwiseOp
+class BinaryExpression {
+{method} fn __init__(self, op, left, right, ast)
+{method} fn compile(self, ctx)
+{method} fn compile_meta(self, ctx)
+{method} fn error(self, reasons)
+{method} fn get_text_positions(self)
+{method} fn load_lvalue(self, ctx)
+{method} fn make_error(self)
+{method} fn pretty_print(self)
+{method} fn resolve_types(self)
+{field} left
+{field} op
+{field} right
+{field} ret_type
+{field} left_type
+{field} right_type
+}
+ExpressionObject -down-|> BinaryExpression
+class BinaryMeta {
+
+
+}
+type --|> BinaryMeta
+class BinaryInstructions {
+
+
+}
+IntEnum --|> BinaryInstructions
+class Binary {
+{method} fn __init__(self, left, right, op, to)
+{method} fn clone_regs(self)
+{method} fn insert_pre_instrs(self, instrs)
+{field} left
+{field} right
+{field} op
+{field} to
+{field} return
+}
+IRObject -down-|> Binary
+class BinShiftOp {
+{method} fn __init__(self, op, left, right, ast)
+{method} fn compile(self, ctx)
+{method} fn compile_meta(self, ctx)
+{method} fn error(self, reasons)
+{method} fn get_text_positions(self)
+{method} fn load_lvalue(self, ctx)
+{method} fn make_error(self)
+{method} fn pretty_print(self)
+{method} fn resolve_types(self)
+{field} left
+{field} op
+{field} right
+{field} ret_type
+{field} left_type
+{field} right_type
+}
+BinaryExpression -up-|> BinShiftOp
+class BinRelOp {
+{method} fn __init__(self, op, left, right, ast)
+{method} fn compile(self, ctx)
+{method} fn compile_meta(self, ctx)
+{method} fn error(self, reasons)
+{method} fn get_text_positions(self)
+{method} fn load_lvalue(self, ctx)
+{method} fn make_error(self)
+{method} fn pretty_print(self)
+{method} fn resolve_types(self)
+{field} left
+{field} op
+{field} right
+{field} ret_type
+{field} left_type
+{field} right_type
+}
+BinaryExpression -right-|> BinRelOp
+class BinMulOp {
+{method} fn __init__(self, op, left, right, ast)
+{method} fn compile(self, ctx)
+{method} fn compile_meta(self, ctx)
+{method} fn error(self, reasons)
+{method} fn get_text_positions(self)
+{method} fn load_lvalue(self, ctx)
+{method} fn make_error(self)
+{method} fn pretty_print(self)
+{method} fn resolve_types(self)
+{field} left
+{field} op
+{field} right
+{field} ret_type
+{field} left_type
+{field} right_type
+}
+BinaryExpression -right-|> BinMulOp
+class BinAddOp {
+{method} fn __init__(self, op, left, right, ast)
+{method} fn compile(self, ctx)
+{method} fn compile_meta(self, ctx)
+{method} fn error(self, reasons)
+{method} fn get_text_positions(self)
+{method} fn load_lvalue(self, ctx)
+{method} fn make_error(self)
+{method} fn pretty_print(self)
+{method} fn resolve_types(self)
+{field} left
+{field} op
+{field} right
+{field} ret_type
+{field} left_type
+{field} right_type
+}
+BinaryExpression -down-|> BinAddOp
+class AssignOp {
+{method} fn __init__(self, left, right, ast)
+{method} fn compile(self, ctx)
+{method} fn error(self, reasons)
+{method} fn get_text_positions(self)
+{method} fn load_lvalue(self, ctx)
+{method} fn make_error(self)
+{method} fn pretty_print(self)
+{field} left
+{field} right
+}
+ExpressionObject -down-|> AssignOp
+class ArrayLiteral {
+{method} fn __init__(self, exprs, ast)
+{method} fn broadcast_length(self, length)
+{method} fn check_types(self, type)
+{method} fn compile(self, ctx)
+{method} fn compile_as_arr(self, ctx)
+{method} fn compile_as_arr_helper(self, ctx, base)
+{method} fn compile_as_ref(self, ctx)
+{method} fn error(self, reasons)
+{method} fn get_text_positions(self)
+{method} fn insert_type(self, type)
+{method} fn load_lvalue(self, ctx)
+{method} fn make_error(self)
+{method} fn pretty_print(self)
+{method} fn to_ptr(self)
+{field} exprs
+{field} _type
+{field} var
+{field} _ptr
+{field} float_size
+}
+ExpressionObject -down-|> ArrayLiteral
+class ArrayIndexOp {
+{method} fn __init__(self, arg, offset, ast)
+{method} fn compile(self, ctx)
+{method} fn error(self, reasons)
+{method} fn get_text_positions(self)
+{method} fn load_lvalue(self, ctx)
+{method} fn make_error(self)
+{method} fn pretty_print(self)
+{field} arg
+{field} offset
+}
+ExpressionObject -up-|> ArrayIndexOp
+class Array {
+{method} fn __init__(self, to, l, const, ast)
+{method} fn error(self, reasons)
+{method} fn get_text_positions(self)
+{method} fn implicitly_casts_to(self, other)
+{method} fn make_error(self)
+{method} fn pretty_print(self)
+{field} to
+{field} length
+{field} const
+}
+Type --|> Array
+class AllocationState {
+{method} fn __init__(self, reg_count)
+{method} fn allocate_register(self, v_reg, source, excludes)
+{method} fn emit_load(self, v_reg, reg)
+{method} fn emit_spill(self, v_reg, reg)
+{method} fn free_register(self, v_reg)
+{method} fn least_active_register(self, exclude)
+{field} reg_count
+{field} usable_registers
+{field} register_states
+{field} spilled_registers
+{field} allocated_registers
+}
+
+class AllocatedRegister {
+{method} fn __init__(self, size, sign, physical_register)
+{field} size
+{field} sign
+{field} physical_register
+{field} return
+}
+
+class ASMStmt {
+{method} fn __init__(self, body, exprs, ast)
+{method} fn compile(self, ctx)
+{method} fn error(self, reasons)
+{method} fn get_text_positions(self)
+{method} fn make_error(self)
+{method} fn pretty_print(self)
+{field} body
+{field} exprs
+}
+StatementObject --|> ASMStmt
+class ASMInstruction {
+{method} fn __init__(self, name, size, params)
+{method} fn resolve_params(self, expr_registers)
+{field} name
+{field} size
+{field} params
+{field} return
+}
+
+class ASMExprType {
+
+
+}
+Enum --|> ASMExprType
+class ASMExpr {
+{method} fn __init__(self, operation, val, deref, size)
+{field} operation
+{field} val
+{field} deref
+{field} size
+{field} return
+}
+
+@enduml

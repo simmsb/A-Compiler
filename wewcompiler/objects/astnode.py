@@ -1,14 +1,18 @@
 from itertools import count
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Iterable
 
 import colorama
 
-from wewcompiler.utils import add_line_count, add_line_once, strip_newlines
+from wewcompiler.utils import add_line_count, strip_newlines
 from wewcompiler.utils.formatter import format_lines
 from wewcompiler.objects.errors import CompileException, InternalCompileException
 
 from tatsu.ast import AST
 from tatsu.infos import ParseInfo
+
+
+def add_line_once(line: str, counter: Iterable[int]) -> str:
+    return f"{next(counter):>3}| {line}"
 
 
 class BaseObject:
@@ -45,6 +49,7 @@ class BaseObject:
     @property
     def matched_region(self) -> str:
         startp, endp = self.get_text_positions()
+        startp -= 1  # why, because off by one errors memeing me
 
         source = [i.rstrip("\n") for i in self._info.text_lines()]
         srclen = len(source)
@@ -149,9 +154,9 @@ class BaseObject:
             return None
         startl, endl = info.line, info.endline
 
-        return "\n".join(((f"On line {startl + 1}:"
+        return "\n".join(((f"On line {startl}:"
                            if startl == endl else
-                           f"On lines {startl + 1} to {endl + 1}:"),
+                           f"On lines {startl} to {endl}:"),
                           self.highlight_lines))
 
     def error(self, *reasons: str):
