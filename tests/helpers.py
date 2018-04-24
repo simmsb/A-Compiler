@@ -10,8 +10,6 @@ RT = TypeVar('RT')
 
 
 def for_feature(**features: str) -> Callable[[Callable[..., RT]], Callable[..., RT]]:
-    features = ((f"feature-{k}", v) for k, v in features.items())
-
     def deco(f: Callable[..., RT]) -> Callable[..., RT]:
         f._features = features
         return f

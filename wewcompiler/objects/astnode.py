@@ -93,18 +93,18 @@ class BaseObject:
         red = colorama.Fore.RED
         white = colorama.Fore.WHITE
         normal = colorama.Style.NORMAL
-        # reset = colorama.Style.RESET_ALL + colorama.Fore.RESET
+        reset = colorama.Style.RESET_ALL + colorama.Fore.RESET
         dim = colorama.Style.DIM
         bright = colorama.Style.BRIGHT
 
         def make_red(s):
-            return red + s + white
+            return reset + red + s + white
 
         def make_dim(s):
-            return dim + s + normal
+            return reset + dim + s + normal
 
         def make_bright(s):
-            return bright + s + normal
+            return reset + bright + s + normal
 
         line_pad = " " * 5  # 5 chars are used by the linecount that need to be padded on the arrows
 

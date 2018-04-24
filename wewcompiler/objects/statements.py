@@ -37,6 +37,10 @@ class VariableDecl(StatementObject):
     @with_ctx
     async def compile(self, ctx: CompileContext):
         my_type = await self.type
+
+        if isinstance(my_type, Void):
+            raise self.error("Cannot create variables with void type.")
+
         if self.val is None:  # just a declaration, no types so exit here
             var = ctx.declare_variable(self.name, my_type)
             if isinstance(my_type, Array):
@@ -70,6 +74,9 @@ class VariableDecl(StatementObject):
         elif isinstance(self.val, ExpressionObject):
             val_type = await self.val.type
 
+            if isinstance(val_type, Void):
+                raise self.val.error("Cannot create variables with void type.")
+
             if not val_type.implicitly_casts_to(my_type):
                 raise self.error(f"Specified type {my_type} does not match value type {val_type}")
 
@@ -95,7 +102,7 @@ class ReturnStmt(StatementObject):
         fn_type: Function = ctx.top_function.type
         if self.expr is None:
             if not isinstance(fn_type.returns, Void):
-                raise self.error(f"Cannot return value in function of type {fn_type.returns}")
+                raise self.error(f"Void return in function of return type: '{fn_type.returns}'")
 
             # all scopes but the function scope
             for i in reversed(ctx.scope_stack[1:]):

@@ -22,6 +22,7 @@ def test_fn_declaration():
     parse_source(decl)
 
 
+@for_feature(fuzz="General Fuzzing")
 def test_multiple_advanced():
     """Test by parser fuzzing."""
     decl = """fn b(a: *|[[|*s4|@3]@5]|, b:u2) -> |u4| {

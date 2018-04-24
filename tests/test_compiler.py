@@ -466,6 +466,7 @@ def test_var_decl():
 
 @for_feature(number_literals="Numeric literals")
 def test_numeric_literals():
+    """Test various numeric literals."""
     decl = emptyfn("var a := 1;")
     compile(decl)
     decl = emptyfn("var a := 1/u1;")
@@ -491,6 +492,7 @@ def test_dereference_operation():
 
 @for_feature(functions="Functions")
 def test_function_void():
+    """Test implicit void and explicit void function declarations."""
     decl = ("fn isvoid() {}")
     compile(decl)
 
@@ -500,6 +502,7 @@ def test_function_void():
 
 @for_feature(functions="Functions")
 def test_void_function_usage():
+    """Make sure we can't use void types in expressions."""
     decl = ("fn isvoid() {}"
             "var x := isvoid() * 3;")
     with raises(CompileException):
@@ -508,6 +511,7 @@ def test_void_function_usage():
 
 @for_feature(modules="Modules")
 def test_modules():
+    """Check for functionality of modules and module namespaces."""
     decl = """
     mod test {
         fn in_test() {
@@ -528,6 +532,7 @@ def test_modules():
 
 @for_feature(modules="Modules")
 def test_modules_fail():
+    """Make sure that we can't reference identifiers that are inside a module."""
     decl = """
     mod test {
         fn in_test() {
@@ -544,6 +549,7 @@ def test_modules_fail():
 
 @for_feature(functions="Functions")
 def test_function_array_param():
+    """Make sure we can't use arrays in function parameters."""
     decl = """
     fn test(x: [u8]) {
     }
@@ -555,6 +561,7 @@ def test_function_array_param():
 
 @for_feature(functions="Functions")
 def test_void_function_return():
+    """Make sure we can use an empty return in void functions, and also cannot return values from a void function."""
     decl = """
     fn avoid() {
         return;
@@ -573,7 +580,8 @@ def test_void_function_return():
         compile(decl)
 
 
-def test_unary_negate_on_positives():
+def test_unary_negate_on_unsigned():
+    """Make sure we cannot use unary negate on unsigned integers."""
     decl = emptyfn(
         "var a := 1;"
         "var b := -a;"
@@ -585,6 +593,7 @@ def test_unary_negate_on_positives():
 
 @for_feature(pointers="Pointers")
 def test_deref_nonptr():
+    """Make sure we cannot dereference non-pointer types."""
     decl = emptyfn(
         "*(3::u8);"
     )
@@ -595,10 +604,10 @@ def test_deref_nonptr():
 
 @for_feature(functions="Functions")
 def test_call_nonfn():
+    """Make sure we can't call non-function types."""
     decl = emptyfn(
         "(3::u8)();"
     )
 
     with raises(CompileException):
         compile(decl)
-

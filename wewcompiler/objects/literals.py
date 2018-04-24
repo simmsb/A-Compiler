@@ -183,7 +183,7 @@ class ArrayLiteral(ExpressionObject):
             raise self.error(f"Cannot implicitly cast type: {self_type} to type: {type}")
 
         if isinstance(type, types.Array) and type.length is not None and type.length < len(self.exprs):
-            raise self.error(f"Length of this array is constrained to {self_type.length}")
+            raise self.error(f"Length of this array is constrained to {type.length}")
 
         if isinstance(self.first_elem, ArrayLiteral):
             first_elem_size = (await self.first_elem.type).size

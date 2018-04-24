@@ -642,8 +642,12 @@ class AssignOp(ExpressionObject):
         lhs: Register = (await self.left.load_lvalue(ctx))
 
         lhs_type = await self.left.type
+        rhs_type = await self.right.type
         lhs_sign = lhs_type.signed
         lhs_size = lhs_type.size
+
+        if not rhs_type.implicitly_casts_to(lhs_type):
+            raise self.right.error(f"Incompatible rhs type '{rhs_type}' assignment to type '{lhs_type}'")
 
         if lhs_type.const:
             raise self.error("cannot assign to const type.")
