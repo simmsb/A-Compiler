@@ -172,7 +172,7 @@ def test_ptr_passing_setting():
 
     fn write_pls(a: u2, aptr: *u8) {
         {dest} = a;
-        {dest} = aptr;
+        {dest} = *aptr;
 
         *aptr = a;
     }
@@ -568,13 +568,13 @@ def test_varargs_complex():
         var ptr := var_args::*u1;
 
         ptr = ptr - sizeof<u8>;
-        a = ptr;
+        a = ptr::*u8;
 
         ptr = ptr - sizeof<u2>;
-        b = ptr;
+        b = ptr::*u2;
 
         ptr = ptr - sizeof<u4>;
-        c = ptr;
+        c = ptr::*u4;
 
         return *a + *b + *c;
     }
