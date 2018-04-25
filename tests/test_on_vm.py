@@ -1,5 +1,6 @@
 import subprocess
 import pytest
+from functools import wraps
 
 from wewcompiler.backend.rustvm import compile_and_pack, assemble_instructions
 from tests.helpers import for_feature
@@ -36,6 +37,7 @@ def expect(location: int, value: int, size: int = 2):
         \"\"\"
     """
     def wrapper(func):
+        @wraps(func)
         def more_wrappers(binloc):
             program = func().replace("{dest}", f"*({location}::*u{size})")
             run_code_on_vm(location, value, size, program, binloc)
