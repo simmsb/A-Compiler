@@ -34,11 +34,9 @@ class BaseObject:
 
     @property
     def identifier(self) -> str:
-        startp, endp = self.get_text_positions()
-        info = self._info
-        startl, endl = info.line, info.endline
-
-        return f"{type(self).__name__}:{startp}:{endp}:{startl}:{endl}"
+        # merge onto a single line
+        lines = [l.strip() for l in self.matched_region.splitlines()]
+        return " ".join(lines)
 
     @property
     def code(self):
