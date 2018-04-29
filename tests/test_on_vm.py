@@ -49,8 +49,8 @@ def expect(location: int, value: int, size: int = 2):
     return wrapper
 
 
-@expect(1000, 4, 8)
 @for_feature(assignment="Assignment")
+@expect(1000, 4, 8)
 def test_ptr_assign():
     """A simple pointer dereference assignment."""
     return """
@@ -61,8 +61,8 @@ def test_ptr_assign():
     """
 
 
-@expect(500, 123, 8)
 @for_feature(if_stmt="IF Statements")
+@expect(500, 123, 8)
 def test_if_stmt():
     """Always falsey if statement."""
     return """
@@ -76,10 +76,10 @@ def test_if_stmt():
     """
 
 
-@expect(1000 + 8 * 10, 10, 8)
 @for_feature(variables="Local Variables",
              pointers="Pointers",
              increment_ops="Increment op")
+@expect(1000 + 8 * 10, 10, 8)
 def test_loop_ptr_write():
     """Writing to an array in a loop."""
     return """
@@ -94,8 +94,8 @@ def test_loop_ptr_write():
     """
 
 
-@expect(5000, 12, 8)
 @for_feature(arrays="Arrays", loop="While loops")
+@expect(5000, 12, 8)
 def test_function_pt_write():
     """Writing to an array passed to a function."""
     return """
@@ -120,8 +120,8 @@ def test_function_pt_write():
     """
 
 
-@expect(1000, 12, 4)
 @for_feature(math="Maths")
+@expect(1000, 12, 4)
 def test_fn_return():
     """Check function return values."""
     return """
@@ -135,8 +135,8 @@ def test_fn_return():
     """
 
 
-@expect(1000, 4, 8)
 @for_feature(arrays="Arrays")
+@expect(1000, 4, 8)
 def test_arr():
     """Array indexing."""
     return """
@@ -148,8 +148,8 @@ def test_arr():
     """
 
 
-@expect(1000, 6, 8)
 @for_feature(functions="Functions")
+@expect(1000, 6, 8)
 def test_fn_param_return():
     """Check function returns and parameters."""
     return """
@@ -164,8 +164,8 @@ def test_fn_param_return():
     """
 
 
-@expect(1000, 9, 8)
 @for_feature(pointers="Pointers", functions="Functions")
+@expect(1000, 9, 8)
 def test_ptr_passing_setting():
     """Check passing pointers to functions to be written to."""
     return """
@@ -185,8 +185,8 @@ def test_ptr_passing_setting():
     """
 
 
-@expect(1000, 1234, 8)
 @for_feature(pointers="Pointers")
+@expect(1000, 1234, 8)
 def test_reference_dereference():
     """Check that dereferencing a pointer gained from using the
     reference to operator on a variable preserves the lvalue.
@@ -201,8 +201,8 @@ def test_reference_dereference():
     """
 
 
-@expect(1000, 1235, 8)
 @for_feature(functions="Functions")
+@expect(1000, 1235, 8)
 def test_fn_return_val():
     """Check return value from functions."""
     return """
@@ -220,8 +220,8 @@ def test_fn_return_val():
     """
 
 
-@expect(1000, 9 * 123, 8)
 @for_feature(math="Maths", functions="Functions")
+@expect(1000, 9 * 123, 8)
 def test_function_params():
     """Check multi-parameter functions returning a result."""
     return """
@@ -248,8 +248,8 @@ def test_arithmetic():
     """
 
 
-@expect(5000, 1, 8)
 @for_feature(comparison="Relational Operators")
+@expect(5000, 1, 8)
 def test_comparison_ops_le_t():
     """Check the less than operator for a truthy result."""
     return """
@@ -259,8 +259,8 @@ def test_comparison_ops_le_t():
     """
 
 
-@expect(5000, 0, 8)
 @for_feature(comparison="Relational Operators")
+@expect(5000, 0, 8)
 def test_comparison_ops_le_f():
     """Check the less than operator for a falsey result."""
     return """
@@ -270,8 +270,8 @@ def test_comparison_ops_le_f():
     """
 
 
-@expect(5000, 1, 8)
 @for_feature(comparison="Relational Operators")
+@expect(5000, 1, 8)
 def test_comparison_ops_eq_t():
     """Check the equal-to operator for a truthy result."""
     return """
@@ -281,8 +281,8 @@ def test_comparison_ops_eq_t():
     """
 
 
-@expect(5000, 0, 8)
 @for_feature(comparison="Relational Operators")
+@expect(5000, 0, 8)
 def test_comparison_ops_eq_f():
     """Check the equal-to operator for a falsey result."""
     return """
@@ -292,8 +292,8 @@ def test_comparison_ops_eq_f():
     """
 
 
-@expect(5000, 1, 8)
 @for_feature(comparison="Boolean Operators")
+@expect(5000, 1, 8)
 def test_bool_op_or_first():
     """Check the boolean or op with a truthy left operand."""
     return """
@@ -309,8 +309,8 @@ def test_bool_op_or_first():
     """
 
 
-@expect(5000, 1, 8)
 @for_feature(comparison="Boolean Operators")
+@expect(5000, 1, 8)
 def test_bool_op_or_second():
     """Check the boolean or op with a truthy right operand."""
     return """
@@ -326,8 +326,8 @@ def test_bool_op_or_second():
     """
 
 
-@expect(5000, 1, 8)
 @for_feature(comparison="Boolean Operators")
+@expect(5000, 1, 8)
 def test_bool_op_and_first():
     """Check the boolean and op with truthy left and right operands."""
     return """
@@ -343,8 +343,8 @@ def test_bool_op_and_first():
     """
 
 
-@expect(5000, 1, 8)
 @for_feature(comparison="Boolean Operators")
+@expect(5000, 1, 8)
 def test_bool_op_and_second():
     """Check the boolean and op with falsey left operand."""
     return """
@@ -360,8 +360,8 @@ def test_bool_op_and_second():
     """
 
 
-@expect(5000, 10, 8)
 @for_feature(pointers="Pointers", functions="Functions")
+@expect(5000, 10, 8)
 def test_function_pointers():
     """Check passing function pointers around."""
     return """
@@ -396,8 +396,8 @@ def test_string():
     """
 
 
-@expect(5000, 123, 8)
 @for_feature(arrays="Arrays")
+@expect(5000, 123, 8)
 def test_multidimension_arr():
     """Check multidimensional array creation."""
     return """
@@ -408,8 +408,8 @@ def test_multidimension_arr():
     """
 
 
-@expect(5000, 12, 4)
 @for_feature(functions="Functions")
+@expect(5000, 12, 4)
 def test_call_fuzz():
     """Fuzz some functions."""
     return """
@@ -432,8 +432,8 @@ def test_call_fuzz():
     """
 
 
-@expect(5000, 3, 8)
 @for_feature(arrays="Arrays")
+@expect(5000, 3, 8)
 def test_ptr_arr():
     """Check arrays as pointers initialisation."""
     return """
@@ -444,8 +444,8 @@ def test_ptr_arr():
     """
 
 
-@expect(5000, 50, 8)
 @for_feature(register_allocation="Register Allocation")
+@expect(5000, 50, 8)
 def test_force_spills_to_happen_large_expression():
     """Create a complex expression to force the register allocator
     to spill registers.
@@ -482,8 +482,8 @@ def test_force_spills_to_happen_many_args():
     """.replace("{args}", args).replace("{argsum}", argsum).replace("{params}", params)
 
 
-@expect(5000, 5, 8)
 @for_feature(vararys="Variable Arguments")
+@expect(5000, 5, 8)
 def test_varargs():
     """Check vararg functions."""
     return """
@@ -497,8 +497,8 @@ def test_varargs():
     """
 
 
-@expect(5000, 5, 8)
 @for_feature(if_stmt="If Statements")
+@expect(5000, 5, 8)
 def test_if_stmt_true():
     """Check if statements with a truthy condition."""
     return """
@@ -513,8 +513,8 @@ def test_if_stmt_true():
     """
 
 
-@expect(5000, 5, 8)
 @for_feature(if_stmt="If Statements")
+@expect(5000, 5, 8)
 def test_if_stmt_false():
     """Check if statements with a falsey condition."""
     return """
@@ -529,8 +529,8 @@ def test_if_stmt_false():
     """
 
 
-@expect(5000, 5, 8)
 @for_feature(if_stmt="If Statements")
+@expect(5000, 5, 8)
 def test_if_stmt_single_branch_true():
     """Check if statements with no else, truthy condition."""
     return """
@@ -543,8 +543,8 @@ def test_if_stmt_single_branch_true():
     """
 
 
-@expect(5000, 5, 8)
 @for_feature(if_stmt="If Statements")
+@expect(5000, 5, 8)
 def test_if_stmt_single_branch_false():
     """Check if statements with no else, falsey condition."""
     return """
@@ -557,8 +557,8 @@ def test_if_stmt_single_branch_false():
     """
 
 
-@expect(5000, 1 + 2 + 3, 8)
 @for_feature(varargs="Variable Arguments")
+@expect(5000, 1 + 2 + 3, 8)
 def test_varargs_complex():
     """Complex vararg fuzzing tests."""
     return """
@@ -587,8 +587,8 @@ def test_varargs_complex():
     """
 
 
-@expect(5000, 8, 8)
 @for_feature(incr_op="Increment Operator")
+@expect(5000, 8, 8)
 def test_princrement():
     """Check the preincrement operator."""
     return """
@@ -600,8 +600,8 @@ def test_princrement():
     """
 
 
-@expect(5000, 123 + 234, 8)
 @for_feature(globals="Global Variables")
+@expect(5000, 123 + 234, 8)
 def test_globals():
     """Check global variable arrays and scoped variables."""
     return """
@@ -616,8 +616,8 @@ def test_globals():
     """
 
 
-@expect(5000, 999_999_999_999_999_999, 8)
 @for_feature(integer_lit="Integer literals")
+@expect(5000, 999_999_999_999_999_999, 8)
 def test_big_number():
     """Check that large literals work properly."""
     return """
@@ -627,8 +627,8 @@ def test_big_number():
     """
 
 
-@expect(5000, 1, 8)
 @for_feature(unary_op="Unary abs")
+@expect(5000, 1, 8)
 def test_pos_of_neg():
     """Check functionality of unary abs operator."""
     return """
@@ -639,8 +639,8 @@ def test_pos_of_neg():
     """
 
 
-@expect(5000, 1, 8)
 @for_feature(unary_op="Unary abs")
+@expect(5000, 1, 8)
 def test_pos_of_pos():
     """Check functionality of unary abs operator."""
     return """
@@ -651,8 +651,8 @@ def test_pos_of_pos():
     """
 
 
-@expect(5000, 1, 8)
 @for_feature(unary_op="Unary negate")
+@expect(5000, 1, 8)
 def test_negate_of_neg():
     """Check functionality of unary neg operator."""
     return """
@@ -663,8 +663,8 @@ def test_negate_of_neg():
     """
 
 
-@expect(5000, 1, 8)
 @for_feature(unary_op="Logical invert")
+@expect(5000, 1, 8)
 def test_linv():
     """Check functionality of unary logical invert operator."""
     return """
@@ -675,8 +675,8 @@ def test_linv():
     """
 
 
-@expect(5000, 1, 1)
 @for_feature(unary_op="Bitwise invert")
+@expect(5000, 1, 1)
 def test_binv():
     """Check functionality of unary bitwise invert operator."""
     return """
