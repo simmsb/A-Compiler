@@ -1,6 +1,5 @@
 import subprocess
 import pytest
-from functools import wraps
 
 from wewcompiler.backend.rustvm import compile_and_pack, assemble_instructions
 from tests.helpers import for_feature
@@ -37,11 +36,16 @@ def expect(location: int, value: int, size: int = 2):
         \"\"\"
     """
     def wrapper(func):
-        @wraps(func)
+        @pytest.mark.usefixtures("binloc")
         def more_wrappers(binloc):
             program = func().replace("{dest}", f"*({location}::*u{size})")
             run_code_on_vm(location, value, size, program, binloc)
-        return pytest.mark.usefixtures("binloc")(more_wrappers)
+
+        # copy the doc and name across, but not the signature as doing so breaks
+        # pytest's inspections
+        more_wrappers.__doc__ = func.__doc__
+        more_wrappers.__name__ = func.__name__
+        return more_wrappers
     return wrapper
 
 
