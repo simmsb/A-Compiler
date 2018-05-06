@@ -15,4 +15,5 @@
    - objects/operations.py:345 Incrementing an array is illegal, remove that
    - objects/operations.py:407 Clean up this
    - objects/operations.py:475 Clean up this
+	 - Prevent array types being used as return types from functions.
 
