@@ -10,4 +10,9 @@
  - Top level impl: place in implicit function body to do computation (spill variables)
 
  - Todo
-   - Look at desugar_pre, are we using the datareference properly?
+   - objects/operations.py:97  Incrementing an array is illegal, remove that
+   - objects/operations.py:215 Clean up this
+   - objects/operations.py:345 Incrementing an array is illegal, remove that
+   - objects/operations.py:407 Clean up this
+   - objects/operations.py:475 Clean up this
+
