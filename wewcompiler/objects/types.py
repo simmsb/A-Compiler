@@ -198,6 +198,8 @@ class Function(Type):
         for i in args:
             if isinstance(i, Array):
                 raise i.error("Function arguments cannot have array type as the toplevel type, use pointer instead.")
+        if isinstance(returns, Array):
+            raise returns.error("Functions cannot return array types.")
 
     def __str__(self):
         types = ", ".join(map(str, self.args))

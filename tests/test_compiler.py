@@ -560,6 +560,19 @@ def test_function_array_param():
 
 
 @for_feature(functions="Functions")
+def test_function_array_return():
+    """Make sure we can't return arrays from functions."""
+    decl = """
+    fn test() -> [u1@4] {
+        return {1, 2, 3, 4};
+    }
+    """
+
+    with raises(CompileException):
+        compile(decl)
+
+
+@for_feature(functions="Functions")
 def test_void_function_return():
     """Make sure we can use an empty return in void functions, and also cannot return values from a void function."""
     decl = """
