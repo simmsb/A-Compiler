@@ -45,6 +45,7 @@ def expect(location: int, value: int, size: int = 2):
         # pytest's inspections
         more_wrappers.__doc__ = func.__doc__
         more_wrappers.__name__ = func.__name__
+        more_wrappers._line = func.__code__.co_firstlineno
         return more_wrappers
     return wrapper
 
