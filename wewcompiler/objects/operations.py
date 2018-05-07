@@ -94,7 +94,7 @@ class PreincrementOP(ExpressionObject):
 
         increment = 1
         # in the case of pointer increments, increment by the size of the pointer's underlying type
-        if isinstance(my_type, (Array, Pointer)):
+        if isinstance(my_type, Pointer):
             increment = my_type.to.size
 
         ctx.emit(Mov(tmp, Dereference(ptr, tmp.size)))
@@ -133,6 +133,9 @@ class DereferenceOP(ExpressionObject):
     async def compile(self, ctx: CompileContext) -> Register:
         my_type = await self.type
         ptr = await self.load_lvalue(ctx)
+
+        if isinstance(my_type, Void):
+            raise self.error("Cannot dereference a void pointer.")
 
         reg = ctx.get_register(my_type.size, my_type.signed)
         ctx.emit(Mov(reg, Dereference(ptr, reg.size)))
@@ -200,6 +203,8 @@ class FunctionCallOp(ExpressionObject):
         if not isinstance(fun_typ, Function):
             raise self.error("Called object is not a function.")
 
+
+        # if we have varargs, just make sure we have enough arguments to fill the required arguments
         if fun_typ.varargs:
             invalid_len = len(self.args) < len(fun_typ.args)
         else:
@@ -213,8 +218,11 @@ class FunctionCallOp(ExpressionObject):
         # check that the argument types are valid
         # If this is a varargs function then the extra args wont be typechecked
         arg_types = [(i, (await i.type)) for i in self.args]
-        for arg_n, (lhs_type, (rhs_obj, rhs_type)) in enumerate(
-                zip(fun_typ.args, arg_types)):
+
+        # zip the types from the declaration with the types in the call expression
+        arg_iterator = enumerate(zip(fun_typ.args, arg_types))
+
+        for arg_n, (lhs_type, (rhs_obj, rhs_type)) in arg_iterator:
             if not rhs_type.implicitly_casts_to(lhs_type):
                 raise rhs_obj.error(
                     f"Argument {arg_n} to call '{self.fun.identifier}' was of "
@@ -271,6 +279,12 @@ class ArrayIndexOp(ExpressionObject):
 
         if not isinstance(atype, (Pointer, Array)):
             raise self.error(f"Incompatible type to array index base {atype}")
+
+        # don't allow void pointer arithmetic
+        # This 'would' fail later with an error about requesting a register of size 0
+        # But that would be less informative than catching the error now.
+        if isinstance(atype.to, Void):
+            raise self.error("Cannot perform pointer arithemetic on void pointers.")
 
         argument = await self.arg.compile(ctx)
         offset = await self.offset.compile(ctx)
@@ -338,11 +352,11 @@ class PostIncrementOp(ExpressionObject):
 
         ptr: Register = await self.arg.load_lvalue(ctx)
         size = my_type.size
-        res, temp = ctx.get_register(size,
-                                     my_type.signed), ctx.get_register(size)
+        res, temp = (ctx.get_register(size, my_type.signed),
+                     ctx.get_register(size))
 
         increment = 1
-        if isinstance(my_type, (Array, Pointer)):
+        if isinstance(my_type, Pointer):
             increment = my_type.to.size
 
         ctx.emit(Mov(res, Dereference(ptr, res.size)))
@@ -404,19 +418,19 @@ class BinaryExpression(ExpressionObject):
         right = self.right_type = await self.right.type
         # typecheck operands here
 
-        for check_ops, (
-                lhs_typ,
-                rhs_type), result_type in self._compat_types:  # wew lad
-            if not isinstance(check_ops, (list, tuple)):  # always an iterable
-                check_ops = (check_ops, )
+        # go through our possible types, if the types used in the expression
+        # match one of the compat types set the resultant type properly
+        for check_ops, (lhs_typ, rhs_type), result_type in self._compat_types:
+            if not isinstance(check_ops, (list, tuple)):  # tranform 'a' to ('a', )
+                check_ops = (check_ops,)
             for check_op in check_ops:
-                if isinstance(left, lhs_typ) and isinstance(
-                        right, rhs_type) and check_op == op:
+                if (isinstance(left, lhs_typ)
+                    and isinstance(right, rhs_type)
+                    and check_op == op):
                     self.ret_type = result_type
-                    break
+                    return
             else:
                 continue
-            break
         else:
             raise self.error(
                 f"Incompatible types for binary {op}: {left} and {right}")
@@ -459,25 +473,41 @@ class BinAddOp(BinaryExpression):
 
         if self.ret_type is Pointer:
             ptr_side = (self.left_type
-                        if isinstance(self.left_type, (Pointer, Array)) else
+                        if isinstance(self.left_type, Pointer) else
                         self.right_type)
             return ptr_side
         return Int.fromsize(await self.size, self.sign)
 
     @with_ctx
     async def compile(self, ctx: CompileContext) -> Register:
-        lhs, rhs = (await self.compile_meta(ctx))
+        lhs, rhs = await self.compile_meta(ctx)
 
         res = ctx.get_register(lhs.size, self.sign)
 
         op = {"+": "add", "-": "sub"}[self.op]
 
-        if isinstance(await self.type, (Pointer, Array)):
+        if isinstance(await self.type, Pointer):
+            # adding a pointer with an integer multiplies the integer side by the pointed to type
             (ptr_type, non_ptr) = ((self.left_type, rhs) if isinstance(
-                self.left_type, (Pointer, Array)) else (self.right_type, lhs))
+                self.left_type, Pointer) else (self.right_type, lhs))
 
-            ctx.emit(
-                Binary.mul(non_ptr, Immediate(ptr_type.to.size, non_ptr.size)))
+            if isinstance(ptr_type.to, Void):
+                raise self.error("Cannot perform pointer arithmetic on pointer to void.")
+
+            ctx.emit(Binary.mul(non_ptr, Immediate(ptr_type.to.size, non_ptr.size)))
+        elif (op == "sub"
+              and isinstance(self.left_type, Pointer)
+              and isinstance(self.right_type, Pointer)):
+            if isinstance(self.left_type.to, Void):
+                raise self.error("Cannot perform pointer arithmetic on pointer to void.")
+
+            if self.left_type != self.right_type:
+                raise self.error("Both sides of pointer subtraction must be the same type.")
+
+            # subtracting two pointers of equal type yields the number of elements between them
+            ctx.emit(Binary(lhs, rhs, op, res))
+            ctx.emit(Binary.udiv(res, Immediate(self.left_type.to.size, res.size)))
+            return res
 
         ctx.emit(Binary(lhs, rhs, op, res))
         return res

@@ -72,6 +72,7 @@ def test_incompatible_types_to_binary_add_op():
     """Test incorrect types to binary add operation."""
     tests = (
         "1::*u4 + 1::*u4",
+        "1::*u4 - 1::*u8"
     )
 
     for i in tests:
@@ -429,6 +430,14 @@ def test_array_lit_no_const():
     compile(decl)
 
 
+@for_feature(pointers="Pointers", arrays="Arrays")
+def test_array_indexes_no_void():
+    """Assert that it is not possible to use void pointers inside array indexing operations."""
+    decl = emptyfn("(0::*())[1];")
+    with raises(CompileException):
+        compile(decl)
+
+
 @for_feature(variables="Variables")
 def test_var_decl():
     """Test various variable declarations."""
@@ -488,6 +497,14 @@ def test_dereference_operation():
             "    return ptr[offset];"
             "}")
     compile(decl)
+
+
+@for_feature(pointers="Pointers")
+def test_void_dereference():
+    """Ensure that void pointers cannot be dereferenced."""
+    decl = emptyfn("*(0::*());")
+    with raises(CompileException):
+        compile(decl)
 
 
 @for_feature(functions="Functions")

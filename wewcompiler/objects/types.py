@@ -28,7 +28,8 @@ class Type(BaseObject):
 
 class Void(Type):
 
-    size = 1
+    # void types have zero size
+    size = 0
 
     def __str__(self):
         return "()"
