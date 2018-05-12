@@ -2,7 +2,7 @@
 #+EMAIL: ben@bensimms.moe
 #+TITLE: A-Compiler
 
-```
+#+BEGIN_SRC
 var fns := {add_one, mul_two, square};
 
 fn add_one(a: u8) -> u8 {
@@ -29,7 +29,7 @@ fn main() {
     }
     std.printf("finally: %u8\n", a);
 }
-```
+#+END_SRC
 
 * Description
 This is the repo of my programming language.
