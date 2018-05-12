@@ -2,6 +2,35 @@
 #+EMAIL: ben@bensimms.moe
 #+TITLE: A-Compiler
 
+```
+var fns := {add_one, mul_two, square};
+
+fn add_one(a: u8) -> u8 {
+    std.printf("adding one: %u8\n", a);
+    return a + 1;
+}
+
+fn mul_two(a: u8) -> u8 {
+    std.printf("mul by two: %u8\n", a);
+    return a * 2;
+}
+
+fn square(a: u8) -> u8 {
+    std.printf("squaring: %u8\n", a);
+    return a * a;
+}
+
+fn main() {
+    var x := 0;
+    var a: u8 = 4;
+
+    while x++ < 3 {
+        a = fns[x](a);
+    }
+    std.printf("finally: %u8\n", a);
+}
+```
+
 * Description
 This is the repo of my programming language.
 
@@ -9,14 +38,13 @@ The main target of the compiler is my [[https://github.com/nitros12/vm-rust][vir
 [[https://github.com/Maratyszcza/PeachPy][PeachPy]] at some point to produce x86_64 binaries and also a LLVM backend
 eventually.
 
-[[file:compiler/parser]] contains the language definition of my language
-[[file:compiler/objects]] contains the AST nodes and IR generator
+[[file:wewcompiler/parser]] contains the language definition of my language
+[[file:wewcompiler/objects]] contains the AST nodes and IR generator
 
 * Running
 
 To run programs, install this package and run the program ~wewcompile~.
 
-Use pip to install rather than running setup.py as I've found ~python setup.py install~ to not copy necessary non-python files
 #+BEGIN_SRC bash
 pip install -U .
 #+END_SRC
