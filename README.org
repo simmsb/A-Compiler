@@ -29,7 +29,8 @@ fn main() {
         x++;
     }
     std.printf("finally: %u8\n", a);
-}#+END_SRC
+}
+#+END_SRC
 
 * Description
 This is the repo of my programming language.
