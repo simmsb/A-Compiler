@@ -24,12 +24,12 @@ fn main() {
     var x := 0;
     var a: u8 = 4;
 
-    while x++ < 3 {
+    while x < 3 {
         a = fns[x](a);
+        x++;
     }
     std.printf("finally: %u8\n", a);
-}
-#+END_SRC
+}#+END_SRC
 
 * Description
 This is the repo of my programming language.
